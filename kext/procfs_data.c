@@ -304,7 +304,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
         // file is not a socket, this fails and we will return an error.
         // Otherwise, the fileproc has an additional iocount, which we
         // must remember to release.
-        if ((error = fp_getfsock(p, fd, &fp, &so)) == 0) {
+        if ((error = procfs_fp_getfsock(p, fd, &fp, &so)) == 0) {
             struct socket_fdinfo info;
             
             bzero(&info, sizeof(info));
