@@ -44,9 +44,6 @@ typedef struct proc_threadinfo * proc_threadinfo_t;
 struct session;
 typedef struct session * session_t;
 
-struct socket;
-typedef struct socket * socket_t;
-
 struct socket_fdinfo;
 typedef struct socket_fdinfo * socket_fdinfo_t;
 
