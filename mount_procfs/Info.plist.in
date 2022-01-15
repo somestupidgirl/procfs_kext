@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BuildFlavor</key>
+	<string></string>
+	<key>BuildMachineOSBuild</key>
+	<string>__OSBUILD__</string>
+	<key>BuildMachineClangVersion</key>
+	<string>__CLANGVER__</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleIdentifier</key>
+	<string>__BUNDLEID__</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>__FSNAME__</string>
+	<key>CFBundlePackageType</key>
+	<string>fs</string>
+	<key>CFBundleShortVersionString</key>
+	<string>__FSBUILD__</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>MacOSX</string>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>__FSVERSION__</string>
+	<key>FSPersonalities</key>
+	<dict>
+		<key>ProcFS</key>
+		<dict>
+			<key>FSName</key>
+			<string>Process File System</string>
+		</dict>
+	</dict>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_VERSION_MIN)</string>
+</dict>
+</plist>
+
