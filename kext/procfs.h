@@ -19,7 +19,11 @@
 #define PROCFS_NAME         "procfs"
 #define PROCFS_FSTYPENUM    0
 #define PROCFS_LCKGRP_NAME  PROCFS_NAME ".lock"
-#define PROCFS_VFS_FLAGS (VFS_TBL64BITREADY | VFC_VFSNOMACLABEL)
+
+#define VFC_VFS64BITREADY   0x100
+#define VFC_VFSNOMACLABEL   0x1000
+
+#define PROCFS_VFS_FLAGS    (VFS_TBL64BITREADY | VFC_VFSNOMACLABEL)
 
 extern struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM];
 
