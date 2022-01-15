@@ -233,6 +233,8 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
  */
 int
 procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+    return ESRCH;
+#if 0
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     pid_t pid = pnp->node_id.nodeid_pid;
@@ -240,48 +242,49 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     
     int error = 0;
     proc_t p = proc_find(pid);
-    if (p != NULL) {
-        struct fileproc *fp;
-        vnode_t vp;
-        uint32_t vid;
-        
-        // Get the vnode, vnode id and fileproc structure for the file.
-        // The fileproc has an additional iocount, which we must remember
-        // to release.
-        if ((error = procfs_fp_getfvpandvid(p, fd, &fp, &vp, &vid)) == 0) {
-            // Get a hold on the vnode and check that it did not
-            // change id.
-            if ((error = vnode_getwithvid(vp, vid)) == 0) {
-                // Got the vnode. Pack vnode and file info into
-                // a vnode_fdinfowithpath structure.
-                struct vnode_fdinfowithpath info;
-                bzero(&info, sizeof(info));
-                
-                fill_fileinfo(fp, p, fd, &info.pfi);
-                error = fill_vnodeinfo(vp, &info.pvip->vip_vi);
-                
-                // If all is well, add in the file path and copy the data
-                // out to user space.
-                if (error == 0) {
-                    int count = MAXPATHLEN;
-                    vn_getpath(vp, info.pvip->vip_path, &count);
-                    info.pvip->vip_path[MAXPATHLEN-1] = 0;
-                    error = procfs_copy_data((char *)&info, sizeof(info), uio);
-                }
-                
-                // Release the vnode hold.
-                vnode_put(vp);
+    if (p == NULL) {
+        return ESRCH;
+    }
+
+    struct fileproc *fp;
+    vnode_t vp;
+    uint32_t vid;
+    
+    // Get the vnode, vnode id and fileproc structure for the file.
+    // The fileproc has an additional iocount, which we must remember
+    // to release.
+    if ((error = procfs_fp_getfvpandvid(p, fd, &fp, &vp, &vid)) == 0) {
+        // Get a hold on the vnode and check that it did not
+        // change id.
+        if ((error = vnode_getwithvid(vp, vid)) == 0) {
+            // Got the vnode. Pack vnode and file info into
+            // a vnode_fdinfowithpath structure.
+            struct vnode_fdinfowithpath info;
+            bzero(&info, sizeof(info));
+            
+            fill_fileinfo(fp, p, fd, &info.pfi);
+            error = fill_vnodeinfo(vp, &info.pvip->vip_vi);
+            
+            // If all is well, add in the file path and copy the data
+            // out to user space.
+            if (error == 0) {
+                int count = MAXPATHLEN;
+                vn_getpath(vp, info.pvip->vip_path, &count);
+                info.pvip->vip_path[MAXPATHLEN-1] = 0;
+                error = procfs_copy_data((char *)&info, sizeof(info), uio);
             }
             
-            // Release the hold on the fileproc structure
-            fp_drop(p, fd, fp, FALSE);
+            // Release the vnode hold.
+            vnode_put(vp);
         }
-        proc_rele(p);
-    } else {
-        error = ESRCH;
+        
+        // Release the hold on the fileproc structure
+        fp_drop(p, fd, fp, FALSE);
     }
+    proc_rele(p);
     
     return error;
+#endif
 }
 
 /*
@@ -289,6 +292,8 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
  */
 int
 procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+    return ESRCH;
+#if 0
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     pid_t pid = pnp->node_id.nodeid_pid;
@@ -322,6 +327,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     }
     
     return error;
+#endif
 }
 
 #pragma mark -
@@ -410,6 +416,8 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
  */
 size_t
 procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
+    return 0;
+#if 0
     int size = 0;
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
@@ -427,6 +435,7 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
         proc_rele(p);
     }
     return size;
+#endif
 }
 
 
