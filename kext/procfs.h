@@ -11,18 +11,12 @@
 #ifndef procfs_h
 #define procfs_h
 
-#include "procfs_internal.h"
-
 #pragma mark -
 #pragma mark Kext Initialization Definitions
 
 #define PROCFS_NAME         "procfs"
 #define PROCFS_FSTYPENUM    0
 #define PROCFS_LCKGRP_NAME  PROCFS_NAME ".lock"
-
-#define VFC_VFS64BITREADY   0x100
-#define VFC_VFSNOMACLABEL   0x1000
-
 #define PROCFS_VFS_FLAGS    (VFS_TBL64BITREADY | VFC_VFSNOMACLABEL)
 
 extern struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM];

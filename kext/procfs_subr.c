@@ -20,7 +20,6 @@
 #include <sys/proc.h>
 
 #include "procfsnode.h"
-#include "procfs_internal.h"
 #include "procfs_subr.h"
 
 #pragma mark -

@@ -16,7 +16,6 @@
 #include "procfs.h"
 #include "procfsnode.h"
 #include "procfs_data.h"
-#include "procfs_internal.h"
 #include "procfs_subr.h"
 
 #pragma mark -

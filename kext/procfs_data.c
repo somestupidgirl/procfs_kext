@@ -39,7 +39,7 @@ extern int proc_pidbsdinfo(proc_t p, struct proc_bsdinfo *pinfo, int zombie);
 extern int proc_pidtaskinfo(proc_t p, struct proc_taskinfo *tinfo);
 extern int proc_pidthreadinfo(proc_t p, uint64_t threadid,  int thuniqueid, struct proc_threadinfo *info);
 extern int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo);
-extern void  fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
+extern void fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
 
 #pragma mark -
 #pragma mark Process and Thread Node Data

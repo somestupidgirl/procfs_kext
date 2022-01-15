@@ -15,7 +15,6 @@
 
 #include "procfs.h"
 #include "procfsnode.h"
-#include "procfs_internal.h"
 
 // Node identifier for the root node of the file system.
 const procfsnode_id_t PROCFS_ROOT_NODE_ID = {
