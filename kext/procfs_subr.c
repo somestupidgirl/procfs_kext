@@ -137,8 +137,9 @@ struct procfs_pidlist_data {
 static int
 procfs_get_pid(proc_t p, struct procfs_pidlist_data *data) {
     kauth_cred_t creds = data->creds;
+    int ppid = proc_pid(p);
     if (creds == NULL || procfs_check_can_access_process(creds, p) == 0) {
-        *data->next_pid++ = p->p_pid;
+        *data->next_pid++ = proc_find(ppid);
     }
     return PROC_RETURNED;
 }
