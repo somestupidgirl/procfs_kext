@@ -416,14 +416,14 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
  */
 size_t
 procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
-    return 0;
-#if 0
     int size = 0;
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != NULL) {
         // Count the open files in this process.
-        struct filedesc *fdp = &p->p_fd;
+        struct proc_fdinfo *buf;
+        int count = vcount(p);
+        struct filedesc *fdp = proc_fdlist(p, buf, count);
         proc_fdlock_spin(p);
         for (int i = 0; i < fdp->fd_nfiles; i++) {
             struct fileproc *fp = fdp->fd_ofiles[i];
@@ -435,7 +435,6 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
         proc_rele(p);
     }
     return size;
-#endif
 }
 
 
