@@ -19,6 +19,10 @@
 #define VFC_VFS64BITREADY   	0x100
 #define VFC_VFSNOMACLABEL   	0x1000
 
+// bsd/sys/proc_internal.h
+#define PROC_RETURNED      		(0)
+#define PROC_ALLPROCLIST  		(1U << 0)
+
 
 #pragma mark -
 #pragma mark Structures
