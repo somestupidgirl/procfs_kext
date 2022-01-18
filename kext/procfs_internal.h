@@ -125,6 +125,8 @@ extern uint32_t proc_getgid(proc_t);
 
 // bsd/kern/proc_info.c
 extern size_t proc_fdlist_internal(proc_t p, struct proc_fdinfo *pfd, size_t numfds);
+extern int proc_fdlist(proc_t p, struct proc_fdinfo *buf, size_t *count);
+extern int proc_pidfdlist(proc_t p, user_addr_t buffer, uint32_t  buffersize, int32_t *retval);
 extern int proc_pidbsdinfo(proc_t p, struct proc_bsdinfo *pinfo, int zombie);
 extern int proc_pidtaskinfo(proc_t p, struct proc_taskinfo *tinfo);
 extern int proc_pidthreadinfo(proc_t p, uint64_t threadid,  int thuniqueid, struct proc_threadinfo *info);
