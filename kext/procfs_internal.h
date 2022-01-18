@@ -63,4 +63,10 @@ struct vfs_context {
     kauth_cred_t    vc_ucred;               /* per thread credential */
 };
 
+#pragma mark -
+#pragma mark External References
+
+extern task_t proc_task(proc_t);
+extern proc_t proc_find(int pid);
+
 #endif /* procfs_internal_h */
