@@ -28,6 +28,7 @@
 #pragma mark External References.
 
 extern thread_t convert_port_to_thread(ipc_port_t port);
+extern struct proc *current_proc(void);
 
 #pragma mark -
 #pragma mark Function Prototypes.
