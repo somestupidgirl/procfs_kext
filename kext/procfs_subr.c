@@ -27,7 +27,6 @@
 #pragma mark -
 #pragma mark External References.
 
-extern thread_t convert_port_to_thread(ipc_port_t port);
 extern struct proc *current_proc(void);
 
 #pragma mark -
@@ -168,7 +167,7 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
     data.creds = creds;
     data.next_pid = pidp;
     
-    proc_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
+    //proc_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
     *pidpp = pidp;
     *sizep = size;
     *pid_count = (int)(data.next_pid - pidp);
@@ -209,6 +208,7 @@ procfs_get_process_count(kauth_cred_t creds) {
 int
 procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_count) {
     int result = KERN_SUCCESS;
+#if 0
     thread_act_array_t threads;
     mach_msg_type_number_t count;
     
@@ -258,7 +258,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     }
     
     *thread_count = result == KERN_SUCCESS ? count : 0;
-    
+#endif
     return result;
 }
 

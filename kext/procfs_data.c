@@ -104,7 +104,7 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     if (p != NULL) {
         pid_t session_id = (pid_t)0;
 
-        proc_list_lock();
+        //proc_list_lock();
         proc_t pgrp = proc_find(proc_pgrpid(p));
         if (pgrp != NULL) {
             session_id = proc_sessionid(pgrp);
@@ -112,7 +112,7 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
                 session_id = 0; 
             }
         }
-        proc_list_unlock();
+        //proc_list_unlock();
         
         error = procfs_copy_data((char *)&session_id, sizeof(session_id), uio);
         proc_rele(p);
@@ -131,7 +131,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
-        proc_list_lock();
+        //proc_list_lock();
         pid_t pgrpid = proc_pgrpid(p);
         proc_t pgrp = proc_find(pgrpid);
         if (pgrp != NULL) {
@@ -152,7 +152,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
                 }
             }
         }
-        proc_list_unlock();
+        //proc_list_unlock();
         proc_rele(p);
     } else {
         error = ESRCH;
@@ -445,14 +445,14 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
         struct proc_fdinfo *buf;
         int count = vcount(p);
         struct filedesc *fdp = proc_fdlist(p, buf, count);
-        proc_fdlock_spin(p);
+        //proc_fdlock_spin(p);
         for (int i = 0; i < fdp->fd_nfiles; i++) {
             struct fileproc *fp = fdp->fd_ofiles[i];
             if (fp != NULL && !(fdp->fd_ofileflags[i] & UF_RESERVED)) {
                 size++;
             }
         }
-        proc_fdunlock(p);
+        //proc_fdunlock(p);
         proc_rele(p);
     }
     return size;
