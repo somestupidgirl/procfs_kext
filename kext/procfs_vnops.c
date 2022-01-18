@@ -48,8 +48,6 @@ typedef struct {
     
 } procfs_vnode_create_args;
 
-static struct proc *current_proc(void);
-
 // Size of a buffer large enough to hold the string form of a pid_t
 // plus the command name for a process and some padding
 static const int PAD_SIZE = 8;

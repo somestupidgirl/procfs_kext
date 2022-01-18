@@ -134,6 +134,7 @@ static int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_
 
 // bsd/sys/proc_internal.h
 extern int nprocs, maxproc;
+extern struct proc *current_proc(void);
 typedef int (*proc_iterate_fn_t)(proc_t, void *);
 extern void proc_list_lock(void);
 extern void proc_list_unlock(void);
