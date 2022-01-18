@@ -131,6 +131,7 @@ extern int fill_socketinfo(socket_t so, struct socket_info *si);
 static int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
 
 // bsd/sys/proc_internal.h
+extern int nprocs, maxproc;
 extern void proc_list_lock(void);
 extern void proc_list_unlock(void);
 extern void proc_fdlock(proc_t *);
