@@ -57,6 +57,7 @@ CFLAGS+=	$(SDKFLAGS) \
 			-fno-builtin \
 			-fno-common \
 			-mkernel \
+			-I../include \
 			-I../MacKernelSDK/Headers
 
 # warnings

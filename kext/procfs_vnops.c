@@ -10,6 +10,7 @@
 #include <sys/dirent.h>
 #include <sys/kauth.h>
 #include <sys/proc.h>
+#include <sys/proc_info.h>
 #include <sys/stat.h>
 #include <sys/vnode.h>
 

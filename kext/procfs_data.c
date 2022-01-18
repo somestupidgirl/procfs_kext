@@ -18,6 +18,7 @@
 
 #include <sys/file.h>
 #include <sys/proc.h>
+#include <sys/proc_info.h>
 #include <sys/uio.h>
 #include <sys/vnode.h>
 
