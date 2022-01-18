@@ -28,6 +28,9 @@
 // osfmk/mach/resource_monitors.h
 #define MAXCOMLEN               16
 
+// bsd/sys/malloc.h
+#define M_CACHE                 26
+
 
 #pragma mark -
 #pragma mark Type definitions
