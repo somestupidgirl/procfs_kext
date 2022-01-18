@@ -281,12 +281,12 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
                         struct filedesc *fdp = &target_proc->p_fd;
-                        proc_fdlock_spin(target_proc);
+                        proc_fdlock_spin(&target_proc);
                         if (id < fdp->fd_nfiles) {
                             struct fileproc *fp = fdp->fd_ofiles[id];
                             valid = fp!= NULL && !(fdp->fd_ofileflags[id] & UF_RESERVED);
                         }
-                        proc_fdunlock(target_proc);
+                        proc_fdunlock(&target_proc);
                     }
                 }
                 
