@@ -132,6 +132,7 @@ static int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_
 
 // bsd/sys/proc_internal.h
 extern int nprocs, maxproc;
+typedef int (*proc_iterate_fn_t)(proc_t, void *);
 extern void proc_list_lock(void);
 extern void proc_list_unlock(void);
 extern void proc_fdlock(proc_t *);
@@ -139,5 +140,6 @@ extern void proc_fdlock_spin(proc_t *);
 extern void proc_fdunlock(proc_t *);
 extern void session_lock(struct session * sess);
 extern void session_unlock(struct session * sess);
+extern void proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 
 #endif /* procfs_internal_h */

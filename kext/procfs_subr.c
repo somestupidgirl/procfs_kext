@@ -16,6 +16,7 @@
 #include <mach/task.h>
 #include <mach/thread_act.h>
 
+#include <sys/kauth.h>
 #include <sys/ucred.h>
 #include <sys/proc.h>
 
