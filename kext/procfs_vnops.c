@@ -872,8 +872,7 @@ procfs_vnop_readlink(struct vnop_readlink_args *ap) {
         // The link is "curproc". Get the pid of the current process
         // and copy it out to the caller's buffer.
         char pid_buffer[PROCESS_NAME_SIZE];
-        proc_t p = current_proc();
-        pid_t pid = p->p_pid;
+        pid_t pid = proc_pid(proc_self());
         snprintf(pid_buffer, PROCESS_NAME_SIZE, "%d", pid);
         error = uiomove(pid_buffer, (int)strlen(pid_buffer), ap->a_uio);
     } else if (snode->psn_node_type == PROCFS_PROCNAME_DIR) {
