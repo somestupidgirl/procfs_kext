@@ -51,6 +51,8 @@ struct filedesc {
 };
 
 struct proc {
+    uid_t                   p_uid;
+    gid_t                   p_gid;
     struct filedesc        *p_fd;
     command_t               p_comm;
     struct timeval          p_start;                /* starting time */

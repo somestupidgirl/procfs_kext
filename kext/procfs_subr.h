@@ -24,5 +24,7 @@ extern int procfs_check_can_access_process(kauth_cred_t creds, proc_t p);
 extern int procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid);
 extern int procfs_get_process_count(kauth_cred_t creds);
 extern int procfs_get_task_thread_count(task_t task);
+extern uint32_t procfs_proc_getuid(proc_t);
+extern uint32_t procfs_proc_getgid(proc_t);
 
 #endif /* procfs_subr_h */

@@ -844,12 +844,12 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
     // is no process for the root node. For other nodes. the uid
     // and gid are the real ids for the current process.
     proc_t current = current_proc();
-    uid_t uid = current == NULL ? (uid_t)0 : proc_getuid(current);
-    gid_t gid = current == NULL ? (gid_t)0 : proc_getgid(current);
+    uid_t uid = current == NULL ? (uid_t)0 : procfs_proc_getuid(current);
+    gid_t gid = current == NULL ? (gid_t)0 : procfs_proc_getgid(current);
     if (p != NULL) {
         // Get the effective uid and gid from the process.
-        uid = proc_getuid(p);
-        gid = proc_getgid(p);
+        uid = procfs_proc_getuid(p);
+        gid = procfs_proc_getgid(p);
         
         proc_rele(p);
     }

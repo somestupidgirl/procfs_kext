@@ -283,6 +283,24 @@ procfs_get_task_thread_count(task_t task) {
 }
 
 /*
+ * Get the process uid.
+ */
+uint32_t
+procfs_proc_getuid(proc_t p)
+{
+    return p->p_uid;
+}
+
+/*
+ * Get the process pid.
+ */
+uint32_t
+procfs_proc_getgid(proc_t p)
+{
+    return p->p_gid;
+}
+
+/*
  * Determines whether an entity with given credentials can
  * access a given process. The determination is based on the 
  * real and effective user/group ids of the process. Returns 
@@ -295,14 +313,15 @@ procfs_check_can_access_process(kauth_cred_t creds, proc_t p) {
     // Allow access if the effective user id matches the
     // effective or real user id of the process.
     uid_t cred_euid = posix_creds->cr_uid;
-    if (cred_euid == proc_getuid(p) || cred_euid == kauth_cred_getruid(p)) {
+    if (cred_euid == procfs_proc_getuid(p) || cred_euid == kauth_cred_getruid(p)) {
         return 0;
     }
     
     // Also allow access if the effective group id matches
     // the effective or saved group id of the process.
     gid_t cred_egid = posix_creds->cr_groups[0];
-    if (cred_egid == proc_getgid(p) || cred_egid == kauth_cred_getruid(p)) {
+
+    if (cred_egid == procfs_proc_getgid(p) || cred_egid == kauth_cred_getruid(p)) {
         return 0;
     }
     return EACCES;
