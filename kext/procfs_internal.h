@@ -7,6 +7,7 @@
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/proc.h>
+#include <sys/time.h>
 #include <sys/vnode.h>
 
 
@@ -23,6 +24,16 @@
 // bsd/sys/proc_internal.h
 #define PROC_RETURNED      		(0)
 #define PROC_ALLPROCLIST  		(1U << 0)
+
+// osfmk/mach/resource_monitors.h
+#define MAXCOMLEN               16
+
+
+#pragma mark -
+#pragma mark Type definitions
+
+// osfmk/mach/resource_monitors.h
+typedef char command_t[MAXCOMLEN + 1];
 
 
 #pragma mark -
@@ -102,6 +113,12 @@ struct filedesc {
 	struct file           **fd_ofiles;
 	char                   *fd_ofileflags;
 	int                     fd_nfiles;		/* number of open files allocated */
+};
+
+struct proc {
+    struct filedesc        *p_fd;
+    command_t               p_comm;
+    struct timeval          p_start;                /* starting time */
 };
 
 struct fileproc;
