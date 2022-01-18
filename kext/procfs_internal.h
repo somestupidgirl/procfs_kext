@@ -121,6 +121,11 @@ struct proc {
     struct timeval          p_start;                /* starting time */
 };
 
+struct vfs_context {
+    thread_t        vc_thread;              /* pointer to Mach thread */
+    kauth_cred_t    vc_ucred;               /* per thread credential */
+};
+
 struct fileproc;
 struct socket;
 struct socket_info;
