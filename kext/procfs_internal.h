@@ -2,6 +2,7 @@
 #define procfs_internal_h
 
 #include <mach/thread_info.h>
+#include <sys/file.h>
 #include <sys/kernel_types.h>
 #include <sys/mount.h>
 #include <sys/param.h>
@@ -95,6 +96,12 @@ struct proc_threadinfo {
 struct proc_fdinfo {
 	int32_t                 proc_fd;
 	uint32_t                proc_fdtype;
+};
+
+struct filedesc {
+	struct file           **fd_ofiles;
+	char                   *fd_ofileflags;
+	int                     fd_nfiles;		/* number of open files allocated */
 };
 
 struct fileproc;
