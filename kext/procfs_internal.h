@@ -120,6 +120,8 @@ extern int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
 
 // bsd/kern/proc.h
 extern task_t proc_task(proc_t);
+extern uint32_t proc_getuid(proc_t);
+extern uint32_t proc_getgid(proc_t);
 
 // bsd/kern/proc_info.c
 extern size_t proc_fdlist_internal(proc_t p, struct proc_fdinfo *pfd, size_t numfds);
