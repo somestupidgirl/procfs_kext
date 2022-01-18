@@ -160,6 +160,7 @@ procfs_get_pid(proc_t p, struct procfs_pidlist_data *data) {
  */
 void
 procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds) {
+    uint32_t nprocs;
     uint32_t size = nprocs * sizeof(pid_t);
     pid_t *pidp = (pid_t *)OSMalloc(size, procfs_osmalloc_tag);
     
