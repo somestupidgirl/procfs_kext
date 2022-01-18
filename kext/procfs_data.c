@@ -34,6 +34,11 @@
 static int procfs_copy_data(char *data, int data_len, uio_t uio);
 
 #pragma mark -
+#pragma mark External References
+
+extern int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
+
+#pragma mark -
 #pragma mark Process and Thread Node Data
 
 /*
