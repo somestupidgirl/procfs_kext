@@ -28,6 +28,7 @@
 #include "procfsstructure.h"
 #include "procfs_data.h"
 #include "procfs_internal.h"
+#include "procfs_kernel.h"
 #include "procfs_locks.h"
 #include "procfs_subr.h"
 
@@ -289,8 +290,6 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
  */
 int
 procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
-    return ESRCH;
-#if 0
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     pid_t pid = pnp->node_id.nodeid_pid;
@@ -309,7 +308,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     // Get the vnode, vnode id and fileproc structure for the file.
     // The fileproc has an additional iocount, which we must remember
     // to release.
-    if ((error = procfs_fp_getfvpandvid(p, fd, &fp, &vp, &vid)) == 0) {
+    if ((error = fp_getfvpandvid(p, fd, &fp, &vp, &vid)) == 0) {
         // Get a hold on the vnode and check that it did not
         // change id.
         if ((error = vnode_getwithvid(vp, vid)) == 0) {
@@ -340,7 +339,6 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     proc_rele(p);
     
     return error;
-#endif
 }
 
 /*
@@ -348,8 +346,6 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
  */
 int
 procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
-    return ESRCH;
-#if 0
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     pid_t pid = pnp->node_id.nodeid_pid;
@@ -365,7 +361,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
         // file is not a socket, this fails and we will return an error.
         // Otherwise, the fileproc has an additional iocount, which we
         // must remember to release.
-        if ((error = procfs_fp_getfsock(p, fd, &fp, &so)) == 0) {
+        if ((error = fp_getfsock(p, fd, &fp, &so)) == 0) {
             struct socket_fdinfo info;
             
             bzero(&info, sizeof(info));
@@ -383,7 +379,6 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     }
     
     return error;
-#endif
 }
 
 #pragma mark -

@@ -24,6 +24,11 @@
 #include "procfs_internal.h"
 #include "procfs_subr.h"
 
+
+#pragma mark -
+#pragma mark External references
+extern thread_t convert_port_to_thread(ipc_port_t port);
+
 #pragma mark -
 #pragma mark Function Prototypes.
 
@@ -203,7 +208,7 @@ procfs_get_process_count(kauth_cred_t creds) {
 int
 procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_count) {
     int result = KERN_SUCCESS;
-#if 0
+
     thread_act_array_t threads;
     mach_msg_type_number_t count;
     
@@ -253,7 +258,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     }
     
     *thread_count = result == KERN_SUCCESS ? count : 0;
-#endif
+
     return result;
 }
 
