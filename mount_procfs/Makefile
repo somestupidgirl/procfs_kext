@@ -6,7 +6,7 @@
 FSNAME?=		procfs
 FSVERSION?=		1.0
 FSBUILD?=		1
-BUNDLEDOMAIN?=	com.apple.filesystems.util
+BUNDLEDOMAIN?=	com.stupid.filesystems.util
 BUNDLEID?=		$(BUNDLEDOMAIN).$(FSNAME)
 FSBUNDLE?=		$(FSNAME).fs
 FSMACHO?=		$(FSNAME).out
@@ -142,7 +142,7 @@ uninstall:
 	sudo rm -rf "$(PREFIX)/$(FSBUNDLE)" || true
 
 clean:
-	sudo rm -rf $(FSBUNDLE) $(FSBUNDLE).dSYM Info.plist~ $(OBJS) $(FSMACHO)
+	sudo rm -rf $(FSBUNDLE) $(FSBUNDLE).dSYM Info.plist Info.plist~ $(OBJS) $(FSMACHO)
 
 .PHONY: all debug release clean
 

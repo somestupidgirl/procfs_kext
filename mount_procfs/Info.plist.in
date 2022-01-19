@@ -36,8 +36,6 @@
 	</dict>
 	<key>LSMinimumSystemVersion</key>
 	<string>__MACOSX_VERSION_MIN__</string>
-	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2001-2020 Apple Inc. All rights reserved.</string>
 </dict>
 </plist>
 

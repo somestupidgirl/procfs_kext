@@ -6,7 +6,7 @@
 KEXTNAME?=		procfs
 KEXTVERSION?=	1.0.0
 KEXTBUILD?=		1
-BUNDLEDOMAIN?=	com.apple.filesystems
+BUNDLEDOMAIN?=	com.stupid.filesystems
 BUNDLEID?=		$(BUNDLEDOMAIN).$(KEXTNAME)
 KEXTBUNDLE?=	$(KEXTNAME).kext
 KEXTMACHO?=		$(KEXTNAME).out
@@ -78,7 +78,8 @@ LDFLAGS+=	$(SDKFLAGS) \
 		-Xlinker -export_dynamic
 
 # libraries
-LIBS+=		-LMacKernelSDK/Library/x86_64
+LD_LIBRARY_PATH=
+LIBS+=		-L../MacKernelSDK/Library/x86_64
 LIBS+=		-lcc_kext -lkmod
 
 # kextlibs flags
