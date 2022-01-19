@@ -25,11 +25,6 @@
 #include "procfs_subr.h"
 
 #pragma mark -
-#pragma mark External References.
-
-extern struct proc *current_proc(void);
-
-#pragma mark -
 #pragma mark Function Prototypes.
 
 struct procfs_pidlist_data;

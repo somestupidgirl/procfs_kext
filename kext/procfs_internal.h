@@ -68,6 +68,7 @@ struct vfs_context {
 
 extern task_t proc_task(proc_t);
 extern proc_t proc_find(int pid);
+extern struct proc *current_proc(void);
 
 // Missing symbols
 #if 0
