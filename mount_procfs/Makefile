@@ -14,6 +14,7 @@ ARCHFLAGS?=		-arch x86_64
 PREFIX?=		/Library/Filesystems
 DEVELOPER_DIR?=	/Applications/Xcode-13.1.app/Contents/Developer
 SIGNCERT?=		sunnevanattsol@gmail.com
+MACOSX_VERSION_MIN?= 11.6
 
 #
 # Set default macOS SDK
@@ -33,7 +34,7 @@ CODESIGN=	$(shell xcrun -find -sdk $(SDKROOT) codesign)
 ifdef MACOSX_VERSION_MIN
 CFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
 else
-CFLAGS+=	-mmacosx-version-min=11.3
+CFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
 endif
 CFLAGS+=	$(SDKFLAGS) \
 			$(ARCHFLAGS) \
@@ -51,7 +52,7 @@ CFLAGS+=	-Wall -Wextra
 ifdef MACOSX_VERSION_MIN
 LDFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
 else
-LDFLAGS+=	-mmacosx-version-min=11.3
+LDFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
 endif
 LDFLAGS+=	$(SDKFLAGS) \
 			$(ARCHFLAGS)
