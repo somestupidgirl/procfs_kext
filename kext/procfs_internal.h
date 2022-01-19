@@ -10,12 +10,8 @@
 #include <sys/time.h>
 #include <sys/vnode.h>
 
-
 #pragma mark -
 #pragma mark Macro definitions from XNU
-
-// bsd/sys/filedesc.h
-#define UF_RESERVED        		0x04
 
 // bsd/sys/mount_internal.h
 #define VFC_VFS64BITREADY   	0x100
@@ -43,12 +39,6 @@ typedef char command_t[MAXCOMLEN + 1];
 struct fileproc;
 struct socket;
 struct socket_info;
-
-struct filedesc {
-	struct file           **fd_ofiles;
-	char                   *fd_ofileflags;
-	int                     fd_nfiles;		/* number of open files allocated */
-};
 
 struct proc {
     uid_t                   p_uid;
