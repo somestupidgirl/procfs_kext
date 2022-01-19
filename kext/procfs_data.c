@@ -32,13 +32,11 @@
 #pragma mark Local Function Prototypes
 
 static int procfs_copy_data(char *data, int data_len, uio_t uio);
-static int procfs_proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize);
 
 #pragma mark -
 #pragma mark External References
 
 extern int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
-extern int __proc_info(int callnum, int pid, int flavor, uint64_t arg, void * buffer, int buffersize);
 
 #pragma mark -
 #pragma mark Process and Thread Node Data
@@ -160,18 +158,6 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     return error;
 }
 
-int
-procfs_proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize)
-{
-    int retval;
-
-    if ((retval = __proc_info(PROC_INFO_CALL_PIDINFO, pid, flavor, arg, buffer, buffersize)) == -1) {
-        return 0;
-    }
-
-    return retval;
-}
-
 /*
  * Reads basic info for a process. Populates an instance of the proc_bsdinfo
  * structure and copies it to the area described by a uio structure.
@@ -186,7 +172,7 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
         struct proc_bsdinfo info;
         
         // Get the BSD-centric process info and copy it out.
-        error = procfs_proc_pidinfo(p, PROC_PIDTBSDINFO, 0, &info, sizeof(info));
+        error = proc_pidbsdinfo(p, &info, FALSE);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
@@ -210,7 +196,7 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
         struct proc_taskinfo info;
         
         // Get the task info and copy it out.
-        error = procfs_proc_pidinfo(p, PROC_PIDTASKINFO, 0, &info, sizeof(info));
+        error = proc_pidtaskinfo(p, &info);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
@@ -234,8 +220,7 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
         uint64_t threadid = pnp->node_id.nodeid_objectid;
         
         // Get the task info and copy it out.
-        //error  = proc_pidthreadinfo(p, threadid, TRUE, &info);
-        error = procfs_proc_pidinfo(p, PROC_PIDTHREADINFO, threadid, &info, sizeof(info));
+        error  = proc_pidthreadinfo(p, threadid, TRUE, &info);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
