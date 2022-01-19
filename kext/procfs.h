@@ -15,11 +15,19 @@
 #pragma mark Kext Initialization Definitions
 
 #define PROCFS_NAME         "procfs"
-#define PROCFS_FSTYPENUM    0
-#define PROCFS_LCKGRP_NAME  PROCFS_NAME ".lock"
+#define PROCFS_FSTYPENUM    21
+#define PROCFS_LCK_GRP_NAME  PROCFS_NAME ".lock"
 #define PROCFS_VFS_FLAGS    (VFS_TBL64BITREADY | VFC_VFSNOMACLABEL)
 
 extern struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM];
+
+#define log(fmt, ...) printf (PROCFS_NAME ": " fmt "\n", ##__VA_ARGS__)
+#ifdef DEBUG
+#define log_debug(fmt, ...) \
+  printf (PROCFS_NAME ": " fmt " (%s:%d)\n", ##__VA_ARGS__, __func__, __LINE__)
+#else
+#define log_debug(fmt, ...) ((void) 0)
+#endif
 
 #pragma mark -
 #pragma mark Common Definitions

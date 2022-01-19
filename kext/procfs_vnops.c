@@ -141,8 +141,7 @@ struct vnodeopv_desc procfs_vnopv_desc = {
 // vectors. Since we only have one set of vnode operations,
 // there is only one descriptor.
 struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM] = {
-    &procfs_vnopv_desc,
-    NULL
+    &procfs_vnopv_desc
 };
 
 
