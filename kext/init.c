@@ -19,7 +19,7 @@ static vfstable_t procfs_vfstbl_ref;
 
 static struct vfs_fsentry procfs_vfsentry = {
     &procfs_vfsops,
-    sizeof (procfs_vnopv_desc_list) / sizeof (procfs_vnopv_desc_list[0]),
+    sizeof (procfs_vnopv_desc_list) / sizeof (procfs_vnopv_desc_list[PROCFS_FSTYPENUM]),
     procfs_vnopv_desc_list,
     0,
     PROCFS_NAME,

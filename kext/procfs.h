@@ -15,7 +15,7 @@
 #pragma mark Kext Initialization Definitions
 
 #define PROCFS_NAME         "procfs"
-#define PROCFS_FSTYPENUM    21
+#define PROCFS_FSTYPENUM    0
 #define PROCFS_LCK_GRP_NAME  PROCFS_NAME ".lock"
 #define PROCFS_VFS_FLAGS    (VFS_TBL64BITREADY | VFC_VFSNOMACLABEL)
 #define KEXTBUILD           1
