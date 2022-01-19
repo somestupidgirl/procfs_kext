@@ -32,13 +32,8 @@
 
 typedef char command_t[MAXCOMLEN + 1];
 
-
 #pragma mark -
 #pragma mark Structures
-
-struct fileproc;
-struct socket;
-struct socket_info;
 
 struct proc {
     uid_t                   p_uid;
