@@ -38,6 +38,8 @@ typedef char command_t[MAXCOMLEN + 1];
 struct proc {
     uid_t                   p_uid;
     gid_t                   p_gid;
+    lck_mtx_t              *p_mlock;
+    lck_mtx_t              *p_fdmlock;
     struct filedesc        *p_fd;
     command_t               p_comm;
     struct timeval          p_start;                /* starting time */
@@ -58,11 +60,6 @@ extern struct proc *current_proc(void);
 // Missing symbols
 #if 0
 typedef int (*proc_iterate_fn_t)(proc_t, void *);
-extern void proc_list_lock(void);
-extern void proc_list_unlock(void);
-extern void proc_fdlock(struct proc *);
-extern void proc_fdlock_spin(struct proc *);
-extern void proc_fdunlock(struct proc *);
 extern void proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 extern thread_t convert_port_to_thread(ipc_port_t port);
 extern kern_return_t task_threads(task_inspect_t target_task, thread_act_array_t *act_list, mach_msg_type_number_t *act_listCnt);

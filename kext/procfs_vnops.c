@@ -19,6 +19,7 @@
 #include "procfsnode.h"
 #include "procfs_data.h"
 #include "procfs_internal.h"
+#include "procfs_locks.h"
 #include "procfs_subr.h"
 
 #pragma mark -
@@ -283,12 +284,12 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
                         struct filedesc *fdp = &target_proc->p_fd;
-                        //proc_fdlock_spin(&target_proc);
+                        procfs_fdlock_spin(&target_proc);
                         if (id < fdp->fd_nfiles) {
                             struct fileproc *fp = fdp->fd_ofiles[id];
                             valid = fp!= NULL && !(fdp->fd_ofileflags[id] & UF_RESERVED);
                         }
-                       //proc_fdunlock(&target_proc);
+                       procfs_fdunlock(&target_proc);
                     }
                 }
                 
@@ -637,11 +638,11 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                     struct proc_fdinfo *fdi;
                     struct filedesc *fdp = fdi->proc_fd;
                     for (int i = 0; i < fdp->fd_nfiles; i++) {
-                        //proc_fdlock_spin(p);
+                        procfs_fdlock_spin(p);
                         struct fileproc *fp = fdp->fd_ofiles[i];
                         if (fp != NULL && !(fdp->fd_ofileflags[i] & UF_RESERVED)) {
                             // Need to unlock before copy out in case of fault and because it's a "long" operation.
-                            //proc_fdunlock(p);
+                            procfs_fdunlock(p);
                             snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
                             int size = procfs_calc_dirent_size(fd_buffer);
                             
@@ -654,9 +655,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                                 numentries++;
                             }
                             nextpos += size;
-                            //proc_fdlock_spin(p);
+                            procfs_fdlock_spin(p);
                         }
-                        //proc_fdunlock(p);
+                        procfs_fdunlock(p);
                     }
                     proc_rele(p);
                     break;   // Exit from the outer loop.
