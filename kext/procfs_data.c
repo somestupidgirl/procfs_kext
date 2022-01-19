@@ -172,11 +172,11 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
         struct proc_bsdinfo info;
         
         // Get the BSD-centric process info and copy it out.
-        error = proc_pidbsdinfo(p, &info, FALSE);
-        if (error == 0) {
-            error = procfs_copy_data((char *)&info, sizeof(info), uio);
-        }
-        proc_rele(p);
+        //error = proc_pidbsdinfo(p, &info, FALSE);
+        //if (error == 0) {
+        //    error = procfs_copy_data((char *)&info, sizeof(info), uio);
+        //}
+        //proc_rele(p);
     }
     return error;
 }
@@ -196,11 +196,11 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
         struct proc_taskinfo info;
         
         // Get the task info and copy it out.
-        error = proc_pidtaskinfo(p, &info);
-        if (error == 0) {
-            error = procfs_copy_data((char *)&info, sizeof(info), uio);
-        }
-        proc_rele(p);
+        //error = proc_pidtaskinfo(p, &info);
+        //if (error == 0) {
+        //    error = procfs_copy_data((char *)&info, sizeof(info), uio);
+        //}
+        //proc_rele(p);
     }
     return error;
 }
@@ -220,11 +220,11 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
         uint64_t threadid = pnp->node_id.nodeid_objectid;
         
         // Get the task info and copy it out.
-        error  = proc_pidthreadinfo(p, threadid, TRUE, &info);
-        if (error == 0) {
-            error = procfs_copy_data((char *)&info, sizeof(info), uio);
-        }
-        proc_rele(p);
+        //error  = proc_pidthreadinfo(p, threadid, TRUE, &info);
+        //if (error == 0) {
+        //    error = procfs_copy_data((char *)&info, sizeof(info), uio);
+        //}
+        //proc_rele(p);
     }
     return error;
 }
