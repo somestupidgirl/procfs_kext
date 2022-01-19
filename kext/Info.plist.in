@@ -18,14 +18,26 @@
 	<string>__KEXTNAME__</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
-	<key>CFBundleVersion</key>
-	<string>__KEXTVERSION__</string>
 	<key>CFBundleShortVersionString</key>
 	<string>__KEXTBUILD__</string>
 	<key>CFBundleSupportedPlatforms</key>
 	<array>
 		<string>MacOSX</string>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>__KEXTVERSION__</string>
+	<key>FSPersonalities</key>
+	<dict>
+		<key>ProcFS</key>
+		<dict>
+			<key>procfs</key>
+			<string>Process File System</string>
+		</dict>
+	</dict>
+	<key>LSMinimumSystemVersion</key>
+	<string>__MACOSX_VERSION_MIN__</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2001-2020 Apple Inc. All rights reserved.</string>
 __KEXTLIBS__
 </dict>
 </plist>

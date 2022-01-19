@@ -7,6 +7,9 @@
 
 #include "procfs.h"
 
+kern_return_t _start (kmod_info_t *kinfo, void *data);
+kern_return_t _stop (kmod_info_t *kinfo, void *data);
+
 extern struct vfsops procfs_vfsops;
 extern struct vnodeopv_desc procfs_vnodeop_opv_desc;
 
@@ -69,16 +72,9 @@ procfs_stop (kmod_info_t *kinfo, void *data)
   return KERN_SUCCESS;
 }
 
-#ifdef NO_XCODE
-
-kern_return_t _start (kmod_info_t *kinfo, void *data);
-kern_return_t _stop (kmod_info_t *kinfo, void *data);
-
 KMOD_EXPLICIT_DECL (KEXTBUNDLE, KEXTBUILD, _start, _stop)
   __attribute__ ((visibility ("default")))
 
 __private_extern__ kmod_start_func_t *_realmain = procfs_start;
 __private_extern__ kmod_start_func_t *_antimain = procfs_stop;
 __private_extern__ int _kext_apple_cc = __APPLE_CC__;
-
-#endif

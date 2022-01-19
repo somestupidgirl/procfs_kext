@@ -18,6 +18,7 @@
 #define PROCFS_FSTYPENUM    21
 #define PROCFS_LCK_GRP_NAME  PROCFS_NAME ".lock"
 #define PROCFS_VFS_FLAGS    (VFS_TBL64BITREADY | VFC_VFSNOMACLABEL)
+#define KEXTBUILD           1
 
 extern struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM];
 
