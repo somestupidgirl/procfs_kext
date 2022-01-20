@@ -36,39 +36,9 @@
 #pragma mark Local Function Prototypes
 
 static int procfs_copy_data(char *data, int data_len, uio_t uio);
-static int procfs_proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize);
-
-#pragma mark -
-#pragma mark External References
-
-extern int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
-
-#pragma mark -
-#pragma mark Syscall Hooks
-
-#define SYS_procinfo 336
-
-int proc_info(int callnum, int pid, uint32_t flavor, uint64_t arg, user_addr_t buffer, int32_t buffersize);
-
-int proc_info(int callnum, int pid, uint32_t flavor, uint64_t arg, user_addr_t buffer, int32_t buffersize)
-{
-    return sysent[SYS_procinfo].sy_call;
-}
 
 #pragma mark -
 #pragma mark Process and Thread Node Data
-
-int
-procfs_proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize)
-{
-    int retval;
-
-    if ((retval = proc_info(PROC_INFO_CALL_PIDINFO, pid, flavor, arg, buffer, buffersize)) == -1) {
-        return 0;
-    }
-
-    return retval;
-}
 
 /*
  * Reads the data for the "pid" node. The data is the
@@ -200,21 +170,36 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     // the process.
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
 
-    int flavor = PROC_PIDTBSDINFO;
-    uint64_t arg = 1;
-    void *buffer = NULL;
-    int buffersize = PROC_PIDTBSDINFO_SIZE;
-
     if (p != NULL) {
         // Get the BSD-centric process info and copy it out.
-        error = procfs_proc_pidinfo(p, flavor, arg, buffer, buffersize);
+        int is64 = proc_is64bit(p);
+        uint32_t flags = 0;
+
+        if (is64) {
+            flags |= PROC_FLAG_LP64;
+        }
+
+        vnode_t tty;
+        int ttystatus = proc_gettty(p, &tty);
+
+        if (ttystatus == 0) {
+            flags |= PROC_FLAG_CTTY;
+        } else {
+            error = ttystatus;
+        }
+
+        struct proc_bsdinfo info = {
+            .pbi_flags = flags,
+            .pbi_pid   = proc_pid(p),
+            .pbi_ppid  = proc_ppid(p),
+        };
 
         if (error == 0) {
-            struct proc_bsdinfo info;
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
         proc_rele(p);
     }
+
     return error;
 }
 
@@ -231,17 +216,15 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
     // the process.
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
 
-    int flavor = PROC_PIDTASKINFO;
-    uint64_t arg = 1;
-    void *buffer = NULL;
-    int buffersize = PROC_PIDTASKINFO_SIZE;
-
     if (p != NULL) {
         // Get the task info and copy it out.
-        error = procfs_proc_pidinfo(p, flavor, arg, buffer, buffersize);
+        //error = proc_pidtaskinfo(p, &info);
+
+        struct proc_taskinfo info ={
+
+        };
 
         if (error == 0) {
-            struct proc_taskinfo info;
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
         proc_rele(p);
@@ -260,19 +243,17 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     // Get the process id and thread from the node id in the procfsnode and locate
     // the process.
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    uint64_t threadid = pnp->node_id.nodeid_objectid;
-
-    int flavor = PROC_PIDTHREADINFO;
-    uint64_t arg = threadid;
-    void *buffer = NULL;
-    int buffersize = PROC_PIDTHREADINFO_SIZE;
 
     if (p != NULL) {
         // Get the task info and copy it out.
-        error = procfs_proc_pidinfo(p, flavor, arg, buffer, buffersize);
+        //error  = proc_pidthreadinfo(p, threadid, TRUE, &info);
+        struct proc_threadinfo info = {
+
+        };
+
+        uint64_t threadid = pnp->node_id.nodeid_objectid;
 
         if (error == 0) {
-            struct proc_threadinfo info;
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
         proc_rele(p);
