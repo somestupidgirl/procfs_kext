@@ -48,8 +48,6 @@ extern struct proc *current_proc(void);
 
 int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
 void fill_fileinfo(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
-int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
-
 
 #pragma mark -
 #pragma mark Not yet implemented
@@ -58,11 +56,6 @@ int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
 kern_return_t thread_info(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
 kern_return_t task_threads(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 thread_t convert_port_to_thread(mach_port_t);
-
-struct socket;
-int fp_getfsock(proc_t p, int fd, struct fileproc **resultfp, struct socket **results);
-int fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **resultvp, uint32_t *vidp);
-
 errno_t fill_socketinfo(struct socket *so, struct socket_info *si);
 
 
