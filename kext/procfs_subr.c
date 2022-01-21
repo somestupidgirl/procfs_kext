@@ -14,7 +14,8 @@
 #include <libkern/OSMalloc.h>
 
 #include <mach/task.h>
-#include <mach/thread_act.h>
+#include <mach/mach_types.h>
+#include <mach/thread_info.h>
 
 #include <sys/kauth.h>
 #include <sys/ucred.h>
@@ -24,13 +25,8 @@
 #include "procfs_internal.h"
 #include "procfs_subr.h"
 
-
 #pragma mark -
-#pragma mark External references
-extern thread_t convert_port_to_thread(ipc_port_t port);
-
-#pragma mark -
-#pragma mark Function Prototypes.
+#pragma mark Local Function Prototypes.
 
 struct procfs_pidlist_data;
 static int procfs_get_pid(proc_t p, struct procfs_pidlist_data *data);
