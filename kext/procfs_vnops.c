@@ -16,7 +16,6 @@
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
 #include <sys/stat.h>
-#include <sys/user.h>
 #include <sys/vnode.h>
 
 #include "procfs.h"
@@ -292,7 +291,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     boolean_t suser = vfs_context_suser(ap->a_context) == 0;
                     procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(dvp));
                     boolean_t check_access = !suser && procfs_should_access_check(pmp);
-                    kauth_cred_t creds = ap->a_context->vc_ucred;
+                    kauth_cred_t creds = vfs_context_ucred(ap->a_context);
                     if (check_access && procfs_check_can_access_process(creds, target_proc) != 0) {
                         // Access not permitted - claim that the path does not exist.
                         error = ENOENT;
@@ -407,7 +406,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
     boolean_t suser = vfs_context_suser(ap->a_context) == 0;
     procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(vp));
     boolean_t check_access = !suser && procfs_should_access_check(pmp);
-    kauth_cred_t creds = ap->a_context->vc_ucred;
+    kauth_cred_t creds = vfs_context_ucred(ap->a_context);
     
     procfs_structure_node_t *snode = TAILQ_FIRST(&dir_snode->psn_children);
     while (snode != NULL && uio_resid(uio) > 0) {
@@ -762,7 +761,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
     VATTR_RETURN(vap, va_fsid, pmp->pmnt_id);                           // File system id.
     VATTR_RETURN(vap, va_fileid, procfs_get_node_fileid(procfs_node));  // Unique file id.
     VATTR_RETURN(vap, va_data_size,
-                 procfs_get_node_size_attr(procfs_node, ap->a_context->vc_ucred)); // File size.
+                 procfs_get_node_size_attr(procfs_node, vfs_context_ucred(ap->a_context))); // File size.
     
     // Use the process start time as the create time if we have a process.
     // otherwise use the file system mount time. Set the other times to the
