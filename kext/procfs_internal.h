@@ -35,16 +35,6 @@ typedef char command_t[MAXCOMLEN + 1];
 #pragma mark -
 #pragma mark Structures
 
-struct proc {
-    uid_t                   p_uid;
-    gid_t                   p_gid;
-    lck_mtx_t              *p_mlock;
-    lck_mtx_t              *p_fdmlock;
-    struct filedesc        *p_fd;
-    command_t               p_comm;
-    struct timeval          p_start;                /* starting time */
-};
-
 struct vfs_context {
     thread_t        vc_thread;              /* pointer to Mach thread */
     kauth_cred_t    vc_ucred;               /* per thread credential */
