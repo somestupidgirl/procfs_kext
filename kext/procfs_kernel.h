@@ -57,9 +57,7 @@ kern_return_t thread_info(thread_t thread, thread_flavor_t flavor, thread_info_t
 kern_return_t task_threads(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 thread_t convert_port_to_thread(mach_port_t);
 errno_t fill_socketinfo(struct socket *so, struct socket_info *si);
-
-
-extern void proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+void proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 
 
 #endif /* procfs_kern */
