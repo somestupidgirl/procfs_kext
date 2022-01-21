@@ -10,6 +10,7 @@
 
 #include <os/refcnt.h>
 
+#include <sys/errno.h>
 #include <sys/file_internal.h>
 #include <sys/filedesc.h>
 #include <sys/guarded.h>
@@ -45,9 +46,9 @@ extern struct proc *current_proc(void);
 #pragma mark -
 #pragma mark Function declarations
 
-int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
-
+int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
 void fill_fileinfo(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
+int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
 
 
 #pragma mark -
@@ -62,10 +63,9 @@ struct socket;
 int fp_getfsock(proc_t p, int fd, struct fileproc **resultfp, struct socket **results);
 int fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **resultvp, uint32_t *vidp);
 
-int fill_socketinfo(socket_t so, struct socket_info *si);
-int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
+errno_t fill_socketinfo(struct socket *so, struct socket_info *si);
 
-extern int nprocs, maxproc;
+
 extern void proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 
 
