@@ -11,30 +11,39 @@
 #ifndef procfs_h
 #define procfs_h
 
+#include <sys/mount_internal.h>
+
+
 #pragma mark -
 #pragma mark Kext Initialization Definitions
 
-#define PROCFS_NAME         "procfs"
-#define PROCFS_FSTYPENUM    0
-#define PROCFS_LCK_GRP_NAME  PROCFS_NAME ".lock"
-#define PROCFS_VFS_FLAGS    (VFS_TBL64BITREADY | VFC_VFSNOMACLABEL)
-#define KEXTBUILD           1
+#define PROCFS_NAME             "procfs"
+#define PROCFS_KEXTBUNDLE       "com.stupid.filesystems.procfs.kext"
+#define PROCFS_KEXTBUILD        1
+#define PROCFS_FSTYPENUM        0
+#define PROCFS_LCK_GRP_NAME     PROCFS_NAME ".lock"
+#define PROCFS_VFS_FLAGS        (VFS_TBL64BITREADY | VFC_VFSNOMACLABEL)
 
-extern struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM];
 
-#define log(fmt, ...) printf (PROCFS_NAME ": " fmt "\n", ##__VA_ARGS__)
+#pragma mark -
+#pragma mark Misc
+
+extern const struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM];
+extern int(**procfs_vnodeop_p)(void *);
+
+#pragma mark -
+#pragma mark Logging
+
+#define log(fmt, ...)           printf(PROCFS_NAME ": " fmt "\n", ##__VA_ARGS__)
 #ifdef DEBUG
-#define log_debug(fmt, ...) \
-  printf (PROCFS_NAME ": " fmt " (%s:%d)\n", ##__VA_ARGS__, __func__, __LINE__)
+#define log_debug(fmt, ...)     printf(PROCFS_NAME ": " fmt " (%s:%d)\n", ##__VA_ARGS__, __func__, __LINE__)
 #else
-#define log_debug(fmt, ...) ((void) 0)
+#define log_debug(fmt, ...)     ((void) 0)
 #endif
+
 
 #pragma mark -
 #pragma mark Common Definitions
-
-// File system type name.
-#define PROCFS_FSNAME "procfs"
 
 // Mount option flags.
 // Do not apply process permissions to the pid entries in /proc.
@@ -50,13 +59,13 @@ typedef struct procfs_mount_args {
 
 extern struct vfsops procfs_vfsops;
 
+
 #pragma mark -
 #pragma mark Internel Definitions - Kernel Only
 
 /* -- Internal definitions. -- */
 
 #include <libkern/OSMalloc.h>
-#include "procfs_internal.h"
 
 /* -- Global functions and data -- */
 // Tag used for memory allocation.

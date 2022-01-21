@@ -1,7 +1,7 @@
 #include <kern/locks.h>
 #include <sys/kernel_types.h>
+#include <sys/proc_internal.h>
 
-#include "procfs_internal.h"
 #include "procfs_locks.h"
 
 extern void lck_mtx_lock_spin(lck_mtx_t *lck);

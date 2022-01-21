@@ -18,27 +18,55 @@
 #include <sys/proc_internal.h>
 #include <sys/types.h>
 
+
+#pragma mark
+#pragma mark Definitions
+
+// osfmk/mach/mach_types.h
+typedef unsigned int 			mach_thread_flavor_t;
+#define THREAD_FLAVOR_CONTROL   0
+
+// osfmk/kern/ipc_tt.h
+__options_decl(port_to_thread_options_t, uint32_t, {
+	PORT_TO_THREAD_NONE               = 0x0000,
+	PORT_TO_THREAD_IN_CURRENT_TASK    = 0x0001,
+	PORT_TO_THREAD_NOT_CURRENT_THREAD = 0x0002,
+});
+
+
+#pragma mark
+#pragma mark External References
+
+extern task_t proc_task(proc_t);
+extern proc_t proc_find(int pid);
+extern struct proc *current_proc(void);
+
+
 #pragma mark -
 #pragma mark Function declarations
 
+int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
+
 void fill_fileinfo(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
 
-// Symbols not found in any library kext:
+
+#pragma mark -
+#pragma mark Not yet implemented
+
+// Not yet implemented
+kern_return_t thread_info(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
+kern_return_t task_threads(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
+thread_t convert_port_to_thread(mach_port_t);
+
+struct socket;
+int fp_getfsock(proc_t p, int fd, struct fileproc **resultfp, struct socket **results);
+int fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **resultvp, uint32_t *vidp);
+
+int fill_socketinfo(socket_t so, struct socket_info *si);
+int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
 
 extern int nprocs, maxproc;
-
 extern void proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 
-extern kern_return_t thread_info(thread_act_t target_thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t thread_info_count);
-extern kern_return_t task_threads(task_inspect_t target_task, thread_act_array_t *act_list, mach_msg_type_number_t *act_listCnt);
-
-extern thread_t convert_port_to_thread(mach_port_t);
-
-extern int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
-extern int fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **resultvp, uint32_t *vidp);
-extern int fp_getfsock(struct proc *p, int fd, struct fileproc **resultfp, struct socket  **results);
-
-extern int fill_socketinfo(socket_t so, struct socket_info *si);
-static int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
 
 #endif /* procfs_kern */

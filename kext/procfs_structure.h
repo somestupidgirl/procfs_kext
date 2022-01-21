@@ -13,7 +13,7 @@
 #include <sys/queue.h>
 
 #include "procfs.h"
-#include "procfsnode.h"
+#include "procfs_node.h"
 
 enum vtype;
 typedef struct procfsnode procfsnode_t;

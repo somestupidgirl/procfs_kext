@@ -17,25 +17,28 @@
 #include <libkern/libkern.h>
 
 #include <sys/file.h>
+#include <sys/file_internal.h>
 #include <sys/filedesc.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
+#include <sys/proc_internal.h>
 #include <sys/sysent.h>
 #include <sys/uio.h>
 #include <sys/vnode.h>
 
-#include "procfsnode.h"
-#include "procfsstructure.h"
 #include "procfs_data.h"
-#include "procfs_internal.h"
 #include "procfs_kernel.h"
 #include "procfs_locks.h"
+#include "procfs_node.h"
+#include "procfs_structure.h"
 #include "procfs_subr.h"
+
 
 #pragma mark -
 #pragma mark Local Function Prototypes
 
 static int procfs_copy_data(char *data, int data_len, uio_t uio);
+
 
 #pragma mark -
 #pragma mark Process and Thread Node Data
@@ -299,14 +302,14 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
             bzero(&info, sizeof(info));
             
             fill_fileinfo(fp, p, fd, &info.pfi);
-            error = fill_vnodeinfo(vp, &info.pvip->vip_vi);
+            error = fill_vnodeinfo(vp, &info.pvip.vip_vi, 1);
             
             // If all is well, add in the file path and copy the data
             // out to user space.
             if (error == 0) {
                 int count = MAXPATHLEN;
-                vn_getpath(vp, info.pvip->vip_path, &count);
-                info.pvip->vip_path[MAXPATHLEN-1] = 0;
+                vn_getpath(vp, info.pvip.vip_path, &count);
+                info.pvip.vip_path[MAXPATHLEN-1] = 0;
                 error = procfs_copy_data((char *)&info, sizeof(info), uio);
             }
             

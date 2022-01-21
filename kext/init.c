@@ -4,6 +4,7 @@
 #include <libkern/locks.h>
 
 #include <sys/mount.h>
+#include <sys/mount_internal.h>
 
 #include "procfs.h"
 
@@ -31,8 +32,8 @@ kern_return_t
 procfs_start (kmod_info_t *kinfo, void *data)
 {
   kern_return_t err;
-  log ("starting");
-  log_debug ("built with Apple LLVM %s", __clang_version__);
+  log("starting");
+  log_debug("built with Apple LLVM %s", __clang_version__);
 
   procfs_lck_grp = lck_grp_alloc_init (PROCFS_LCK_GRP_NAME, LCK_GRP_ATTR_NULL);
   if (procfs_lck_grp == NULL)
@@ -72,7 +73,7 @@ procfs_stop (kmod_info_t *kinfo, void *data)
   return KERN_SUCCESS;
 }
 
-KMOD_EXPLICIT_DECL (KEXTBUNDLE, KEXTBUILD, _start, _stop)
+KMOD_EXPLICIT_DECL (PROCFS_KEXTBUNDLE, PROCFS_KEXTBUILD, _start, _stop)
   __attribute__ ((visibility ("default")))
 
 __private_extern__ kmod_start_func_t *_realmain = procfs_start;

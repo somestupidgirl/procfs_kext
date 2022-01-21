@@ -9,10 +9,14 @@
 #include <libkern/OSAtomic.h>
 #include <libkern/OSMalloc.h>
 #include <sys/mount.h>
+#include <sys/mount_internal.h>
 #include <sys/vnode.h>
-#include "procfs.h"
-#include "procfsnode.h"
 
+#include "procfs.h"
+#include "procfs_node.h"
+
+
+#pragma mark -
 #pragma mark Local Definitions
 
 // The fixed mounted device name for this file system. The first
@@ -27,6 +31,7 @@
 // equivalent to the dev_t associated with a real file system.
 static int32_t procfs_mount_id;
 
+
 #pragma mark -
 #pragma mark External References
 
@@ -38,6 +43,7 @@ extern struct vnodeopv_desc *procfs_vnodeops_list[];
 // when the file system is registered and used when creating
 // vnodes.
 extern int (**procfs_vnodeop_p)(void *);
+
 
 #pragma mark -
 #pragma mark Function Prototypes
@@ -52,30 +58,6 @@ static void populate_statfs_info(struct mount *mp, struct vfsstatfs *statfsp);
 static void populate_vfs_attr(struct mount *mp, struct vfs_attr *fsap);
 static int procfs_create_root_vnode(mount_t mp, procfsnode_t *pnp, vnode_t *vpp);
 
-#pragma mark -
-#pragma mark VFS Operations Structure and VFS declaration
-
-/*
- * VFS OPS structure maps VFS-level operations to
- * the functions that implement them, all of which
- * are in this file.
- */
-struct vfsops procfs_vfsops = {
-    &procfs_mount,      // mount
-    NULL,               // start
-    &procfs_unmount,    // unmount
-    &procfs_root,        // root
-    NULL,               // quotactl
-    &procfs_getattr,    // getattr (for statfs(2) system call)
-    NULL,               // sync
-    NULL,               // vget
-    NULL,               // fhtovp
-    NULL,               // vptofh
-    &procfs_init,       // init
-    NULL,               // sysctl,
-    NULL,               // setattr,
-    {NULL}
-};
 
 #pragma mark -
 #pragma mark Global Data
@@ -83,11 +65,13 @@ struct vfsops procfs_vfsops = {
 /* Tag used for memory allocation. */
 OSMallocTag procfs_osmalloc_tag;
 
+
 #pragma mark -
 #pragma mark Static Data
 
 /* Number of mounted instances of procfs */
 static int mounted_instance_count;
+
 
 #pragma mark -
 #pragma mark VFS Operations
@@ -231,6 +215,7 @@ procfs_getattr(struct mount *mp, struct vfs_attr *fsap, __unused vfs_context_t c
     return 0;
 }
 
+
 #pragma mark -
 #pragma mark Root Vnode Creation
 
@@ -262,6 +247,7 @@ procfs_create_root_vnode(mount_t mp, procfsnode_t *pnp, vnode_t *vpp) {
     
     return error;
 }
+
 
 #pragma mark -
 #pragma mark File System Attributes
@@ -328,3 +314,29 @@ populate_vfs_attr(struct mount *mp, struct vfs_attr *fsap) {
     VFSATTR_RETURN(fsap, f_modify_time, procfs_mp->pmnt_mount_time);
     VFSATTR_RETURN(fsap, f_access_time, procfs_mp->pmnt_mount_time);
 }
+
+
+#pragma mark -
+#pragma mark VFS Operations Structure and VFS declaration
+
+/*
+ * VFS OPS structure maps VFS-level operations to
+ * the functions that implement them, all of which
+ * are in this file.
+ */
+struct vfsops procfs_vfsops = {
+    &procfs_mount,          // mount
+    NULL,                   // start
+    &procfs_unmount,        // unmount
+    &procfs_root,           // root
+    NULL,                   // quotactl
+    &procfs_getattr,        // getattr (for statfs(2) system call)
+    NULL,                   // sync
+    NULL,                   // vget
+    NULL,                   // fhtovp
+    NULL,                   // vptofh
+    &procfs_init,           // init
+    NULL,                   // sysctl,
+    NULL,                   // setattr,
+    {NULL}
+};

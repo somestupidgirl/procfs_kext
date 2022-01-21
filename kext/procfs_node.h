@@ -10,7 +10,8 @@
 #define procfsnode_h
 
 #include <sys/vnode.h>
-#include "procfsstructure.h"
+
+#include "procfs_structure.h"
 
 #pragma mark -
 #pragma mark File System Dependent Node for procfs

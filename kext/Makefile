@@ -146,42 +146,42 @@ endif
 # Those two flags must present at the same time  o.w. debug symbol cannot be generated
 debug: CFLAGS += -O0
 debug: $(KEXTBUNDLE)
-	sudo chown -R root:wheel $<
-	sudo chmod -R 755 $<
+#	sudo chown -R root:wheel $<
+#	sudo chmod -R 755 $<
 
 # see: https://stackoverflow.com/questions/15548023/clang-optimization-levels
 release: CFLAGS += -O2
 release: $(KEXTBUNDLE)
-	sudo chown -R root:wheel $<
-	sudo chmod -R 755 $<
+#	sudo chown -R root:wheel $<
+#	sudo chmod -R 755 $<
 
 load: $(KEXTBUNDLE)
-	sudo chown -R root:wheel $<
-	sudo sync
-	sudo kextutil $<
+#	sudo chown -R root:wheel $<
+#	sudo sync
+#	sudo kextutil $<
 	# restore original owner:group
-	sudo chown -R '$(USER):$(shell id -gn)' $<
-	sudo dmesg | grep $(KEXTNAME) | tail -1
+#	sudo chown -R '$(USER):$(shell id -gn)' $<
+#	sudo dmesg | grep $(KEXTNAME) | tail -1
 
 stat:
 	kextstat | grep $(KEXTNAME)
 
 unload:
-	sudo kextunload $(KEXTBUNDLE)
-	sudo dmesg | grep $(KEXTNAME) | tail -2
+#	sudo kextunload $(KEXTBUNDLE)
+#	sudo dmesg | grep $(KEXTNAME) | tail -2
 
 install: $(KEXTBUNDLE) uninstall
 	test -d "$(PREFIX)"
-	sudo cp -r $< "$(PREFIX)/$<"
-	sudo chown -R root:wheel "$(PREFIX)/$<"
+#	sudo cp -r $< "$(PREFIX)/$<"
+#	sudo chown -R root:wheel "$(PREFIX)/$<"
 
 uninstall:
 	test -d "$(PREFIX)"
 	test -e "$(PREFIX)/$(KEXTBUNDLE)" && \
-	sudo rm -rf "$(PREFIX)/$(KEXTBUNDLE)" || true
+#	sudo rm -rf "$(PREFIX)/$(KEXTBUNDLE)" || true
 
 clean:
-	sudo rm -rf $(KEXTBUNDLE) $(KEXTBUNDLE).dSYM Info.plist~ $(OBJS) $(KEXTMACHO)
+	rm -rf $(KEXTBUNDLE) $(KEXTBUNDLE).dSYM Info.plist~ $(OBJS) $(KEXTMACHO)
 
 .PHONY: all debug release load stat unload intall uninstall clean
 

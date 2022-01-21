@@ -14,7 +14,11 @@
 #include <sys/vnode.h>
 
 #include "procfs.h"
-#include "procfsnode.h"
+#include "procfs_node.h"
+
+// XNU: bsd/sys/malloc.h
+// Definition is missing from MacKernelSDK so we define it here:
+#define M_CACHE 26
 
 // Node identifier for the root node of the file system.
 const procfsnode_id_t PROCFS_ROOT_NODE_ID = {

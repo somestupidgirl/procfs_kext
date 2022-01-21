@@ -73,6 +73,7 @@
 #include <sys/lock.h>
 #include <sys/queue.h>
 #include <sys/unistd.h>
+#include <os/refcnt.h>
 
 __BEGIN_DECLS
 
