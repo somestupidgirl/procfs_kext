@@ -29,6 +29,7 @@
 #pragma mark -
 #pragma mark Local Function Prototypes.
 
+int nprocs = 0;
 struct procfs_pidlist_data;
 static int procfs_get_pid(proc_t p, struct procfs_pidlist_data *data);
 
