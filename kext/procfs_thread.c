@@ -13,6 +13,7 @@
 
 #include <sys/cdefs.h>
 
+#include "procfs_ipc.h"
 #include "procfs_locks.h"
 #include "procfs_thread.h"
 
@@ -317,20 +318,17 @@ procfs_task_threads_internal(task_t task, thread_act_array_t *threads_out, mach_
 		switch (flavor) {
 		case THREAD_FLAVOR_CONTROL:
 			for (i = 0; i < actual; ++i) {
-				//FIXME:
-				//((ipc_port_t *) thread_list)[i] = convert_thread_to_port(thread_list[i]);
+				((ipc_port_t *) thread_list)[i] = convert_thread_to_port(thread_list[i]);
 			}
 			break;
 		case THREAD_FLAVOR_READ:
 			for (i = 0; i < actual; ++i) {
-				//FIXME:
-				//((ipc_port_t *) thread_list)[i] = convert_thread_read_to_port(thread_list[i]);
+				((ipc_port_t *) thread_list)[i] = convert_thread_read_to_port(thread_list[i]);
 			}
 			break;
 		case THREAD_FLAVOR_INSPECT:
 			for (i = 0; i < actual; ++i) {
-				//FIXME:
-				//((ipc_port_t *) thread_list)[i] = convert_thread_inspect_to_port(thread_list[i]);
+				((ipc_port_t *) thread_list)[i] = convert_thread_inspect_to_port(thread_list[i]);
 			}
 			break;
 		default:

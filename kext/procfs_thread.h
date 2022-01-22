@@ -3,6 +3,8 @@
 
 #include <os/refcnt.h>
 
+#define THREAD_SELF_PORT_COUNT 3
+
 /* Type used for thread->sched_mode and saved_mode */
 typedef enum {
     TH_MODE_NONE = 0,                                       /* unassigned, usually for saved_mode only */
@@ -17,6 +19,16 @@ struct machine_thread {
 
 struct thread {
     sched_mode_t             sched_mode;
+    uint32_t
+        active:1,           /* Thread is active and has not been terminated */
+        ipc_active:1,       /* IPC with the thread ports is allowed */
+        started:1,          /* Thread has been started after creation */
+        static_param:1,     /* Disallow policy parameter changes */
+        inspection:1,       /* TRUE when task is being inspected by crash reporter */
+        policy_reset:1,     /* Disallow policy parameter changes on terminating threads */
+        suspend_parked:1,   /* thread parked in thread_suspended */
+        corpse_dup:1,       /* TRUE when thread is an inactive duplicate in a corpse */
+    :0;
     lck_mtx_t               *mutex;
     os_refcnt_t              ref_count;
     uint32_t                 sched_flags;
@@ -25,13 +37,17 @@ struct thread {
     int16_t                  max_priority;
     queue_chain_t            task_threads;
     struct task             *task;
+    struct ipc_port         *ith_thread_ports[THREAD_SELF_PORT_COUNT];
     void                    *uthread;
     uint64_t                 thread_id;
     struct machine_thread    machine;
 };
 
+typedef struct thread       *thread_t, *thread_act_t, *thread_inspect_t, *thread_read_t;
+
 struct task {
     boolean_t                active;
+    bool                     ipc_active;
     queue_head_t             threads;
     int                      thread_count;
     lck_mtx_t               *lock;
