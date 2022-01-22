@@ -1,7 +1,9 @@
 #ifndef procfs_thread_h
 #define procfs_thread_h
 
+#include <stddef.h>
 #include <os/refcnt.h>
+#include <sys/cdefs.h>
 
 #define THREAD_SELF_PORT_COUNT 3
 
@@ -17,7 +19,12 @@ struct machine_thread {
     uint64_t                 cthread_self;
 };
 
+typedef struct timer        *timer_data_t, *timer_t;
+
 struct thread {
+    uint16_t                 options;
+    vm_offset_t              kernel_stack;
+    int                      state;
     sched_mode_t             sched_mode;
     uint32_t
         active:1,           /* Thread is active and has not been terminated */
@@ -31,11 +38,16 @@ struct thread {
     :0;
     lck_mtx_t               *mutex;
     os_refcnt_t              ref_count;
+    timer_data_t             runnable_timer;
     uint32_t                 sched_flags;
     int16_t                  sched_pri;
     int16_t                  base_pri;
     int16_t                  max_priority;
+    int                      precise_user_kernel_time;
+    int16_t                  user_stop_count;
     queue_chain_t            task_threads;
+    timer_data_t             system_timer;
+    timer_data_t             user_timer;
     struct task             *task;
     struct ipc_port         *ith_thread_ports[THREAD_SELF_PORT_COUNT];
     void                    *uthread;
@@ -51,6 +63,8 @@ struct task {
     queue_head_t             threads;
     int                      thread_count;
     lck_mtx_t               *lock;
+    void                    *bsd_info;
+    uint64_t                 dispatchqueue_offset;
 };
 
 #define MINPRI                          0
@@ -77,6 +91,22 @@ typedef unsigned int                    mach_thread_flavor_t;
 #define THREAD_FLAVOR_READ              1       /* a thread_read_t */
 #define THREAD_FLAVOR_INSPECT           2       /* a thread_inspect_t */
 
+/*
+ *  Thread states [bits or'ed]
+ */
+#define TH_WAIT                 0x01            /* queued for waiting */
+#define TH_SUSP                 0x02            /* stopped or requested to stop */
+#define TH_RUN                  0x04            /* running or on runq */
+#define TH_UNINT                0x08            /* waiting uninteruptibly */
+#define TH_TERMINATE            0x10            /* halted at termination */
+#define TH_TERMINATE2           0x20            /* added to termination queue */
+#define TH_WAIT_REPORT          0x40            /* the wait is using the sched_call,
+                                            * only set if TH_WAIT is also set */
+#define TH_IDLE                 0x80            /* idling processor */
+
+#define TH_OPT_IDLE_THREAD              0x0080
+#define TH_OPT_GLOBAL_FORCED_IDLE       0x0100
+
 typedef unsigned                        spl_t;
 #define splsched()                      (spl_t) ml_set_interrupts_enabled(FALSE)
 #define splx(x)                         (void) ml_set_interrupts_enabled(x)
@@ -88,6 +118,9 @@ typedef unsigned                        spl_t;
 //FIXME:
 //extern const struct sched_dispatch_table sched_multiq_dispatch;
 #define SCHED(f)                        //(sched_multiq_dispatch.f)
+
+#define thread_reference_internal(thread)       \
+                    os_ref_retain(&(thread)->ref_count);
 
 #define __IGNORE_WCASTALIGN(x)          _Pragma("clang diagnostic push")                     \
                                         _Pragma("clang diagnostic ignored \"-Wcast-align\"") \

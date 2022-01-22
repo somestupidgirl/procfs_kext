@@ -7,16 +7,191 @@
 #include <kern/kalloc.h>
 #include <kern/thread.h>
 
+#include <mach/clock_types.h>
 #include <mach/kern_return.h>
 #include <mach/mach_types.h>
 #include <mach/thread_info.h>
 
 #include <sys/cdefs.h>
+#include <sys/proc_internal.h>
 
 #include "procfs_ipc.h"
 #include "procfs_locks.h"
 #include "procfs_thread.h"
 
+
+struct timer {
+	uint64_t all_bits;
+};
+
+static inline uint64_t
+timer_grab(timer_t timer)
+{
+	return timer->all_bits;
+}
+
+static inline uint32_t
+_absolutetime_to_microtime(uint64_t abstime, clock_sec_t *secs, clock_usec_t *microsecs)
+{
+	uint32_t remain;
+	*secs = abstime / (uint64_t)NSEC_PER_SEC;
+	remain = (uint32_t)(abstime % (uint64_t)NSEC_PER_SEC);
+	*microsecs = remain / NSEC_PER_USEC;
+	return remain;
+}
+
+static inline void
+absolutetime_to_microtime(uint64_t abstime, clock_sec_t *secs, clock_usec_t *microsecs)
+{
+	_absolutetime_to_microtime(abstime, secs, microsecs);
+}
+
+static inline void
+thread_read_times(thread_t thread, time_value_t *user_time, time_value_t *system_time, time_value_t *runnable_time)
+{
+	clock_sec_t secs;
+	clock_usec_t usecs;
+	uint64_t  tval_user, tval_system;
+
+	tval_user = timer_grab(&thread->user_timer);
+	tval_system = timer_grab(&thread->system_timer);
+
+	if (thread->precise_user_kernel_time) {
+		absolutetime_to_microtime(tval_user, &secs, &usecs);
+		user_time->seconds = (__typeof__(user_time->seconds))secs;
+		user_time->microseconds = usecs;
+
+		absolutetime_to_microtime(tval_system, &secs, &usecs);
+		system_time->seconds = (__typeof__(system_time->seconds))secs;
+		system_time->microseconds = usecs;
+	} else {
+		/* system_timer may represent either sys or user */
+		tval_user += tval_system;
+		absolutetime_to_microtime(tval_user, &secs, &usecs);
+		user_time->seconds = (__typeof__(user_time->seconds))secs;
+		user_time->microseconds = usecs;
+
+		system_time->seconds = 0;
+		system_time->microseconds = 0;
+	}
+
+	if (runnable_time) {
+		uint64_t tval_runnable = timer_grab(&thread->runnable_timer);
+		absolutetime_to_microtime(tval_runnable, &secs, &usecs);
+		runnable_time->seconds = (__typeof__(runnable_time->seconds))secs;
+		runnable_time->microseconds = usecs;
+	}
+}
+
+static inline void
+retrieve_thread_basic_info(thread_t thread, thread_basic_info_t basic_info)
+{
+	int     state, flags;
+
+	/* fill in info */
+
+	thread_read_times(thread, &basic_info->user_time,
+	    &basic_info->system_time, NULL);
+
+	/*
+	 *	Update lazy-evaluated scheduler info because someone wants it.
+	 */
+	if (SCHED(can_update_priority)(thread)) {
+		SCHED(update_priority)(thread);
+	}
+
+	basic_info->sleep_time = 0;
+
+	/*
+	 *	To calculate cpu_usage, first correct for timer rate,
+	 *	then for 5/8 ageing.  The correction factor [3/5] is
+	 *	(1/(5/8) - 1).
+	 */
+	basic_info->cpu_usage = 0;
+
+	if (basic_info->cpu_usage > TH_USAGE_SCALE) {
+		basic_info->cpu_usage = TH_USAGE_SCALE;
+	}
+
+	basic_info->policy = ((thread->sched_mode == TH_MODE_TIMESHARE)?
+	    POLICY_TIMESHARE: POLICY_RR);
+
+	flags = 0;
+	if (thread->options & TH_OPT_IDLE_THREAD) {
+		flags |= TH_FLAGS_IDLE;
+	}
+
+	if (thread->options & TH_OPT_GLOBAL_FORCED_IDLE) {
+		flags |= TH_FLAGS_GLOBAL_FORCED_IDLE;
+	}
+
+	if (!thread->kernel_stack) {
+		flags |= TH_FLAGS_SWAPPED;
+	}
+
+	state = 0;
+	if (thread->state & TH_TERMINATE) {
+		state = TH_STATE_HALTED;
+	} else if (thread->state & TH_RUN) {
+		state = TH_STATE_RUNNING;
+	} else if (thread->state & TH_UNINT) {
+		state = TH_STATE_UNINTERRUPTIBLE;
+	} else if (thread->state & TH_SUSP) {
+		state = TH_STATE_STOPPED;
+	} else if (thread->state & TH_WAIT) {
+		state = TH_STATE_WAITING;
+	}
+
+	basic_info->run_state = state;
+	basic_info->flags = flags;
+
+	basic_info->suspend_count = thread->user_stop_count;
+
+	return;
+}
+
+static inline uint64_t
+get_task_dispatchqueue_offset(task_t task)
+{
+	return task->dispatchqueue_offset;
+}
+
+static inline uint64_t
+get_dispatchqueue_offset_from_proc(void *p)
+{
+	if (p != NULL) {
+		proc_t pself = (proc_t)p;
+		return pself->p_dispatchqueue_offset;
+	} else {
+		return (uint64_t)0;
+	}
+}
+
+static inline uint64_t
+thread_dispatchqaddr(thread_t thread)
+{
+	uint64_t        dispatchqueue_addr;
+	uint64_t        thread_handle;
+
+	if (thread == THREAD_NULL) {
+		return 0;
+	}
+
+	thread_handle = thread->machine.cthread_self;
+	if (thread_handle == 0) {
+		return 0;
+	}
+
+	if (thread->inspection == TRUE) {
+		dispatchqueue_addr = thread_handle + get_task_dispatchqueue_offset(thread->task);
+	} else if (thread->task->bsd_info) {
+		dispatchqueue_addr = thread_handle + get_dispatchqueue_offset_from_proc(thread->task->bsd_info);
+	} else {
+		dispatchqueue_addr = 0;
+	}
+
+	return dispatchqueue_addr;
+}
 
 static inline kern_return_t
 procfs_thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info_out, mach_msg_type_number_t *thread_info_count)
@@ -35,8 +210,7 @@ procfs_thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info
 
 		thread_lock(thread);
 
-		//FIXME:
-		//retrieve_thread_basic_info(thread, (thread_basic_info_t) thread_info_out);
+		retrieve_thread_basic_info(thread, (thread_basic_info_t) thread_info_out);
 
 		thread_unlock(thread);
 		splx(s);
@@ -51,8 +225,7 @@ procfs_thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info
 
 		identifier_info->thread_id = thread->thread_id;
 		identifier_info->thread_handle = thread->machine.cthread_self;
-		//FIXME:
-		//identifier_info->dispatch_qaddr = thread_dispatchqaddr(thread);
+		identifier_info->dispatch_qaddr = thread_dispatchqaddr(thread);
 
 		thread_unlock(thread);
 		splx(s);
@@ -156,8 +329,7 @@ procfs_thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info
 		/* NOTE: This mimics fill_taskthreadinfo(), which is the function used by proc_pidinfo() for
 		 * the PROC_PIDTHREADINFO flavor (which can't be used on corpses)
 		 */
-		//FIXME:
-		//retrieve_thread_basic_info(thread, &basic_info);
+		retrieve_thread_basic_info(thread, &basic_info);
 		extended_info->pth_user_time = (((uint64_t)basic_info.user_time.seconds * NSEC_PER_SEC) + ((uint64_t)basic_info.user_time.microseconds * NSEC_PER_USEC));
 		extended_info->pth_system_time = (((uint64_t)basic_info.system_time.seconds * NSEC_PER_SEC) + ((uint64_t)basic_info.system_time.microseconds * NSEC_PER_USEC));
 
@@ -269,8 +441,7 @@ procfs_task_threads_internal(task_t task, thread_act_array_t *threads_out, mach_
 
 	for (thread = (thread_t)queue_first(&task->threads); i < actual;
 	  ++i, thread = (thread_t)queue_next(&thread->task_threads)) {
-		//FIXME:
-		//thread_reference_internal(thread);
+		thread_reference_internal(thread);
 		thread_list[j++] = thread;
 	}
 

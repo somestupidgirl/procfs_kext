@@ -13,6 +13,19 @@
 #include "procfs_thread.h"
 
 void
+ipc_object_validate(ipc_object_t object)
+{
+	//FIXME:
+	//if (io_otype(object) != IOT_PORT_SET) {
+	//	zone_id_require(ZONE_ID_IPC_PORT,
+	//	    sizeof(struct ipc_port), object);
+	//} else {
+	//	zone_id_require(ZONE_ID_IPC_PORT_SET,
+	//	    sizeof(struct ipc_pset), object);
+	//}
+}
+
+void
 io_lock(ipc_object_t io)
 {
 	//FIXME:
