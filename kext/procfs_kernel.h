@@ -35,19 +35,12 @@ __options_decl(port_to_thread_options_t, uint32_t, {
 });
 
 
-#pragma mark
-#pragma mark External References
-
-extern task_t proc_task(proc_t);
-extern proc_t proc_find(int pid);
-extern struct proc *current_proc(void);
-
-
 #pragma mark -
 #pragma mark Function declarations
 
 int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
 void fill_fileinfo(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
+
 
 #pragma mark -
 #pragma mark Not yet implemented

@@ -35,6 +35,13 @@
 
 
 #pragma mark -
+#pragma mark External References
+
+extern task_t proc_task(proc_t);
+extern proc_t proc_find(int pid);
+
+
+#pragma mark -
 #pragma mark Local Function Prototypes
 
 static int procfs_copy_data(char *data, int data_len, uio_t uio);
