@@ -6,3 +6,4 @@
 *.o
 **/Info.plist~
 Info.plist~
+Library/
