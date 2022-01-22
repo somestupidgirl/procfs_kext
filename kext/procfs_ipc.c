@@ -154,7 +154,7 @@ convert_thread_to_port_with_flavor(thread_t thread, mach_thread_flavor_t flavor)
 {
 	ipc_port_t port = IP_NULL;
 
-	thread_mtx_lock(thread);
+	thread_lock(thread);
 
 	if (!thread->ipc_active) {
 		goto exit;
@@ -180,7 +180,7 @@ convert_thread_to_port_with_flavor(thread_t thread, mach_thread_flavor_t flavor)
 	}
 
 exit:
-	thread_mtx_unlock(thread);
+	thread_unlock(thread);
 	thread_deallocate(thread);
 	return port;
 }

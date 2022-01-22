@@ -20,7 +20,6 @@
 
 #include "procfs.h"
 #include "procfs_data.h"
-#include "procfs_kernel.h"
 #include "procfs_locks.h"
 #include "procfs_node.h"
 #include "procfs_subr.h"

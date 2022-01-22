@@ -27,7 +27,7 @@
 #include <sys/vnode.h>
 
 #include "procfs_data.h"
-#include "procfs_kernel.h"
+#include "procfs_fillinfo.h"
 #include "procfs_locks.h"
 #include "procfs_node.h"
 #include "procfs_structure.h"

@@ -22,15 +22,9 @@
 #include <sys/vnode.h>
 #include <sys/vnode_internal.h>
 
-#include "procfs_kernel.h"
+#include "procfs_fillinfo.h"
 #include "procfs_locks.h"
 
-
-/*
- * ======= fill_vnodeinfo() =======
- * From XNU: bsd/kern/proc_info.c
- * Status: Mostly Compiling
- */
 
 static void munge_vinfo_stat(struct stat64 *sbp, struct vinfo_stat *vsbp);
 
@@ -101,13 +95,6 @@ out:
 	return error;
 }
 
-
-/*
- * ======= fill_fileinfo() =======
- * From XNU: bsd/kern/proc_info.c
- * Status: Compiling
- */
-
 // bsd/kern/kern_guarded.c
 struct guarded_fileproc {
 	struct fileproc gf_fileproc;
@@ -174,12 +161,6 @@ fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * 
 	}
 }
 
-
-/*
- * ======= fill_socketinfo() =======
- * From XNU: bsd/kern/socket_info.c
- * Status: Not Compiling
- */
 errno_t
 fill_socketinfo(struct socket *so, struct socket_info *si)
 {
