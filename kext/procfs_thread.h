@@ -1,6 +1,42 @@
 #ifndef procfs_thread_h
 #define procfs_thread_h
 
+#include <os/refcnt.h>
+
+/* Type used for thread->sched_mode and saved_mode */
+typedef enum {
+    TH_MODE_NONE = 0,                                       /* unassigned, usually for saved_mode only */
+    TH_MODE_REALTIME,                                       /* time constraints supplied */
+    TH_MODE_FIXED,                                          /* use fixed priorities, no decay */
+    TH_MODE_TIMESHARE,                                      /* use timesharing algorithm */
+} sched_mode_t;
+
+struct machine_thread {
+    uint64_t                 cthread_self;
+};
+
+struct thread {
+    sched_mode_t             sched_mode;
+    lck_mtx_t               *mutex;
+    os_refcnt_t              ref_count;
+    uint32_t                 sched_flags;
+    int16_t                  sched_pri;
+    int16_t                  base_pri;
+    int16_t                  max_priority;
+    queue_chain_t            task_threads;
+    struct task             *task;
+    void                    *uthread;
+    uint64_t                 thread_id;
+    struct machine_thread    machine;
+};
+
+struct task {
+    boolean_t                active;
+    queue_head_t             threads;
+    int                      thread_count;
+    lck_mtx_t               *lock;
+};
+
 #define MINPRI                          0
 #define MINPRI_USER                     MINPRI                          /* 0 */
 #define DEPRESSPRI                      (MINPRI)                        /* depress priority */

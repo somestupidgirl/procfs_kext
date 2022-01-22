@@ -48,9 +48,9 @@ procfs_thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info
 		thread_identifier_info_t identifier_info;
 		thread_lock(thread);
 
+		identifier_info->thread_id = thread->thread_id;
+		identifier_info->thread_handle = thread->machine.cthread_self;
 		//FIXME:
-		//identifier_info->thread_id = thread->thread_id;
-		//identifier_info->thread_handle = thread->machine.cthread_self;
 		//identifier_info->dispatch_qaddr = thread_dispatchqaddr(thread);
 
 		thread_unlock(thread);
@@ -69,28 +69,23 @@ procfs_thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info
 
 		thread_lock(thread);
 
-		//FIXME:
-		//if (thread->sched_mode != TH_MODE_TIMESHARE) {
-		//	thread_unlock(thread);
-		//	splx(s);
-		//	return KERN_INVALID_POLICY;
-		//}
+		if (thread->sched_mode != TH_MODE_TIMESHARE) {
+			thread_unlock(thread);
+			splx(s);
+			return KERN_INVALID_POLICY;
+		}
 
-		//FIXME:
-		//ts_info->depressed = (thread->sched_flags & TH_SFLAG_DEPRESSED_MASK) != 0;
+		ts_info->depressed = (thread->sched_flags & TH_SFLAG_DEPRESSED_MASK) != 0;
 		if (ts_info->depressed) {
 			ts_info->base_priority = DEPRESSPRI;
-			//FIXME:
-			//ts_info->depress_priority = thread->base_pri;
+			ts_info->depress_priority = thread->base_pri;
 		} else {
-			//FIXME:
-			//ts_info->base_priority = thread->base_pri;
+			ts_info->base_priority = thread->base_pri;
 			ts_info->depress_priority = -1;
 		}
 
-		//FIXME:
-		//ts_info->cur_priority = thread->sched_pri;
-		//ts_info->max_priority = thread->max_priority;
+		ts_info->cur_priority = thread->sched_pri;
+		ts_info->max_priority = thread->max_priority;
 
 		thread_unlock(thread);
 		splx(s);
@@ -119,30 +114,25 @@ procfs_thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info
 
 		thread_lock(thread);
 
-		//FIXME:
-		//if (thread->sched_mode == TH_MODE_TIMESHARE) {
-		//	thread_unlock(thread);
-		//	splx(s);
-		//	return KERN_INVALID_POLICY;
-		//}
+		if (thread->sched_mode == TH_MODE_TIMESHARE) {
+			thread_unlock(thread);
+			splx(s);
+			return KERN_INVALID_POLICY;
+		}
 
-		//FIXME:
-		//rr_info->depressed = (thread->sched_flags & TH_SFLAG_DEPRESSED_MASK) != 0;
+		rr_info->depressed = (thread->sched_flags & TH_SFLAG_DEPRESSED_MASK) != 0;
 		if (rr_info->depressed) {
 			rr_info->base_priority = DEPRESSPRI;
-		//FIXME:
-		//	rr_info->depress_priority = thread->base_pri;
+			rr_info->depress_priority = thread->base_pri;
 		} else {
-		//FIXME:
-		//	rr_info->base_priority = thread->base_pri;
+			rr_info->base_priority = thread->base_pri;
 			rr_info->depress_priority = -1;
 		}
 
 		quantum_time = SCHED(initial_quantum_size)(THREAD_NULL);
 		absolutetime_to_nanoseconds(quantum_time, &quantum_ns);
 
-		//FIXME:
-		//rr_info->max_priority = thread->max_priority;
+		rr_info->max_priority = thread->max_priority;
 		rr_info->quantum = (uint32_t)(quantum_ns / 1000 / 1000);
 
 		thread_unlock(thread);
@@ -176,9 +166,9 @@ procfs_thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info
 		extended_info->pth_flags = basic_info.flags;
 		extended_info->pth_sleep_time = basic_info.sleep_time;
 		//FIXME:
-		//extended_info->pth_curpri = thread->sched_pri;
-		//extended_info->pth_priority = thread->base_pri;
-		//extended_info->pth_maxpriority = thread->max_priority;
+		extended_info->pth_curpri = thread->sched_pri;
+		extended_info->pth_priority = thread->base_pri;
+		extended_info->pth_maxpriority = thread->max_priority;
 
 		//FIXME:
 		//bsd_getthreadname(thread->uthread, extended_info->pth_name);
@@ -239,17 +229,15 @@ procfs_task_threads_internal(task_t task, thread_act_array_t *threads_out, mach_
 	for (;;) {
 		task_lock(task);
 
-		//FIXME:
-		//if (!task->active) {
-		//	task_unlock(task);
-		//	if (size != 0) {
-		//		kfree(addr, size);
-		//	}
-		//	return KERN_FAILURE;
-		//}
+		if (!task->active) {
+			task_unlock(task);
+			if (size != 0) {
+				kfree(addr, size);
+			}
+			return KERN_FAILURE;
+		}
 
-		//FIXME:
-		//actual = task->thread_count;
+		actual = task->thread_count;
 
 		/* do we have the memory we need? */
 		size_needed = actual * sizeof(mach_port_t);
@@ -278,15 +266,14 @@ procfs_task_threads_internal(task_t task, thread_act_array_t *threads_out, mach_
 
 	i = j = 0;
 
-	//FIXME:
-	//for (thread = (thread_t)queue_first(&task->threads); i < actual;
-	//  ++i, thread = (thread_t)queue_next(&thread->task_threads)) {
-	//	thread_reference_internal(thread);
-	//	thread_list[j++] = thread;
-	//}
+	for (thread = (thread_t)queue_first(&task->threads); i < actual;
+	  ++i, thread = (thread_t)queue_next(&thread->task_threads)) {
+		//FIXME:
+		//thread_reference_internal(thread);
+		thread_list[j++] = thread;
+	}
 
-	//FIXME:
-	//assert(queue_end(&task->threads, (queue_entry_t)thread));
+	assert(queue_end(&task->threads, (queue_entry_t)thread));
 
 	actual = j;
 	size_needed = actual * sizeof(mach_port_t);
@@ -327,7 +314,6 @@ procfs_task_threads_internal(task_t task, thread_act_array_t *threads_out, mach_
 		*count = actual;
 
 		/* do the conversion that Mig should handle */
-
 		switch (flavor) {
 		case THREAD_FLAVOR_CONTROL:
 			for (i = 0; i < actual; ++i) {
