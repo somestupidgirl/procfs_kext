@@ -26,6 +26,7 @@
 #include "procfs_kernel.h"
 #include "procfs_node.h"
 #include "procfs_subr.h"
+#include "procfs_thread.h"
 
 
 #pragma mark -
@@ -218,7 +219,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     mach_msg_type_number_t count;
     
     // Get all of the threads in the task.
-    if (task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
+    if (procfs_task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
         uint64_t thread_id_info[THREAD_IDENTIFIER_INFO_COUNT];
         uint64_t *threadid_ptr = (uint64_t *)OSMalloc(count * sizeof(uint64_t), procfs_osmalloc_tag);
         *thread_ids = threadid_ptr;
@@ -229,7 +230,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
             ipc_port_t thread_port = (ipc_port_t)threads[i];
             thread_t thread = convert_port_to_thread(thread_port);
             if (thread != NULL) {
-                result = thread_info(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&thread_id_info, &thread_info_count);
+                result = procfs_thread_info(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&thread_id_info, &thread_info_count);
                 if (result == KERN_SUCCESS) {
                     struct thread_identifier_info *idinfo = (struct thread_identifier_info *)thread_id_info;
                     *threadid_ptr++ = idinfo->thread_id;

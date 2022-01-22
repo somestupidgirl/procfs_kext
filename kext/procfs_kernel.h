@@ -46,8 +46,6 @@ void fill_fileinfo(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinf
 #pragma mark Not yet implemented
 
 // Not yet implemented
-kern_return_t thread_info(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
-kern_return_t task_threads(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 thread_t convert_port_to_thread(mach_port_t);
 errno_t fill_socketinfo(struct socket *so, struct socket_info *si);
 

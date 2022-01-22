@@ -1,7 +1,8 @@
 #ifndef procfs_locks_h
 #define procfs_locks_h
 
-#include <sys/kernel_types.h>
+#include <kern/locks.h>
+#include <sys/proc.h>
 
 void procfs_fdlock(proc_t p);
 void procfs_fdunlock(proc_t p);
@@ -9,22 +10,18 @@ void procfs_fdlock_spin(proc_t p);
 void procfs_list_lock(void);
 void procfs_list_unlock(void);
 
-struct hslock {
-	uintptr_t       					 lock_data;
+struct thread {
+	lck_mtx_t      *mutex;
 };
 
-typedef struct hslock hw_lock_data_t, 	*hw_lock_t;
+#define thread_lock(thread) lck_mtx_lock(&(thread)->mutex)
+#define thread_unlock(thread) lck_mtx_unlock(&(thread)->mutex)
 
-typedef struct slock {
-	hw_lock_data_t                       interlock;
-} usimple_lock_data_t,                  *usimple_lock_t;
+struct task {
+    lck_mtx_t      *lock;
+};
 
-extern void usimple_lock(usimple_lock_t, lck_grp_t*);
-extern void usimple_unlock(usimple_lock_t);
-
-#define simple_lock(l, grp)          	 usimple_lock(l, grp)
-#define simple_unlock(l)        		 usimple_unlock(l)
-#define thread_lock(th)                  simple_lock(&(th)->sched_lock, &thread_lck_grp)
-#define thread_unlock(th)                simple_unlock(&(th)->sched_lock)
+#define task_lock(task) lck_mtx_lock(&(task)->lock)
+#define task_unlock(task) lck_mtx_unlock(&(task)->lock)
 
 #endif /* procfs_locks_h */
