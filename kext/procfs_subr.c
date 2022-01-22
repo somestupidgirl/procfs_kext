@@ -22,6 +22,7 @@
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
 
+#include "procfs_iterate.h"
 #include "procfs_kernel.h"
 #include "procfs_node.h"
 #include "procfs_subr.h"
@@ -165,7 +166,7 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
     data.creds = creds;
     data.next_pid = pidp;
     
-    //proc_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
+    procfs_proc_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
     *pidpp = pidp;
     *sizep = size;
     *pid_count = (int)(data.next_pid - pidp);
