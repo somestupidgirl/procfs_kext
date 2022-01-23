@@ -39,17 +39,17 @@ u_long pidhash;
  */
 #define PIDS_PER_ENTRY      1021
 
-typedef struct procfs_pidlist_entry {
+typedef struct pidlist_entry {
     SLIST_ENTRY(pidlist_entry) pe_link;
     u_int pe_nused;
     pid_t pe_pid[PIDS_PER_ENTRY];
-} procfs_pidlist_entry_t;
+} pidlist_entry_t;
 
 typedef struct {
-    SLIST_HEAD(, procfs_pidlist_entry) pl_head;
-    struct procfs_pidlist_entry *pl_active;
+    SLIST_HEAD(, pidlist_entry) pl_head;
+    struct pidlist_entry *pl_active;
     u_int pl_nalloc;
-} procfs_pidlist_t;
+} pidlist_t;
 
 
 #pragma mark -
@@ -61,8 +61,8 @@ extern struct proc *current_proc(void);
 #pragma mark -
 #pragma mark Static Inline Functions
 
-static __inline__ procfs_pidlist_t *
-procfs_pidlist_init(procfs_pidlist_t *pl)
+static __inline__ pidlist_t *
+pidlist_init(pidlist_t *pl)
 {
 	SLIST_INIT(&pl->pl_head);
 	pl->pl_active = NULL;
@@ -71,10 +71,10 @@ procfs_pidlist_init(procfs_pidlist_t *pl)
 }
 
 static __inline__ u_int
-procfs_pidlist_alloc(procfs_pidlist_t *pl, u_int needed)
+pidlist_alloc(pidlist_t *pl, u_int needed)
 {
 	while (pl->pl_nalloc < needed) {
-		procfs_pidlist_entry_t *pe = kalloc(sizeof(*pe));
+		pidlist_entry_t *pe = kalloc(sizeof(*pe));
 		if (NULL == pe) {
 			panic("no space for pidlist entry");
 		}
@@ -85,22 +85,22 @@ procfs_pidlist_alloc(procfs_pidlist_t *pl, u_int needed)
 }
 
 static __inline__ u_int
-procfs_pidlist_nalloc(const procfs_pidlist_t *pl)
+pidlist_nalloc(const pidlist_t *pl)
 {
 	return pl->pl_nalloc;
 }
 
 static __inline__ void
-procfs_pidlist_set_active(procfs_pidlist_t *pl)
+pidlist_set_active(pidlist_t *pl)
 {
 	pl->pl_active = SLIST_FIRST(&pl->pl_head);
 	assert(pl->pl_active);
 }
 
 static __inline__ void
-procfs_pidlist_free(procfs_pidlist_t *pl)
+pidlist_free(pidlist_t *pl)
 {
-    procfs_pidlist_entry_t *pe;
+    pidlist_entry_t *pe;
     while (NULL != (pe = SLIST_FIRST(&pl->pl_head))) {
         SLIST_FIRST(&pl->pl_head) = SLIST_NEXT(pe, pe_link);
         kalloc(sizeof(*pe));
@@ -109,15 +109,15 @@ procfs_pidlist_free(procfs_pidlist_t *pl)
 }
 
 static __inline__ int
-procfs_proc_transwait(proc_t p, int locked)
+proc_transwait(proc_t p, int locked)
 {
 	if (locked == 0) {
-		procfs_list_lock();
+		proc_list_lock();
 	}
 	while ((p->p_lflag & P_LINTRANSIT) == P_LINTRANSIT) {
 		if ((p->p_lflag & P_LTRANSCOMMIT) == P_LTRANSCOMMIT && current_proc() == p) {
 			if (locked == 0) {
-				procfs_list_unlock();
+				proc_list_unlock();
 			}
 			return EDEADLK;
 		}
@@ -125,7 +125,7 @@ procfs_proc_transwait(proc_t p, int locked)
 		msleep(&p->p_lflag, &p->p_mlock, 0, "proc_signstart", NULL);
 	}
 	if (locked == 0) {
-		procfs_list_unlock();
+		proc_list_unlock();
 	}
 	return 0;
 }
@@ -134,7 +134,7 @@ procfs_proc_transwait(proc_t p, int locked)
  * Locate a process by number
  */
 static __inline__ proc_t
-procfs_pfind_locked(pid_t pid)
+pfind_locked(pid_t pid)
 {
     proc_t p;
 
@@ -155,20 +155,20 @@ procfs_pfind_locked(pid_t pid)
 #pragma mark Global Functions
 
 proc_t
-procfs_proc_find_zombref(int pid)
+proc_find_zombref(int pid)
 {
     proc_t p;
 
-    procfs_list_lock();
+    proc_list_lock();
 
 again:
-    p = procfs_pfind_locked(pid);
+    p = pfind_locked(pid);
 
     /* should we bail? */
     if ((p == PROC_NULL)                                    /* not found */
         || ((p->p_listflag & P_LIST_INCREATE) != 0)         /* not created yet */
         || ((p->p_listflag & P_LIST_EXITED) == 0)) {        /* not started exit */
-        procfs_list_unlock();
+        proc_list_unlock();
         return PROC_NULL;
     }
 
@@ -180,26 +180,26 @@ again:
     }
     p->p_listflag |=  P_LIST_WAITING;
 
-    procfs_list_unlock();
+    proc_list_unlock();
 
     return p;
 }
 
 void
-procfs_proc_drop_zombref(proc_t p)
+proc_drop_zombref(proc_t p)
 {
-    procfs_list_lock();
+    proc_list_lock();
     if ((p->p_listflag & P_LIST_WAITING) == P_LIST_WAITING) {
         p->p_listflag &= ~P_LIST_WAITING;
         wakeup(&p->p_stat);
     }
-    procfs_list_unlock();
+    proc_list_unlock();
 }
 
 void
-procfs_session_rele(struct session *sess)
+session_rele(struct session *sess)
 {
-    procfs_list_lock();
+    proc_list_lock();
     if (--sess->s_count == 0) {
         if ((sess->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
             panic("session_rele: terminating already terminated session");
@@ -210,37 +210,37 @@ procfs_session_rele(struct session *sess)
         if (sess->s_count != 0) {
             panic("session_rele: freeing session in use");
         }
-        procfs_list_unlock();
+        proc_list_unlock();
         lck_mtx_destroy(&sess->s_mlock, proc_mlock_grp);
         //zfree(session_zone, sess);
     } else {
-        procfs_list_unlock();
+        proc_list_unlock();
     }
 }
 
 void
-procfs_proc_iterate(unsigned int flags, procfs_proc_iterate_fn_t callout, void *arg, procfs_proc_iterate_fn_t filterfn, void *filterarg)
+proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg)
 {
 	uint32_t nprocs = 0;
 
-	procfs_pidlist_t pid_list, *pl = procfs_pidlist_init(&pid_list);
+	pidlist_t pid_list, *pl = pidlist_init(&pid_list);
 	u_int pid_count_available = 0;
 
 	assert(callout != NULL);
 
-	/* allocate outside of the procfs_list_lock */
+	/* allocate outside of the proc_list_lock */
 	for (;;) {
-		procfs_list_lock();
+		proc_list_lock();
 		pid_count_available = nprocs + 1; /* kernel_task not counted in nprocs */
 		assert(pid_count_available > 0);
-		if (procfs_pidlist_nalloc(pl) > pid_count_available) {
+		if (pidlist_nalloc(pl) > pid_count_available) {
 			break;
 		}
-		procfs_list_unlock();
+		proc_list_unlock();
 
-		procfs_pidlist_alloc(pl, pid_count_available);
+		pidlist_alloc(pl, pid_count_available);
 	}
-	procfs_pidlist_set_active(pl);
+	pidlist_set_active(pl);
 
 	/* filter pids into the pid_list */
 	u_int pid_count = 0;
@@ -266,17 +266,17 @@ procfs_proc_iterate(unsigned int flags, procfs_proc_iterate_fn_t callout, void *
 			}
 		}
 	}
-	procfs_list_unlock();
+	proc_list_unlock();
 
 	/* call callout on processes in the pid_list */
-	const procfs_pidlist_entry_t *pe;
+	const pidlist_entry_t *pe;
     SLIST_FOREACH(pe, &(pl->pl_head), pe_link) {
         for (u_int i = 0; i < pe->pe_nused; i++) {
             const pid_t pid = pe->pe_pid[i];
             proc_t p = proc_find(pid);
             if (p) {
                 if ((flags & PROC_NOWAITTRANS) == 0) {
-                    procfs_proc_transwait(p, 0);
+                    proc_transwait(p, 0);
                 }
                 const int callout_ret = callout(p, arg);
 
@@ -298,7 +298,7 @@ procfs_proc_iterate(unsigned int flags, procfs_proc_iterate_fn_t callout, void *
                     break;
                 }
             } else if (flags & PROC_ZOMBPROCLIST) {
-                p = procfs_proc_find_zombref(pid);
+                p = proc_find_zombref(pid);
                 if (!p) {
                     continue;
                 }
@@ -306,13 +306,13 @@ procfs_proc_iterate(unsigned int flags, procfs_proc_iterate_fn_t callout, void *
 
                 switch (callout_ret) {
                 case PROC_RETURNED_DONE:
-                    procfs_proc_drop_zombref(p);
+                    proc_drop_zombref(p);
                     OS_FALLTHROUGH;
                 case PROC_CLAIMED_DONE:
                     goto out;
 
                 case PROC_RETURNED:
-                    procfs_proc_drop_zombref(p);
+                    proc_drop_zombref(p);
                     OS_FALLTHROUGH;
                 case PROC_CLAIMED:
                     break;
@@ -325,5 +325,5 @@ procfs_proc_iterate(unsigned int flags, procfs_proc_iterate_fn_t callout, void *
         }
     }
 out:
-    procfs_pidlist_free(pl);
+    pidlist_free(pl);
 }

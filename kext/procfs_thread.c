@@ -194,7 +194,7 @@ thread_dispatchqaddr(thread_t thread)
 }
 
 static inline kern_return_t
-procfs_thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info_out, mach_msg_type_number_t *thread_info_count)
+thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info_out, mach_msg_type_number_t *thread_info_count)
 {
 	spl_t s;
 	s = splsched();
@@ -359,7 +359,7 @@ procfs_thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info
 }
 
 kern_return_t
-procfs_thread_info(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count)
+thread_info(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count)
 {
 	kern_return_t result;
 
@@ -372,7 +372,7 @@ procfs_thread_info(thread_t thread, thread_flavor_t flavor, thread_info_t thread
 	thread = current_thread();
 
 	if (thread != THREAD_NULL) {
-		result = procfs_thread_info_internal(
+		result = thread_info_internal(
 			thread, flavor, thread_info, thread_info_count);
 	} else {
 		result = KERN_TERMINATED;
@@ -384,7 +384,7 @@ procfs_thread_info(thread_t thread, thread_flavor_t flavor, thread_info_t thread
 }
 
 static inline kern_return_t
-procfs_task_threads_internal(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count, mach_thread_flavor_t flavor)
+task_threads_internal(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count, mach_thread_flavor_t flavor)
 {
 	mach_msg_type_number_t  actual;
 	thread_t *thread_list;
@@ -510,7 +510,7 @@ procfs_task_threads_internal(task_t task, thread_act_array_t *threads_out, mach_
 }
 
 kern_return_t
-procfs_task_threads(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count)
+task_threads(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count)
 {
-	return procfs_task_threads_internal(task, threads_out, count, THREAD_FLAVOR_CONTROL);
+	return task_threads_internal(task, threads_out, count, THREAD_FLAVOR_CONTROL);
 }

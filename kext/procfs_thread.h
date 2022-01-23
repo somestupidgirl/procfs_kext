@@ -127,7 +127,7 @@ typedef unsigned                        spl_t;
                                         x;                                                   \
                                         _Pragma("clang diagnostic pop")
 
-kern_return_t procfs_thread_info(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
-kern_return_t procfs_task_threads(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
+kern_return_t thread_info(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
+kern_return_t task_threads(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 
 #endif /* procfs_thread_h */
