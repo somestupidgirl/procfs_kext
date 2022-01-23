@@ -353,11 +353,9 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (sessionp != SESSION_NULL) {
         session_rele(sessionp);
     }
-#if 0
     if (pg != PGRP_NULL) {
         pg_rele(pg);
     }
-#endif
     return error;
 }
 

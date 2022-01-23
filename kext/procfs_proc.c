@@ -7,6 +7,7 @@
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
 #include <sys/queue.h>
+#include <sys/tty.h>
 
 #include "procfs_proc.h"
 #include "procfs_locks.h"
@@ -61,7 +62,7 @@ extern struct proc *current_proc(void);
 #pragma mark -
 #pragma mark Static Inline Functions
 
-static __inline__ pidlist_t *
+static inline pidlist_t *
 pidlist_init(pidlist_t *pl)
 {
 	SLIST_INIT(&pl->pl_head);
@@ -70,7 +71,7 @@ pidlist_init(pidlist_t *pl)
 	return pl;
 }
 
-static __inline__ u_int
+static inline u_int
 pidlist_alloc(pidlist_t *pl, u_int needed)
 {
 	while (pl->pl_nalloc < needed) {
@@ -84,20 +85,20 @@ pidlist_alloc(pidlist_t *pl, u_int needed)
 	return pl->pl_nalloc;
 }
 
-static __inline__ u_int
+static inline u_int
 pidlist_nalloc(const pidlist_t *pl)
 {
 	return pl->pl_nalloc;
 }
 
-static __inline__ void
+static inline void
 pidlist_set_active(pidlist_t *pl)
 {
 	pl->pl_active = SLIST_FIRST(&pl->pl_head);
 	assert(pl->pl_active);
 }
 
-static __inline__ void
+static inline void
 pidlist_free(pidlist_t *pl)
 {
     pidlist_entry_t *pe;
@@ -108,7 +109,7 @@ pidlist_free(pidlist_t *pl)
     pl->pl_nalloc = 0;
 }
 
-static __inline__ int
+static inline int
 proc_transwait(proc_t p, int locked)
 {
 	if (locked == 0) {
@@ -133,7 +134,7 @@ proc_transwait(proc_t p, int locked)
 /*
  * Locate a process by number
  */
-static __inline__ proc_t
+static inline proc_t
 pfind_locked(pid_t pid)
 {
     proc_t p;
@@ -148,6 +149,104 @@ pfind_locked(pid_t pid)
         }
     }
     return NULL;
+}
+
+static inline void
+pgdelete_dropref(struct pgrp *pgrp)
+{
+    struct tty *ttyp;
+    int emptypgrp  = 1;
+    struct session *sessp;
+
+
+    pgrp_lock(pgrp);
+    if (pgrp->pg_membercnt != 0) {
+        emptypgrp = 0;
+    }
+    pgrp_unlock(pgrp);
+
+    proc_list_lock();
+    pgrp->pg_refcount--;
+    if ((emptypgrp == 0) || (pgrp->pg_membercnt != 0)) {
+        proc_list_unlock();
+        return;
+    }
+
+    pgrp->pg_listflags |= PGRP_FLAG_TERMINATE;
+
+    if (pgrp->pg_refcount > 0) {
+        proc_list_unlock();
+        return;
+    }
+
+    pgrp->pg_listflags |= PGRP_FLAG_DEAD;
+    LIST_REMOVE(pgrp, pg_hash);
+
+    proc_list_unlock();
+
+    ttyp = SESSION_TP(pgrp->pg_session);
+    if (ttyp != TTY_NULL) {
+        if (ttyp->t_pgrp == pgrp) {
+            tty_lock(ttyp);
+            /* Re-check after acquiring the lock */
+            if (ttyp->t_pgrp == pgrp) {
+                ttyp->t_pgrp = NULL;
+                pgrp->pg_session->s_ttypgrpid = NO_PID;
+            }
+            tty_unlock(ttyp);
+        }
+    }
+
+    proc_list_lock();
+
+    sessp = pgrp->pg_session;
+    if ((sessp->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
+        panic("pg_deleteref: manipulating refs of already terminating session");
+    }
+    if (--sessp->s_count == 0) {
+        if ((sessp->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
+            panic("pg_deleteref: terminating already terminated session");
+        }
+        sessp->s_listflags |= S_LIST_TERM;
+        ttyp = SESSION_TP(sessp);
+        LIST_REMOVE(sessp, s_hash);
+        proc_list_unlock();
+        if (ttyp != TTY_NULL) {
+            tty_lock(ttyp);
+            if (ttyp->t_session == sessp) {
+                ttyp->t_session = NULL;
+            }
+            tty_unlock(ttyp);
+        }
+        proc_list_lock();
+        sessp->s_listflags |= S_LIST_DEAD;
+        if (sessp->s_count != 0) {
+            panic("pg_deleteref: freeing session in use");
+        }
+        proc_list_unlock();
+        lck_mtx_destroy(&sessp->s_mlock, proc_mlock_grp);
+        //FIXME:
+        //zfree(session_zone, sessp);
+    } else {
+        proc_list_unlock();
+    }
+    lck_mtx_destroy(&pgrp->pg_mlock, proc_mlock_grp);
+    //FIXME:
+    //zfree(pgrp_zone, pgrp);
+}
+
+static inline void
+pg_rele_dropref(struct pgrp * pgrp)
+{
+    proc_list_lock();
+    if ((pgrp->pg_refcount == 1) && ((pgrp->pg_listflags & PGRP_FLAG_TERMINATE) == PGRP_FLAG_TERMINATE)) {
+        proc_list_unlock();
+        pgdelete_dropref(pgrp);
+        return;
+    }
+
+    pgrp->pg_refcount--;
+    proc_list_unlock();
 }
 
 
@@ -212,10 +311,20 @@ session_rele(struct session *sess)
         }
         proc_list_unlock();
         lck_mtx_destroy(&sess->s_mlock, proc_mlock_grp);
+        //FIXME:
         //zfree(session_zone, sess);
     } else {
         proc_list_unlock();
     }
+}
+
+void
+pg_rele(struct pgrp * pgrp)
+{
+    if (pgrp == PGRP_NULL) {
+        return;
+    }
+    pg_rele_dropref(pgrp);
 }
 
 void
