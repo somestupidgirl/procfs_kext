@@ -419,15 +419,6 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
         proc_rele(p);
-#if 0
-        // FIXME: We don't have session_rele() or pg_rele() (yet?)
-        if (sessionp != SESSION_NULL) {
-            session_rele(sessionp);
-        }
-        if (pg != PGRP_NULL) {
-            pg_rele(pg);
-        }
-#endif
     }
     return error;
 }
