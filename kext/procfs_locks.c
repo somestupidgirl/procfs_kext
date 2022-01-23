@@ -37,3 +37,28 @@ proc_list_unlock(void)
 	proc_t p = NULL;
 	lck_mtx_unlock(p->p_mlock);
 }
+
+void
+pgrp_lock(struct pgrp * pgrp)
+{
+	lck_mtx_lock(&pgrp->pg_mlock);
+}
+
+void
+pgrp_unlock(struct pgrp * pgrp)
+{
+	lck_mtx_unlock(&pgrp->pg_mlock);
+}
+
+void
+session_lock(struct session * sess)
+{
+	lck_mtx_lock(&sess->s_mlock);
+}
+
+
+void
+session_unlock(struct session * sess)
+{
+	lck_mtx_unlock(&sess->s_mlock);
+}

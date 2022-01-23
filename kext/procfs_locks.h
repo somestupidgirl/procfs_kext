@@ -9,8 +9,15 @@
 void proc_fdlock(proc_t p);
 void proc_fdunlock(proc_t p);
 void proc_fdlock_spin(proc_t p);
+
 void proc_list_lock(void);
 void proc_list_unlock(void);
+
+void pgrp_lock(struct pgrp * pgrp);
+void pgrp_unlock(struct pgrp * pgrp);
+
+void session_lock(struct session * sess);
+void session_unlock(struct session * sess);
 
 #define thread_lock(thread) lck_mtx_lock(&(thread)->mutex)
 #define thread_unlock(thread) lck_mtx_unlock(&(thread)->mutex)
