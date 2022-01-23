@@ -11,6 +11,15 @@
 
 #include "procfs_node.h"
 
+#define P_CONTROLT  0x00000002
+#define P_LP64      0x00000004
+#define P_SUGID     0x00000100
+#define P_SYSTEM 	0x00000200
+#define P_EXEC      0x00004000
+#define P_THCWD     0x01000000
+
+#define SESS_LEADER(p, sessp)   ((sessp)->s_leader == (p))
+
 // Functions that copy procfsnode_t data to a buffer described by a uio_t structure.
 extern int procfs_read_pid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_ppid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);

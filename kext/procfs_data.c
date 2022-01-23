@@ -19,15 +19,18 @@
 #include <sys/file.h>
 #include <sys/file_internal.h>
 #include <sys/filedesc.h>
+#include <sys/kauth.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
 #include <sys/sysent.h>
+#include <sys/tty.h>
 #include <sys/uio.h>
 #include <sys/vnode.h>
 
 #include "procfs_data.h"
 #include "procfs_fillinfo.h"
+#include "procfs_proc.h"
 #include "procfs_locks.h"
 #include "procfs_node.h"
 #include "procfs_structure.h"
@@ -175,6 +178,12 @@ int
 procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     int error = 0;
+    int gotref = 0;
+
+    struct session *sessionp;
+    struct pgrp *pg;
+    struct tty *tp;
+    struct proc_bsdinfo *pbsd;
 
     // Get the process id from the node id in the procfsnode and locate
     // the process.
@@ -182,26 +191,158 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
     if (p != NULL) {
         // Get the BSD-centric process info and copy it out.
-        int is64 = proc_is64bit(p);
-        uint32_t flags = 0;
+        kauth_cred_t cred;
+        cred = kauth_cred_proc_ref(p);
+        bzero(pbsd, sizeof(struct proc_bsdinfo));
+        uint32_t status = p->p_stat; // FIXME: We want to avoid calling the proc structure as much as we can
+        uint32_t xstatus = p->p_xstat; // FIXME: We want to avoid calling the proc structure as much as we can
+        uint32_t pid = proc_pid(p);
+        uint32_t ppid = proc_ppid(p);
+        uid_t uid = kauth_cred_getuid(cred);
+        gid_t gid = kauth_cred_getgid(cred);
+        uid_t ruid = kauth_cred_getruid(cred);
+        gid_t rgid = kauth_cred_getrgid(cred);
+        uid_t svuid = kauth_cred_getsvuid(cred);
+        gid_t svgid = kauth_cred_getsvgid(cred);
+        kauth_cred_unref(&cred);
 
-        if (is64) {
+        bcopy(&p->p_comm, &pbsd->pbi_comm[0], MAXCOMLEN); // FIXME: We want to avoid calling the proc structure as much as we can
+        char comm = pbsd->pbi_comm[MAXCOMLEN - 1] = '\0';
+        bcopy(&p->p_name, &pbsd->pbi_name[0], 2 * MAXCOMLEN); // FIXME: We want to avoid calling the proc structure as much as we can
+        char name = pbsd->pbi_name[(2 * MAXCOMLEN) - 1] = '\0';
+
+        uint32_t nfiles = 0;
+
+        int zombie = 0;
+        int findzomb = 0;
+
+        if ((p = proc_find(pid)) == PROC_NULL) {
+            if (findzomb) {
+                p = procfs_proc_find_zombref(pid);
+            }
+            if (p == PROC_NULL) {
+                error = ESRCH;
+            }
+            zombie = 1;
+        }
+
+        if (zombie == 0) {
+            nfiles = p->p_fd->fd_nfiles;
+        }
+#if 0
+        /* if process is a zombie skip bg state */
+        if ((zombie == 0) && (p->p_stat != SZOMB) && (p->task != TASK_NULL)) {
+            proc_get_darwinbgstate(p->task, &pbsd->pbi_flags);
+        }
+#endif
+        uint32_t pgid = pbsd->pbi_pgid;
+        uint32_t pjobc = pbsd->pbi_pjobc;
+
+        uint32_t tdev = NODEV;
+        uint32_t tpgid = 0;
+        if (pg != PGRP_NULL) {
+            pgid = p->p_pgrpid; // FIXME: We want to avoid calling the proc structure as much as we can
+            pjobc = pg->pg_jobc; // FIXME: We want to avoid calling the pgrp structure as much as we can
+            if ((p->p_flag & P_CONTROLT) && (sessionp != SESSION_NULL) && (tp = SESSION_TP(sessionp))) {
+                tdev = proc_gettty_dev(p, &tdev);
+                tpgid = sessionp->s_ttypgrpid;
+            }
+        }
+
+        int32_t nice = p->p_nice; // FIXME: We want to avoid calling the proc structure as much as we can
+        uint64_t start_tvsec = p->p_start.tv_sec; // FIXME: We want to avoid calling the proc structure as much as we can
+        uint64_t start_tvusec = p->p_start.tv_usec; // FIXME: We want to avoid calling the proc structure as much as we can
+
+        uint32_t flags = 0;
+        int issystem = 0; // FIXME
+        if (issystem == P_SYSTEM) {
+            flags |= PROC_FLAG_SYSTEM;
+        }
+        int istraced = 0; // FIXME
+        if (istraced == P_LTRACED) {
+            flags |= PROC_FLAG_TRACED;
+        }
+        int isexit = 0; // FIXME
+        if (isexit == P_LEXIT) {
+            flags |= PROC_FLAG_INEXIT;
+        }
+        int isppwait = 0; // FIXME
+        if (isppwait == P_LPPWAIT) {
+            flags |= PROC_FLAG_PPWAIT;
+        }
+        int is64bit = proc_is64bit(p);
+        if (is64bit == P_LP64) {
             flags |= PROC_FLAG_LP64;
         }
-
-        vnode_t tty;
-        int ttystatus = proc_gettty(p, &tty);
-
-        if (ttystatus == 0) {
-            flags |= PROC_FLAG_CTTY;
-        } else {
-            error = ttystatus;
+        int iscontrolt = 0; // FIXME
+        if (iscontrolt == P_CONTROLT) {
+            flags |= PROC_FLAG_CONTROLT;
+        }
+        int isthcwd = 0; // FIXME
+        if (isthcwd == P_THCWD) {
+            flags |= PROC_FLAG_THCWD;
+        }
+        int issugid = 0; // FIXME
+        if (issugid == P_SUGID) {
+            flags |= PROC_FLAG_PSUGID;
+        }
+        int isexec = 0; // FIXME
+        if (isexec == P_EXEC) {
+            flags |= PROC_FLAG_EXEC;
+        }
+        int isctty = proc_gettty(p, &tp);
+        if (sessionp != SESSION_NULL) {
+            if (SESS_LEADER(p, sessionp)) {
+                flags |= PROC_FLAG_SLEADER;
+            }
+            if (isctty != 0) {
+                flags |= PROC_FLAG_CTTY;
+            }
         }
 
+        switch (PROC_CONTROL_STATE(p)) {
+        case P_PCTHROTTLE:
+            flags |= PROC_FLAG_PC_THROTTLE;
+            break;
+        case P_PCSUSP:
+            flags |= PROC_FLAG_PC_SUSP;
+            break;
+        case P_PCKILL:
+            flags |= PROC_FLAG_PC_KILL;
+            break;
+        };
+
+        switch (PROC_ACTION_STATE(p)) {
+            case P_PCTHROTTLE:
+            flags |= PROC_FLAG_PA_THROTTLE;
+            break;
+        case P_PCSUSP:
+            flags |= PROC_FLAG_PA_SUSP;
+            break;
+        };
+
         struct proc_bsdinfo info = {
-            .pbi_flags = flags,
-            .pbi_pid   = proc_pid(p),
-            .pbi_ppid  = proc_ppid(p),
+            .pbi_flags               = flags,           /* 64bit; emulated etc */
+            .pbi_status              = status,          /* status: p_stat value, SZOMB, SRUN, etc */
+            .pbi_xstatus             = xstatus,         /* x status */
+            .pbi_pid                 = pid,             /* process id */
+            .pbi_ppid                = ppid,            /* process parent id */
+            .pbi_uid                 = uid,             /* current uid on process */
+            .pbi_gid                 = gid,             /* current gid on process */
+            .pbi_ruid                = ruid,            /* current ruid on process */
+            .pbi_rgid                = rgid,            /* current rgid on process */
+            .pbi_svuid               = svuid,           /* current svuid on process */
+            .pbi_svgid               = svgid,           /* current svgid on process */
+            .pbi_comm                = {comm},           /* upto 16 characters of process name */
+            .pbi_name                = {name},           /* empty if no name is registered */
+            .pbi_nfiles              = nfiles,          /* number of files */
+            .pbi_pgid                = pgid,            /* current parent gid */
+            .pbi_pjobc               = pjobc,           /* pjobc */
+            .e_tdev                  = tdev,            /* controlling tty dev */
+            .e_tpgid                 = tpgid,           /* tty process group id */
+            .pbi_nice                = nice,            /* nice */
+            .pbi_start_tvsec         = start_tvsec ,    /* start tv sec */
+            .pbi_start_tvusec        = start_tvusec,    /* Start tv micro sec */
         };
 
         if (error == 0) {
@@ -209,7 +350,14 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         }
         proc_rele(p);
     }
-
+    if (sessionp != SESSION_NULL) {
+        procfs_session_rele(sessionp);
+    }
+#if 0
+    if (pg != PGRP_NULL) {
+        pg_rele(pg);
+    }
+#endif
     return error;
 }
 
@@ -225,19 +373,63 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
     // Get the process id from the node id in the procfsnode and locate
     // the process.
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    uint64_t threadid = pnp->node_id.nodeid_objectid;
+
+    uint64_t virtual_size = 0;
+    uint64_t resident_size = 0;
+    uint64_t total_user = 0;
+    uint64_t total_system = 0;
+    uint64_t threads_user = 0;
+    uint64_t threads_system = 0;
+    int32_t policy = 0;
+    int32_t faults = 0;
+    int32_t pageins = 0;
+    int32_t cow_faults = 0;
+    int32_t messages_sent = 0;
+    int32_t messages_received = 0;
+    int32_t syscalls_mach = 0;
+    int32_t syscalls_unix = 0;
+    int32_t csw = 0;
+    int32_t threadnum = 0;
+    int32_t numrunning = 0;
+    int32_t priority = 0;
 
     if (p != NULL) {
         // Get the task info and copy it out.
-        //error = proc_pidtaskinfo(p, &info);
-
-        struct proc_taskinfo info ={
-
+        struct proc_taskinfo info = {
+            .pti_virtual_size       = virtual_size,         /* virtual memory size (bytes) */
+            .pti_resident_size      = resident_size,        /* resident memory size (bytes) */
+            .pti_total_user         = total_user,           /* total time */
+            .pti_total_system       = total_system,
+            .pti_threads_user       = threads_user,         /* existing threads only */
+            .pti_threads_system     = threads_system,
+            .pti_policy             = policy,               /* default policy for new threads */
+            .pti_faults             = faults,               /* number of page faults */
+            .pti_pageins            = pageins,              /* number of actual pageins */
+            .pti_cow_faults         = cow_faults,           /* number of copy-on-write faults */
+            .pti_messages_sent      = messages_sent,        /* number of messages sent */
+            .pti_messages_received  = messages_received,    /* number of messages received */
+            .pti_syscalls_mach      = syscalls_mach,        /* number of mach system calls */
+            .pti_syscalls_unix      = syscalls_unix,        /* number of unix system calls */
+            .pti_csw                = csw,                  /* number of context switches */
+            .pti_threadnum          = threadnum,            /* number of threads in the task */
+            .pti_numrunning         = numrunning,           /* number of running threads */
+            .pti_priority           = priority,             /* task priority*/
         };
 
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
         proc_rele(p);
+#if 0
+        // FIXME: We don't have session_rele() or pg_rele() (yet?)
+        if (sessionp != SESSION_NULL) {
+            session_rele(sessionp);
+        }
+        if (pg != PGRP_NULL) {
+            pg_rele(pg);
+        }
+#endif
     }
     return error;
 }
@@ -249,19 +441,74 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
 int
 procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error = 0;
+    int32_t run_state = 0;
+    uint32_t flags = 0;
 
     // Get the process id and thread from the node id in the procfsnode and locate
     // the process.
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    uint64_t threadid = pnp->node_id.nodeid_objectid;
 
     if (p != NULL) {
         // Get the task info and copy it out.
         //error  = proc_pidthreadinfo(p, threadid, TRUE, &info);
+
+        uint64_t user_time = 0;
+        uint64_t system_time = 0;
+        int32_t cpu_usage = 0;
+        int32_t policy = 0;
+
+        int32_t run_state = 0;
+        int isrunning = 0;
+        if (isrunning != 0) {
+            run_state |= TH_STATE_RUNNING;
+        }
+        int isstopped = 0;
+        if (isstopped != 0) {
+            run_state |= TH_STATE_STOPPED;
+        }
+        int iswaiting = 0;
+        if (iswaiting != 0) {
+            run_state |= TH_STATE_WAITING;
+        }
+        int isuninterruptable = 0;
+        if (isuninterruptable != 0) {
+            run_state |= TH_STATE_UNINTERRUPTIBLE;
+        }
+        int ishalted = 0;
+        if (ishalted != 0) {
+            run_state |= TH_STATE_HALTED;
+        }
+
+        int32_t flags = 0;
+        int isswapped = 0;
+        if (isswapped != 0) {
+            flags |= TH_FLAGS_SWAPPED;
+        }
+        int isidle = 0;
+        if (isidle != 0) {
+            flags |= TH_FLAGS_IDLE;
+        }
+
+        int32_t sleep_time = 0;
+        int32_t curpri = 0;
+        int32_t priority = 0;
+        int32_t maxpriority = 0;
+        int32_t name = 0;
+
         struct proc_threadinfo info = {
-
+            .pth_user_time                  = user_time,        /* user run time */
+            .pth_system_time                = system_time,      /* system run time */
+            .pth_cpu_usage                  = cpu_usage,        /* scaled cpu usage percentage */
+            .pth_policy                     = policy,           /* scheduling policy in effect */
+            .pth_run_state                  = run_state,        /* run state */
+            .pth_flags                      = flags,            /* various flags */
+            .pth_sleep_time                 = sleep_time,       /* number of seconds that thread */
+            .pth_curpri                     = curpri,           /* current priority */
+            .pth_priority                   = priority,         /* priority */
+            .pth_maxpriority                = maxpriority,      /* max priority*/
+            .pth_name                       = {name},             /* thread name, if any */
         };
-
-        uint64_t threadid = pnp->node_id.nodeid_objectid;
 
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);

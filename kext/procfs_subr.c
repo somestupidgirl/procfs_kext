@@ -22,7 +22,7 @@
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
 
-#include "procfs_iterate.h"
+#include "procfs_proc.h"
 #include "procfs_ipc.h"
 #include "procfs_node.h"
 #include "procfs_subr.h"

@@ -8,8 +8,10 @@
 #include <sys/proc_internal.h>
 #include <sys/queue.h>
 
-#include "procfs_iterate.h"
+#include "procfs_proc.h"
 #include "procfs_locks.h"
+
+lck_grp_t * proc_mlock_grp;
 
 LIST_HEAD(proclist, proc);
 struct proclist allproc;         /* List of all processes. */
@@ -135,9 +137,6 @@ static __inline__ proc_t
 procfs_pfind_locked(pid_t pid)
 {
     proc_t p;
-#if DEBUG
-    proc_t q;
-#endif
 
     if (!pid) {
         return kernproc;
@@ -151,7 +150,11 @@ procfs_pfind_locked(pid_t pid)
     return NULL;
 }
 
-static __inline__ proc_t
+
+#pragma mark -
+#pragma mark Global Functions
+
+proc_t
 procfs_proc_find_zombref(int pid)
 {
     proc_t p;
@@ -182,7 +185,7 @@ again:
     return p;
 }
 
-static __inline__ 
+void
 procfs_proc_drop_zombref(proc_t p)
 {
     procfs_list_lock();
@@ -193,8 +196,27 @@ procfs_proc_drop_zombref(proc_t p)
     procfs_list_unlock();
 }
 
-#pragma mark -
-#pragma mark Main Function
+void
+procfs_session_rele(struct session *sess)
+{
+    procfs_list_lock();
+    if (--sess->s_count == 0) {
+        if ((sess->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
+            panic("session_rele: terminating already terminated session");
+        }
+        sess->s_listflags |= S_LIST_TERM;
+        LIST_REMOVE(sess, s_hash);
+        sess->s_listflags |= S_LIST_DEAD;
+        if (sess->s_count != 0) {
+            panic("session_rele: freeing session in use");
+        }
+        procfs_list_unlock();
+        lck_mtx_destroy(&sess->s_mlock, proc_mlock_grp);
+        //zfree(session_zone, sess);
+    } else {
+        procfs_list_unlock();
+    }
+}
 
 void
 procfs_proc_iterate(unsigned int flags, procfs_proc_iterate_fn_t callout, void *arg, procfs_proc_iterate_fn_t filterfn, void *filterarg)
