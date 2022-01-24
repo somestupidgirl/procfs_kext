@@ -1,3 +1,6 @@
 [submodule "MacKernelSDK"]
 	path = MacKernelSDK
 	url = git@github.com:acidanthera/MacKernelSDK.git
+[submodule "XNUKernelFramework"]
+	path = XNUKernelFramework
+	url = git@github.com:somestupidgirl/XNUKernelFramework.git
