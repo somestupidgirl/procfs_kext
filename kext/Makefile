@@ -3,18 +3,19 @@
 #
 
 # defaults
+COPYRIGHT?=				"Copyright © 2022 somestupidgirl,  All rights reserved."
 KEXTNAME?=				procfs
 KEXTVERSION?=			1.0.0
 KEXTBUILD?=				1
-BUNDLEDOMAIN?=			com.apple.filesystems
+BUNDLEDOMAIN?=			com.stupid.filesystems
 BUNDLEID?=				$(BUNDLEDOMAIN).$(KEXTNAME)
 KEXTBUNDLE?=			$(KEXTNAME).kext
 KEXTMACHO?=				$(KEXTNAME).out
 ARCHFLAGS?=				-arch x86_64
-PREFIX?=				/Library/Extensions
-DEVELOPER_DIR?=			/Applications/Xcode-12.5.1.app/Contents/Developer
+PREFIX?=
+DEVELOPER_DIR?=			/Applications/Xcode-13.1.app/Contents/Developer
 SIGNCERT?=				sunnevanattsol@gmail.com
-MACOSX_VERSION_MIN?= 	11.3
+MACOSX_VERSION_MIN?= 	11.5
 
 #
 # Set default macOS SDK
@@ -52,7 +53,7 @@ CFLAGS+=		-D__TS__=\"$(TIME_STAMP)\"
 ifdef MACOSX_VERSION_MIN
 CFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
 else
-CFLAGS+=	-mmacosx-version-min=11.3
+CFLAGS+=	-mmacosx-version-min=11.5
 endif
 CFLAGS+=	$(SDKFLAGS) \
 			$(ARCHFLAGS) \
@@ -72,7 +73,7 @@ CFLAGS+=	-Wall -Wextra
 ifdef MACOSX_VERSION_MIN
 LDFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
 else
-LDFLAGS+=	-mmacosx-version-min=11.3
+LDFLAGS+=	-mmacosx-version-min=11.5
 endif
 LDFLAGS+=	$(SDKFLAGS) \
 		$(ARCHFLAGS) \
@@ -89,12 +90,11 @@ LDFLAGS+=	$(SDKFLAGS) \
 		-Xlinker -export_dynamic
 
 # libraries
-#LIBS+=		-LMacKernelSDK/Library/x86_64
-LIBS+=		-lkmod
+LIBS+=		-LMacKernelSDK/Library/x86_64
+LIBS+=		-lcc_kext -lkmod
 
 # kextlibs flags
-KLFLAGS+=	-xml -c -undef-symbols -all-symbols -system-extensions
-#KLFLAGS+=	-unsupported
+KLFLAGS+=	-xml -c -undef-symbols -unsupported
 
 # targets
 

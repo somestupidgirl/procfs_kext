@@ -1,78 +1,77 @@
+#include <mach/kern_return.h>
 #include <mach/mach_types.h>
+
+#include <kern/locks.h>
 
 #include <libkern/libkern.h>
 #include <libkern/locks.h>
+#include <libkern/OSMalloc.h>
 
+#include <sys/filedesc.h>
 #include <sys/mount.h>
+#include <sys/types.h>
 
 #include "procfs.h"
+#include "utils.h"
 
-kern_return_t _start (kmod_info_t *kinfo, void *data);
-kern_return_t _stop (kmod_info_t *kinfo, void *data);
+extern vfstable_t procfs_vfs_table_ref;
+extern struct vfs_fsentry procfs_vfsentry;
 
-extern struct vfsops procfs_vfsops;
-extern struct vnodeopv_desc procfs_vnodeop_opv_desc;
+lck_attr_t     *procfs_lock_attr    = NULL;
+lck_grp_attr_t *procfs_group_attr   = NULL;
+lck_grp_t      *procfs_lock_group   = NULL;
+lck_mtx_t      *procfs_device_mutex = NULL;
 
-lck_grp_t *procfs_lck_grp;
-
-static vfstable_t procfs_vfstbl_ref;
-
-static struct vfs_fsentry procfs_vfsentry = {
-    &procfs_vfsops,
-    sizeof (procfs_vnopv_desc_list) / sizeof (procfs_vnopv_desc_list[PROCFS_FSTYPENUM]),
-    procfs_vnopv_desc_list,
-    0,
-    PROCFS_NAME,
-    PROCFS_VFS_FLAGS,
-    {NULL, NULL},
-};
+kern_return_t procfs_start (kmod_info_t *kinfo, void *data);
+kern_return_t procfs_stop (kmod_info_t *kinfo, void *data);
 
 kern_return_t
-procfs_start (kmod_info_t *kinfo, void *data)
+procfs_start(__unused kmod_info_t *ki, __unused void *d)
 {
-  kern_return_t err;
-  log("starting");
-  log_debug("built with Apple LLVM %s", __clang_version__);
+    int ret;
+    struct vfsconf *vfsconf;
 
-  procfs_lck_grp = lck_grp_alloc_init (PROCFS_LCK_GRP_NAME, LCK_GRP_ATTR_NULL);
-  if (procfs_lck_grp == NULL)
-    {
-      log ("failed to allocate lock group");
-      return KERN_FAILURE;
+    ret = vfs_fsadd(&procfs_vfsentry, &procfs_vfs_table_ref);
+    if (ret != 0) {
+        procfs_vfs_table_ref = NULL;
+        goto error;
     }
 
-  err = vfs_fsadd (&procfs_vfsentry, &procfs_vfstbl_ref);
-  if (err != 0)
-    {
-      log ("failed to register procfs filesystem (errno %d)", err);
-      lck_grp_free (procfs_lck_grp);
-      return KERN_FAILURE;
+    ret = procfs_init(&vfsconf);
+    if (ret != KERN_SUCCESS) {
+        goto error;
     }
-  log_debug ("successfully registered procfs filesystem");
-  return KERN_SUCCESS;
+
+    log("procfs: starting");
+
+    return KERN_SUCCESS;
+
+error:
+    if (procfs_vfs_table_ref) {
+        (void)vfs_fsremove(procfs_vfs_table_ref);
+    }
+    procfs_fini();
+
+    return KERN_FAILURE;
 }
 
 kern_return_t
-procfs_stop (kmod_info_t *kinfo, void *data)
+procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 {
-  kern_return_t err;
-  log ("stopping");
+    int ret;
 
-  err = vfs_fsremove (procfs_vfstbl_ref);
-  if (err != 0)
-    {
-      log ("failed to remove filesystem (errno %d)", err);
-      return KERN_FAILURE;
+    ret = vfs_fsremove(procfs_vfs_table_ref);
+    if (ret != KERN_SUCCESS) {
+        return KERN_FAILURE;
     }
+    procfs_fini();
 
-  lck_grp_free (procfs_lck_grp);
-#ifdef DEBUG
-  kmemassert ();
-#endif
-  return KERN_SUCCESS;
+    log("procfs: stopping");
+
+    return KERN_SUCCESS;
 }
 
-KMOD_EXPLICIT_DECL (PROCFS_KEXTBUNDLE, PROCFS_KEXTBUILD, _start, _stop)
+KMOD_EXPLICIT_DECL (PROCFS_BUNDLEID, PROCFS_BUILD, procfs_start, procfs_stop)
   __attribute__ ((visibility ("default")))
 
 __private_extern__ kmod_start_func_t *_realmain = procfs_start;

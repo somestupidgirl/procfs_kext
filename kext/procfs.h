@@ -11,6 +11,7 @@
 #ifndef procfs_h
 #define procfs_h
 
+#include <kern/locks.h>
 #include <sys/mount.h>
 #include <sys/param.h>
 
@@ -33,24 +34,14 @@ typedef struct procfs_proc *procfs_proc_t;
 #define VFC_VFSNOMACLABEL       0x1000
 
 #define PROCFS_NAME             "procfs"
-#define PROCFS_KEXTBUNDLE       "com.stupid.filesystems.procfs.kext"
-#define PROCFS_KEXTBUILD        1
-#define PROCFS_FSTYPENUM        0
+#define PROCFS_BUNDLEID         "com.stupid.filesystems.procfs.kext"
+#define PROCFS_VERSION          "1.0.0"
+#define PROCFS_BUILD            1
 #define PROCFS_LCK_GRP_NAME     PROCFS_NAME ".lock"
-#define PROCFS_VFS_FLAGS        (VFS_TBL64BITREADY | VFC_VFSNOMACLABEL)
+#define PROCFS_TIMESTAMP        __DATE__ ", " __TIME__
 
-extern const struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM];
+extern const struct vnodeopv_desc *procfs_vnopv_desc_list[];
 extern int(**procfs_vnodeop_p)(void *);
-
-#pragma mark -
-#pragma mark Logging
-
-#define log(fmt, ...)           printf(PROCFS_NAME ": " fmt "\n", ##__VA_ARGS__)
-#ifdef DEBUG
-#define log_debug(fmt, ...)     printf(PROCFS_NAME ": " fmt " (%s:%d)\n", ##__VA_ARGS__, __func__, __LINE__)
-#else
-#define log_debug(fmt, ...)     ((void) 0)
-#endif
 
 #pragma mark -
 #pragma mark Common Definitions
@@ -109,5 +100,8 @@ static inline procfs_mount_t *vfs_mp_to_procfs_mp(struct mount *vmp) {
 static inline boolean_t procfs_should_access_check(procfs_mount_t *pmp) {
     return (pmp->pmnt_flags & PROCFS_MOPT_NOPROCPERMS) == 0;
 }
+
+int procfs_init(struct vfsconf *vfsconf);
+void procfs_fini(void);
 
 #endif /* procfs_h */

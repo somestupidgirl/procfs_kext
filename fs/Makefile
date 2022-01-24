@@ -3,18 +3,19 @@
 #
 
 # defaults
+COPYRIGHT?=				"Copyright © 2022 somestupidgirl,  All rights reserved."
 FSNAME?=				procfs
-FSVERSION?=				1.0
+FSVERSION?=				1.0.0
 FSBUILD?=				1
-BUNDLEDOMAIN?=			com.apple.filesystems.util
+BUNDLEDOMAIN?=			com.stupid.filesystems.util
 BUNDLEID?=				$(BUNDLEDOMAIN).$(FSNAME)
 FSBUNDLE?=				$(FSNAME).fs
 FSMACHO?=				$(FSNAME).out
 ARCHFLAGS?=				-arch x86_64
 PREFIX?=				/Library/Filesystems
-DEVELOPER_DIR?=			/Applications/Xcode-12.5.1.app/Contents/Developer
+DEVELOPER_DIR?=			/Applications/Xcode-13.1.app/Contents/Developer
 SIGNCERT?=				sunnevanattsol@gmail.com
-MACOSX_VERSION_MIN?= 	11.3
+MACOSX_VERSION_MIN?= 	11.5
 
 #
 # Set default macOS SDK
@@ -34,7 +35,7 @@ CODESIGN=	$(shell xcrun -find -sdk $(SDKROOT) codesign)
 ifdef MACOSX_VERSION_MIN
 CFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
 else
-CFLAGS+=	-mmacosx-version-min=11.3
+CFLAGS+=	-mmacosx-version-min=11.5
 endif
 CFLAGS+=	$(SDKFLAGS) \
 			$(ARCHFLAGS) \
@@ -52,7 +53,7 @@ CFLAGS+=	-Wall -Wextra
 ifdef MACOSX_VERSION_MIN
 LDFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
 else
-LDFLAGS+=	-mmacosx-version-min=11.3
+LDFLAGS+=	-mmacosx-version-min=11.5
 endif
 LDFLAGS+=	$(SDKFLAGS) \
 			$(ARCHFLAGS)
@@ -89,8 +90,8 @@ Info.plist~: Info.plist.in
 	$^ > $@
 
 $(FSBUNDLE): $(FSMACHO) Info.plist~
-	mkdir -p $@/Contents/MacOS
-	mv $< $@/Contents/MacOS/$(FSNAME)
+	mkdir -p $@/Contents/Resources
+	mv $< $@/Contents/Resources/mount_$(FSNAME)
 
 	# Clear placeholders(o.w. fslibs cannot parse)
 	sed 's/__FSLIBS__//g' Info.plist~ > $@/Contents/Info.plist
@@ -120,7 +121,7 @@ endif
 
 	touch $@
 
-	dsymutil $(ARCHFLAGS) -o $(FSNAME).fs.dSYM $@/Contents/MacOS/$(FSNAME)
+	dsymutil $(ARCHFLAGS) -o $(FSNAME).fs.dSYM $@/Contents/Resources/mount_$(FSNAME)
 
 # see: https://www.gnu.org/software/make/manual/html_node/Target_002dspecific.html
 # Those two flags must present at the same time  o.w. debug symbol cannot be generated

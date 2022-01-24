@@ -101,4 +101,11 @@ mach_vm_address_t solve_kernel_symbol(struct kernel_info *kinfo, char *symbol_to
 void get_addr_idt(mach_vm_address_t *idt);
 uint16_t get_size_idt(void);
 
+#define log(fmt, ...)           printf(PROCFS_NAME ": " fmt "\n", ##__VA_ARGS__)
+#ifdef DEBUG
+#define log_debug(fmt, ...)     printf(PROCFS_NAME ": " fmt " (%s:%d)\n", ##__VA_ARGS__, __func__, __LINE__)
+#else
+#define log_debug(fmt, ...)     ((void) 0)
+#endif
+
 #endif /* utils_h */

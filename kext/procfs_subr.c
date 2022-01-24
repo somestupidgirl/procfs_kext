@@ -195,6 +195,7 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
     *pidpp = pidp;
     *sizep = size;
     *pid_count = (int)(data.next_pid - pidp);
+    cleanup_kernel_info(&kinfo);
 }
 
 /*
@@ -224,6 +225,7 @@ procfs_get_process_count(kauth_cred_t creds) {
     procfs_release_pids(pidp, size);
     
     return process_count;
+    cleanup_kernel_info(&kinfo);
 }
 
 /*
@@ -291,6 +293,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     *thread_count = result == KERN_SUCCESS ? count : 0;
     
     return result;
+    cleanup_kernel_info(&kinfo);
 }
 
 /*
@@ -343,6 +346,7 @@ procfs_check_can_access_process(kauth_cred_t creds, proc_t p) {
         return 0;
     }
     return EACCES;
+    cleanup_kernel_info(&kinfo);
 }
 
 

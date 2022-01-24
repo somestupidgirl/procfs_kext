@@ -10,8 +10,6 @@
 	<string>__CLANGVER__</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>__FSMACHO__</string>
 	<key>CFBundleGetInfoString</key>
 	<string>__FSVERSION__</string>
 	<key>CFBundleIdentifier</key>
@@ -32,6 +30,10 @@
 	<dict>
 		<key>ProcFS</key>
 		<dict>
+			<key>FSMountArguments</key>
+			<string></string>
+			<key>FSMountExecutable</key>
+			<string>mount_procfs</string>
 			<key>FSName</key>
 			<string>Process File System</string>
 		</dict>

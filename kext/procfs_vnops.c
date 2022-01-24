@@ -337,6 +337,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                                 error = ENOENT;
                                 break;
                             }
+                            cleanup_kernel_info(&kinfo);
                         }
                     }
                     break;
@@ -580,6 +581,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                         procfs_release_thread_ids(thread_ids, thread_count);
                     }
                     proc_rele(p);
+                    cleanup_kernel_info(&kinfo);
                     break;   // Exit from the outer loop.
                 } else {
                     // No process for the current pid.
@@ -946,7 +948,7 @@ int (**procfs_vnodeop_p)(void *);
 // This table is converted to a fully-populated vnode operations
 // vector when procfs is registered as a file system and a pointer
 // to that vector is stored in procfs_vnodeop_p.
-const static struct vnodeopv_entry_desc procfs_vnopv_entry_desc_list[] = {
+struct vnodeopv_entry_desc procfs_vnopv_entry_desc_list[] = {
     { .opve_op = &vnop_default_desc,   .opve_impl = (VOPFUNC)vn_default_error },
     { .opve_op = &vnop_lookup_desc,    .opve_impl = (VOPFUNC)procfs_vnop_lookup },      /* lookup */
     { .opve_op = &vnop_create_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* create */
@@ -984,15 +986,3 @@ const static struct vnodeopv_entry_desc procfs_vnopv_entry_desc_list[] = {
     { .opve_op = &vnop_blockmap_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* blockmap */
     { .opve_op = (struct vnodeop_desc*)NULL, .opve_impl = (int (*)(void *))NULL }
 };
-
-// Descriptor used to create the vnode operations vector for
-// procfs from procfs_vnopv_desc_list. Entries for operations that
-// we do not support will get appropriate defaults.
-const struct vnodeopv_desc procfs_vnopv_desc =
-{ .opv_desc_vector_p = &procfs_vnodeop_p, .opv_desc_ops = procfs_vnopv_desc_list };
-
-// List of descriptors used to build vnode operations
-// vectors. Since we only have one set of vnode operations,
-// there is only one descriptor.
-const struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM] =
-{ &procfs_vnopv_desc };
