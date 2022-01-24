@@ -10,6 +10,10 @@
 	<string>__CLANGVER__</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>__FSMACHO__</string>
+	<key>CFBundleGetInfoString</key>
+	<string>__FSVERSION__</string>
 	<key>CFBundleIdentifier</key>
 	<string>__BUNDLEID__</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -24,8 +28,6 @@
 	<array>
 		<string>MacOSX</string>
 	</array>
-	<key>CFBundleVersion</key>
-	<string>__FSVERSION__</string>
 	<key>FSPersonalities</key>
 	<dict>
 		<key>ProcFS</key>
@@ -34,8 +36,9 @@
 			<string>Process File System</string>
 		</dict>
 	</dict>
-	<key>LSMinimumSystemVersion</key>
-	<string>$(MACOSX_VERSION_MIN)</string>
+	<key>CFBundleVersion</key>
+	<string>__FSVERSION__</string>
+__FSLIBS__
 </dict>
 </plist>
 

@@ -2,14 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BuildFlavor</key>
+	<string></string>
 	<key>BuildMachineOSBuild</key>
 	<string>__OSBUILD__</string>
 	<key>BuildMachineClangVersion</key>
 	<string>__CLANGVER__</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>__KEXTMACHO__</string>
 	<key>CFBundleGetInfoString</key>
-	<string>__KEXTVERSION__, Copyright © 2002-2015 Apple Inc. All rights reserved.</string>
+	<string>__KEXTVERSION__</string>
 	<key>CFBundleIdentifier</key>
 	<string>__BUNDLEID__</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -18,14 +22,22 @@
 	<string>__KEXTNAME__</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
-	<key>CFBundleVersion</key>
-	<string>__KEXTVERSION__</string>
 	<key>CFBundleShortVersionString</key>
 	<string>__KEXTBUILD__</string>
 	<key>CFBundleSupportedPlatforms</key>
 	<array>
 		<string>MacOSX</string>
 	</array>
+	<key>FSPersonalities</key>
+	<dict>
+		<key>ProcFS</key>
+		<dict>
+			<key>FSName</key>
+			<string>Process File System</string>
+		</dict>
+	</dict>
+	<key>CFBundleVersion</key>
+	<string>__KEXTVERSION__</string>
 __KEXTLIBS__
 </dict>
 </plist>

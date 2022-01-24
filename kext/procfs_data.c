@@ -33,24 +33,30 @@
 #pragma mark -
 #pragma mark External References
 
-extern task_t proc_task(proc_t);
 extern proc_t proc_find(int pid);
 
 #pragma mark -
 #pragma mark Local Function Prototypes
 
 static int procfs_copy_data(char *data, int data_len, uio_t uio);
-int (*_fp_drop)(proc_t p, int fd, struct fileproc *fp, int locked);
-int (*_proc_pidbsdinfo)(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
-int (*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo);
-int (*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
+
+#pragma mark -
+#pragma mark Symbol Resolver Prototypes
+
+static int (*_fp_drop)(proc_t p, int fd, struct fileproc *fp, int locked);
+static int (*_proc_pidbsdinfo)(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
+static int (*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo);
+static int (*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
 static void (*_proc_fdunlock)(proc_t p);
 static void (*_proc_fdlock_spin)(proc_t p);
-void (*_proc_list_lock)(void);
-void (*_proc_list_unlock)(void);
-int (*_fill_vnodeinfo)(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
-void (*_fill_fileinfo)(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
-errno_t (*_fill_socketinfo)(struct socket *so, struct socket_info *si);
+static void (*_proc_list_lock)(void);
+static void (*_proc_list_unlock)(void);
+static int (*_fill_vnodeinfo)(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
+static void (*_fill_fileinfo)(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
+static errno_t (*_fill_socketinfo)(struct socket *so, struct socket_info *si);
+static int (*_proc_gettty)(proc_t p, vnode_t *vp);
+static task_t (*_proc_task)(proc_t);
+static int (*_proc_fdlist)(proc_t p, struct proc_fdinfo *buf, size_t *count);
 
 #pragma mark -
 #pragma mark Process and Thread Node Data
@@ -150,6 +156,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     struct kernel_info kinfo;
     if (_proc_list_lock == NULL) _proc_list_lock = (void*)solve_kernel_symbol(&kinfo, "_proc_list_lock");
     if (_proc_list_unlock == NULL) _proc_list_unlock = (void*)solve_kernel_symbol(&kinfo, "_proc_list_unlock");
+    if (_proc_gettty == NULL) _proc_gettty = (void*)solve_kernel_symbol(&kinfo, "_proc_gettty");
 
     if (p != NULL) {
         _proc_list_lock();
@@ -162,7 +169,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
             proc_t session = proc_find(sessionid);
             if (session != NULL) {
                 vnode_t cttyvp;
-                int err = proc_gettty(session, &cttyvp);
+                int err = _proc_gettty(session, &cttyvp);
                 if (err == 0) {
                     // Convert the vnode to a full path.
                     int name_len = MAXPATHLEN;
@@ -446,8 +453,12 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
     int size = 0;
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
+
+    struct kernel_info kinfo;
+    if (_proc_task == NULL) _proc_task = (void*)solve_kernel_symbol(&kinfo, "_proc_task");
+
     if (p != NULL) {
-        task_t task = proc_task(p);
+        task_t task = _proc_task(p);
         if (task != NULL) {
             size += procfs_get_task_thread_count(task);
         }
@@ -469,12 +480,13 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
     struct kernel_info kinfo;
     if (_proc_fdlock_spin == NULL) _proc_fdlock_spin = (void*)solve_kernel_symbol(&kinfo, "_proc_fdlock_spin");
     if (_proc_fdunlock == NULL) _proc_fdunlock = (void*)solve_kernel_symbol(&kinfo, "_proc_fdunlock");
+    if (_proc_fdlist == NULL) _proc_fdlist = (void*)solve_kernel_symbol(&kinfo, "_proc_fdlist");
 
     if (p != NULL) {
         // Count the open files in this process.
         struct proc_fdinfo *buf;
         int count = vcount(p);
-        struct filedesc *fdp = proc_fdlist(p, buf, count);
+        struct filedesc *fdp = _proc_fdlist(p, buf, count);
         _proc_fdlock_spin(p);
         for (int i = 0; i < fdp->fd_nfiles; i++) {
             struct fileproc *fp = fdp->fd_ofiles[i];

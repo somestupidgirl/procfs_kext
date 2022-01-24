@@ -3,17 +3,18 @@
 #
 
 # defaults
-KEXTNAME?=		procfs
-KEXTVERSION?=	1.0.0
-KEXTBUILD?=		1
-BUNDLEDOMAIN?=	com.apple.filesystems
-BUNDLEID?=		$(BUNDLEDOMAIN).$(KEXTNAME)
-KEXTBUNDLE?=	$(KEXTNAME).kext
-KEXTMACHO?=		$(KEXTNAME).out
-ARCHFLAGS?=		-arch x86_64
-PREFIX?=		/Library/Extensions
-DEVELOPER_DIR?=	/Applications/Xcode-13.1.app/Contents/Developer
-SIGNCERT?=		sunnevanattsol@gmail.com
+KEXTNAME?=				procfs
+KEXTVERSION?=			1.0.0
+KEXTBUILD?=				1
+BUNDLEDOMAIN?=			com.apple.filesystems
+BUNDLEID?=				$(BUNDLEDOMAIN).$(KEXTNAME)
+KEXTBUNDLE?=			$(KEXTNAME).kext
+KEXTMACHO?=				$(KEXTNAME).out
+ARCHFLAGS?=				-arch x86_64
+PREFIX?=				/Library/Extensions
+DEVELOPER_DIR?=			/Applications/Xcode-12.5.1.app/Contents/Developer
+SIGNCERT?=				sunnevanattsol@gmail.com
+MACOSX_VERSION_MIN?= 	11.3
 
 #
 # Set default macOS SDK
@@ -27,6 +28,10 @@ SDKFLAGS=	-isysroot $(SDKROOT)
 CC=		$(shell xcrun -find -sdk $(SDKROOT) cc)
 #CXX=		$(shell xcrun -find -sdk $(SDKROOT) c++)
 CODESIGN=	$(shell xcrun -find -sdk $(SDKROOT) codesign)
+
+# source, object files
+SRCS:=		$(wildcard *.c)
+OBJS:=		$(SRCS:.c=.o)
 
 #
 # Convenience defines
@@ -73,19 +78,23 @@ LDFLAGS+=	$(SDKFLAGS) \
 		$(ARCHFLAGS) \
 		-nostdlib \
 		-Xlinker -kext \
-		-Xlinker -object_path_lto \
+		-Xlinker -object_path_lto init.o \
+		-Xlinker -object_path_lto procfs_data.o \
+		-Xlinker -object_path_lto procfs_node.o \
+		-Xlinker -object_path_lto procfs_structure.o \
+		-Xlinker -object_path_lto procfs_subr.o \
+		-Xlinker -object_path_lto procfs_vfsops.o \
+		-Xlinker -object_path_lto procfs_vnops.o \
+		-Xlinker -object_path_lto utils.o \
 		-Xlinker -export_dynamic
 
 # libraries
-LIBS+=		-LMacKernelSDK/Library/x86_64
-LIBS+=		-lcc_kext -lkmod
+#LIBS+=		-LMacKernelSDK/Library/x86_64
+LIBS+=		-lkmod
 
 # kextlibs flags
-KLFLAGS+=	-xml -c -unsupported -undef-symbols
-
-# source, object files
-SRCS:=		$(wildcard *.c)
-OBJS:=		$(SRCS:.c=.o)
+KLFLAGS+=	-xml -c -undef-symbols -all-symbols -system-extensions
+#KLFLAGS+=	-unsupported
 
 # targets
 
@@ -130,6 +139,10 @@ endif
 ifdef SIGNCERT
 	$(CODESIGN) --force --timestamp=none --sign $(SIGNCERT) $@
 	/usr/libexec/PlistBuddy -c 'Add :CFBundleSignature string ????' $@/Contents/Info.plist
+endif
+
+ifdef MACOSX_VERSION_MIN
+	/usr/libexec/PlistBuddy -c 'Add :LSMinimumSystemVersion string "$(MACOSX_VERSION_MIN)"' $@/Contents/Info.plist
 endif
 
 	# Empty-dependency kext cannot be load  so we add one if necessary

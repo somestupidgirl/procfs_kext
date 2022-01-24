@@ -3,17 +3,18 @@
 #
 
 # defaults
-FSNAME?=		procfs
-FSVERSION?=		1.0
-FSBUILD?=		1
-BUNDLEDOMAIN?=	com.apple.filesystems.util
-BUNDLEID?=		$(BUNDLEDOMAIN).$(FSNAME)
-FSBUNDLE?=		$(FSNAME).fs
-FSMACHO?=		$(FSNAME).out
-ARCHFLAGS?=		-arch x86_64
-PREFIX?=		/Library/Filesystems
-DEVELOPER_DIR?=	/Applications/Xcode-13.1.app/Contents/Developer
-SIGNCERT?=		sunnevanattsol@gmail.com
+FSNAME?=				procfs
+FSVERSION?=				1.0
+FSBUILD?=				1
+BUNDLEDOMAIN?=			com.apple.filesystems.util
+BUNDLEID?=				$(BUNDLEDOMAIN).$(FSNAME)
+FSBUNDLE?=				$(FSNAME).fs
+FSMACHO?=				$(FSNAME).out
+ARCHFLAGS?=				-arch x86_64
+PREFIX?=				/Library/Filesystems
+DEVELOPER_DIR?=			/Applications/Xcode-12.5.1.app/Contents/Developer
+SIGNCERT?=				sunnevanattsol@gmail.com
+MACOSX_VERSION_MIN?= 	11.3
 
 #
 # Set default macOS SDK
@@ -22,9 +23,9 @@ SIGNCERT?=		sunnevanattsol@gmail.com
 # to switch to Xcode from Command Line Tools if cannot find any SDK
 #
 SDKROOT?=	$(shell xcrun --sdk macosx --show-sdk-path)
-
 SDKFLAGS=	-isysroot $(SDKROOT)
-CC=		$(shell xcrun -find -sdk $(SDKROOT) cc)
+
+CC=			$(shell xcrun -find -sdk $(SDKROOT) cc)
 CODESIGN=	$(shell xcrun -find -sdk $(SDKROOT) codesign)
 
 #
@@ -60,7 +61,7 @@ LDFLAGS+=	$(SDKFLAGS) \
 LIBS+=		-lutil
 
 # fslibs flags
-FSLFLAGS+=	-xml -c -unsupported -undef-symbols
+FSLFLAGS+=	-xml -c -undef-symbols -all-symbols -system-extensions
 
 # source, object files
 SRCS:=		$(wildcard *.c)
@@ -107,6 +108,10 @@ endif
 ifdef SIGNCERT
 	$(CODESIGN) --force --timestamp=none --sign $(SIGNCERT) $@
 	/usr/libexec/PlistBuddy -c 'Add :CFBundleSignature string ????' $@/Contents/Info.plist
+endif
+
+ifdef MACOSX_VERSION_MIN
+	/usr/libexec/PlistBuddy -c 'Add :LSMinimumSystemVersion string "$(MACOSX_VERSION_MIN)"' $@/Contents/Info.plist
 endif
 
 	# Empty-dependency fs cannot be load  so we add one if necessary

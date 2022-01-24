@@ -27,9 +27,13 @@
 #pragma mark -
 #pragma mark External References
 
-extern task_t proc_task(proc_t);
 extern proc_t proc_find(int pid);
 extern struct proc *current_proc(void);
+
+#pragma mark -
+#pragma mark Symbol Resolver Prototypes
+
+static task_t (*_proc_task)(proc_t);
 
 #pragma mark -
 #pragma mark Local Definitions
@@ -309,8 +313,11 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                         if (node_type == PROCFS_THREADDIR) {
                             uint64_t *thread_ids;
                             int thread_count;
+
+                            struct kernel_info kinfo;
+                            if (_proc_task == NULL) _proc_task = (void*)solve_kernel_symbol(&kinfo, "_proc_task");
                             
-                            task_t task = proc_task(target_proc);
+                            task_t task = _proc_task(target_proc);
                             int result =  procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
                             if (result == KERN_SUCCESS) {
                                 boolean_t found = FALSE;
@@ -547,7 +554,10 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                 // until we fill up the space or run out of threads.
                 proc_t p = proc_find(pid);
                 if (p != NULL) {
-                    task_t task = proc_task(p);
+                    struct kernel_info kinfo;
+                    if (_proc_task == NULL) _proc_task = (void*)solve_kernel_symbol(&kinfo, "_proc_task");
+
+                    task_t task = _proc_task(p);
                     int thread_count;
                     uint64_t *thread_ids;
                     error = procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);

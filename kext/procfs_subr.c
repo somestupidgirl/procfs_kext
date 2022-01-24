@@ -44,13 +44,17 @@ extern proc_t proc_find(int pid);
 struct procfs_pidlist_data;
 static int procfs_get_pid(proc_t p, struct procfs_pidlist_data *data);
 
+#pragma mark -
+#pragma mark Symbol Resolver Prototypes
+
 typedef int (*proc_iterate_fn_t)(proc_t, void *);
-void (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
-kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
-kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
-thread_t (*_convert_port_to_thread)(ipc_port_t port);
+static void (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+static kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
+static kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
+static thread_t (*_convert_port_to_thread)(ipc_port_t port);
 static uint32_t (*_proc_getuid)(procfs_proc_t p);
 static uint32_t (*_proc_getgid)(procfs_proc_t p);
+static int (*_suser)(kauth_cred_t cred, u_short *acflag);
 
 /*
  * Given a vnode that corresponds to a procfsnode_t, returns the corresponding
@@ -211,8 +215,11 @@ procfs_get_process_count(kauth_cred_t creds) {
     pid_t *pidp;
     int process_count;
     uint32_t size;
-    
-    boolean_t is_suser = suser(creds, NULL) == 0;
+
+    struct kernel_info kinfo;
+    if (_suser == NULL) _suser = (void*)solve_kernel_symbol(&kinfo, "_suser");
+
+    boolean_t is_suser = _suser(creds, NULL) == 0;
     procfs_get_pids(&pidp, &process_count, &size, is_suser ? NULL : creds);
     procfs_release_pids(pidp, size);
     
