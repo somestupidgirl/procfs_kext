@@ -14,7 +14,7 @@
 #include <string.h>
 
 #include "procfs_data.h"
-#include "procfsstructure.h"
+#include "procfs_structure.h"
 
 /*
  * Definition and management of the file system layout. The

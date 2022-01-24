@@ -11,15 +11,46 @@
 #ifndef procfs_h
 #define procfs_h
 
+#include <sys/mount.h>
+#include <sys/param.h>
+
+typedef char command_t[MAXCOMLEN + 1];
+
+struct procfs_proc {
+    uid_t                p_uid;
+    gid_t                p_gid;
+    struct filedesc     *p_fd;
+    struct timeval       p_start;
+    command_t            p_comm;
+};
+
+typedef struct procfs_proc *procfs_proc_t;
+
 #pragma mark -
 #pragma mark Kext Initialization Definitions
 
-#define PROCFS_NAME         "procfs"
-#define PROCFS_FSTYPENUM    0
-#define PROCFS_LCKGRP_NAME  PROCFS_NAME ".lock"
-#define PROCFS_VFS_FLAGS    (VFS_TBL64BITREADY | VFC_VFSNOMACLABEL)
+#define VFS_TBL64BITREADY       0x0020
+#define VFC_VFSNOMACLABEL       0x1000
 
-extern struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM];
+#define PROCFS_NAME             "procfs"
+#define PROCFS_KEXTBUNDLE       "com.stupid.filesystems.procfs.kext"
+#define PROCFS_KEXTBUILD        1
+#define PROCFS_FSTYPENUM        0
+#define PROCFS_LCK_GRP_NAME     PROCFS_NAME ".lock"
+#define PROCFS_VFS_FLAGS        (VFS_TBL64BITREADY | VFC_VFSNOMACLABEL)
+
+extern const struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM];
+extern int(**procfs_vnodeop_p)(void *);
+
+#pragma mark -
+#pragma mark Logging
+
+#define log(fmt, ...)           printf(PROCFS_NAME ": " fmt "\n", ##__VA_ARGS__)
+#ifdef DEBUG
+#define log_debug(fmt, ...)     printf(PROCFS_NAME ": " fmt " (%s:%d)\n", ##__VA_ARGS__, __func__, __LINE__)
+#else
+#define log_debug(fmt, ...)     ((void) 0)
+#endif
 
 #pragma mark -
 #pragma mark Common Definitions
@@ -47,7 +78,6 @@ extern struct vfsops procfs_vfsops;
 /* -- Internal definitions. -- */
 
 #include <libkern/OSMalloc.h>
-#include "procfs_internal.h"
 
 /* -- Global functions and data -- */
 // Tag used for memory allocation.

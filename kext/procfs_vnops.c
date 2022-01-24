@@ -8,17 +8,28 @@
 #include <libkern/libkern.h>
 
 #include <sys/dirent.h>
+#include <sys/errno.h>
+#include <sys/filedesc.h>
 #include <sys/kauth.h>
+#include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/stat.h>
 #include <sys/vnode.h>
 
 #include "procfs.h"
-#include "procfsnode.h"
 #include "procfs_data.h"
-#include "procfs_internal.h"
+#include "procfs_node.h"
 #include "procfs_subr.h"
+
+#include "utils.h"
+
+#pragma mark -
+#pragma mark External References
+
+extern task_t proc_task(proc_t);
+extern proc_t proc_find(int pid);
+extern struct proc *current_proc(void);
 
 #pragma mark -
 #pragma mark Local Definitions
@@ -74,71 +85,10 @@ static int procfs_copyout_dirent(int type, uint64_t file_id, const char *name, u
 static int procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp, vnode_t *vpp);
 static void procfs_construct_process_dir_name(proc_t p, char *buffer);
 
-
-// Entries for the vnode operations that this file system supports.
-// This table is converted to a fully-populated vnode operations
-// vector when procfs is registered as a file system and a pointer
-// to that vector is stored in procfs_vnodeop_p.
-struct vnodeopv_entry_desc procfs_vnopv_entry_desc_list[] = {
-    { &vnop_default_desc,   (VNOP_FUNC)vn_default_error },
-    { &vnop_lookup_desc,    (VNOP_FUNC)procfs_vnop_lookup },      /* lookup */
-    { &vnop_create_desc,    (VNOP_FUNC)vn_default_error },        /* create */
-    { &vnop_open_desc,      (VNOP_FUNC)procfs_vnop_open },        /* open */
-    { &vnop_mknod_desc,     (VNOP_FUNC)vn_default_error },        /* mknod */
-    { &vnop_close_desc,     (VNOP_FUNC)procfs_vnop_close },       /* close */
-    { &vnop_access_desc,    (VNOP_FUNC)procfs_vnop_access },      /* access */
-    { &vnop_getattr_desc,   (VNOP_FUNC)procfs_vnop_getattr },     /* getattr */
-    { &vnop_setattr_desc,   (VNOP_FUNC)vn_default_error },        /* setattr */
-    { &vnop_read_desc,      (VNOP_FUNC)procfs_vnop_read },        /* read */
-    { &vnop_write_desc,     (VNOP_FUNC)vn_default_error },        /* write */
-    { &vnop_ioctl_desc,     (VNOP_FUNC)vn_default_error },        /* ioctl */
-    { &vnop_select_desc,    (VNOP_FUNC)vn_default_error },        /* select */
-    { &vnop_mmap_desc,      (VNOP_FUNC)vn_default_error },        /* mmap */
-    { &vnop_fsync_desc,     (VNOP_FUNC)vn_default_error },        /* fsync */
-    { &vnop_remove_desc,    (VNOP_FUNC)vn_default_error },        /* remove */
-    { &vnop_link_desc,      (VNOP_FUNC)vn_default_error },        /* link */
-    { &vnop_rename_desc,    (VNOP_FUNC)vn_default_error },        /* rename */
-    { &vnop_mkdir_desc,     (VNOP_FUNC)vn_default_error},         /* mkdir */
-    { &vnop_rmdir_desc,     (VNOP_FUNC)vn_default_error },        /* rmdir */
-    { &vnop_symlink_desc,   (VNOP_FUNC)vn_default_error },        /* symlink */
-    { &vnop_readdir_desc,   (VNOP_FUNC)procfs_vnop_readdir },     /* readdir */
-    { &vnop_readlink_desc,  (VNOP_FUNC)procfs_vnop_readlink },    /* readlink */
-    { &vnop_inactive_desc,  (VNOP_FUNC)procfs_vnop_inactive },    /* inactive */
-    { &vnop_reclaim_desc,   (VNOP_FUNC)procfs_vnop_reclaim },     /* reclaim */
-    { &vnop_strategy_desc,  (VNOP_FUNC)vn_default_error },        /* strategy */
-    { &vnop_pathconf_desc,  (VNOP_FUNC)vn_default_error },        /* pathconf */
-    { &vnop_advlock_desc,   (VNOP_FUNC)vn_default_error },        /* advlock */
-    { &vnop_bwrite_desc,    (VNOP_FUNC)vn_default_error },        /* bwrite */
-    { &vnop_pagein_desc,    (VNOP_FUNC)vn_default_error },        /* Pagein */
-    { &vnop_pageout_desc,   (VNOP_FUNC)vn_default_error },        /* Pageout */
-    { &vnop_copyfile_desc,  (VNOP_FUNC)vn_default_error },        /* Copyfile */
-    { &vnop_blktooff_desc,  (VNOP_FUNC)vn_default_error },        /* blktooff */
-    { &vnop_offtoblk_desc,  (VNOP_FUNC)vn_default_error },        /* offtoblk */
-    { &vnop_blockmap_desc,  (VNOP_FUNC)vn_default_error },        /* blockmap */
-    { NULL,                 (VNOP_FUNC)NULL }
-};
-
-// Pointer to the constructed vnode operations vector. Set
-// when the file system is registered and used when creating
-// vnodes.
-int (**procfs_vnodeop_p)(void *);
-
-// Descriptor used to create the vnode operations vector for
-// procfs from procfs_vnopv_desc_list. Entries for operations that
-// we do not support will get appropriate defaults.
-struct vnodeopv_desc procfs_vnopv_desc = {
-    &procfs_vnodeop_p,
-    procfs_vnopv_desc_list
-};
-
-// List of descriptors used to build vnode operations
-// vectors. Since we only have one set of vnode operations,
-// there is only one descriptor.
-struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM] = {
-    &procfs_vnopv_desc,
-    NULL
-};
-
+static void (*_proc_fdunlock)(proc_t p);
+static void (*_proc_fdlock_spin)(proc_t p);
+static uint32_t (*_proc_getuid)(proc_t);
+static uint32_t (*_proc_getgid)(proc_t);
 
 #pragma mark -
 #pragma mark Vnode Operations
@@ -200,6 +150,10 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
     struct componentname *cnp = ap->a_cnp;
     vnode_t dvp = ap->a_dvp; // Parent of the name to be looked up
 
+    struct kernel_info kinfo;
+    if (_proc_fdlock_spin == NULL) _proc_fdlock_spin = (void*)solve_kernel_symbol(&kinfo, "_proc_fdlock_spin");
+    if (_proc_fdunlock == NULL) _proc_fdunlock = (void*)solve_kernel_symbol(&kinfo, "_proc_fdunlock");
+
     // The parent directory must not be NULL and the name
     // length must be at least 1.
     if (dvp == NULLVP || vnode_vtype(dvp) != VDIR || cnp->cn_namelen < 1) {
@@ -254,7 +208,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
         procfs_structure_node_t *dir_snode = dir_pnp->node_structure_node;
         procfs_structure_node_t *match_node;
         procfsnode_id_t match_node_id;
-        proc_t target_proc = NULL;
+        procfs_proc_t target_proc = NULL;
         TAILQ_FOREACH(match_node, &dir_snode->psn_children, psn_next) {
             assert(error == 0);
             procfs_structure_node_type_t node_type = match_node->psn_node_type;
@@ -277,12 +231,12 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
                         struct filedesc *fdp = &target_proc->p_fd;
-                        proc_fdlock_spin(&target_proc);
+                        _proc_fdlock_spin(&target_proc);
                         if (id < fdp->fd_nfiles) {
                             struct fileproc *fp = fdp->fd_ofiles[id];
                             valid = fp!= NULL && !(fdp->fd_ofileflags[id] & UF_RESERVED);
                         }
-                        proc_fdunlock(&target_proc);
+                        _proc_fdunlock(&target_proc);
                     }
                 }
                 
@@ -345,7 +299,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     boolean_t suser = vfs_context_suser(ap->a_context) == 0;
                     procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(dvp));
                     boolean_t check_access = !suser && procfs_should_access_check(pmp);
-                    kauth_cred_t creds = ap->a_context->vc_ucred;
+                    kauth_cred_t creds = vfs_context_ucred(ap->a_context);
                     if (check_access && procfs_check_can_access_process(creds, target_proc) != 0) {
                         // Access not permitted - claim that the path does not exist.
                         error = ENOENT;
@@ -453,6 +407,10 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
     uio_t uio = ap->a_uio;
     off_t nextpos = 0;
     off_t startpos = uio_offset(uio);
+
+    struct kernel_info kinfo;
+    if (_proc_fdlock_spin == NULL) _proc_fdlock_spin = (void*)solve_kernel_symbol(&kinfo, "_proc_fdlock_spin");
+    if (_proc_fdunlock == NULL) _proc_fdunlock = (void*)solve_kernel_symbol(&kinfo, "_proc_fdunlock");
     
     // Determine whether access checks are required for process-related
     // nodes. Do not check if root or if the file system is mounted with
@@ -460,7 +418,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
     boolean_t suser = vfs_context_suser(ap->a_context) == 0;
     procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(vp));
     boolean_t check_access = !suser && procfs_should_access_check(pmp);
-    kauth_cred_t creds = ap->a_context->vc_ucred;
+    kauth_cred_t creds = vfs_context_ucred(ap->a_context);
     
     procfs_structure_node_t *snode = TAILQ_FIRST(&dir_snode->psn_children);
     while (snode != NULL && uio_resid(uio) > 0) {
@@ -631,11 +589,11 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                     struct proc_fdinfo *fdi;
                     struct filedesc *fdp = fdi->proc_fd;
                     for (int i = 0; i < fdp->fd_nfiles; i++) {
-                        proc_fdlock_spin(p);
+                        _proc_fdlock_spin(p);
                         struct fileproc *fp = fdp->fd_ofiles[i];
                         if (fp != NULL && !(fdp->fd_ofileflags[i] & UF_RESERVED)) {
                             // Need to unlock before copy out in case of fault and because it's a "long" operation.
-                            proc_fdunlock(p);
+                            _proc_fdunlock(p);
                             snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
                             int size = procfs_calc_dirent_size(fd_buffer);
                             
@@ -648,9 +606,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                                 numentries++;
                             }
                             nextpos += size;
-                            proc_fdlock_spin(p);
+                            _proc_fdlock_spin(p);
                         }
-                        proc_fdunlock(p);
+                        _proc_fdunlock(p);
                     }
                     proc_rele(p);
                     break;   // Exit from the outer loop.
@@ -752,7 +710,11 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
     
     pid_t pid;  // pid of the process for this node.
     proc_t p;   // proc_t for the process - NULL for the root node.
-    
+
+    struct kernel_info kinfo;
+    if (_proc_getuid == NULL) _proc_getuid = (void*)solve_kernel_symbol(&kinfo, "_proc_getuid");
+    if (_proc_getgid == NULL) _proc_getgid = (void*)solve_kernel_symbol(&kinfo, "_proc_getgid");
+
     // Get the process pid and proc_t for the target vnode.
     // Returns ENOENT if the process does not exist. For the
     // root vnode, p is zero and pid is PRNODE_NO_PID, but the
@@ -815,15 +777,16 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
     VATTR_RETURN(vap, va_fsid, pmp->pmnt_id);                           // File system id.
     VATTR_RETURN(vap, va_fileid, procfs_get_node_fileid(procfs_node));  // Unique file id.
     VATTR_RETURN(vap, va_data_size,
-                 procfs_get_node_size_attr(procfs_node, ap->a_context->vc_ucred)); // File size.
+                 procfs_get_node_size_attr(procfs_node, vfs_context_ucred(ap->a_context))); // File size.
     
     // Use the process start time as the create time if we have a process.
     // otherwise use the file system mount time. Set the other times to the
     // same value, since there is really no way to track them.
     struct timespec create_time;
+    struct procfs_proc *pfsp;
     if (p != NULL) {
-        create_time.tv_sec = p->p_start.tv_sec;
-        create_time.tv_nsec = p->p_start.tv_usec * 1000;
+        create_time.tv_sec = pfsp->p_start.tv_sec;
+        create_time.tv_nsec = pfsp->p_start.tv_usec * 1000;
     } else {
         create_time.tv_sec = pmp->pmnt_mount_time.tv_sec;
         create_time.tv_nsec = pmp->pmnt_mount_time.tv_nsec;
@@ -838,12 +801,12 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
     // is no process for the root node. For other nodes. the uid
     // and gid are the real ids for the current process.
     proc_t current = current_proc();
-    uid_t uid = current == NULL ? (uid_t)0 : proc_getuid(current);
-    gid_t gid = current == NULL ? (gid_t)0 : proc_getgid(current);
+    uid_t uid = current == NULL ? (uid_t)0 : _proc_getuid(current);
+    gid_t gid = current == NULL ? (gid_t)0 : _proc_getgid(current);
     if (p != NULL) {
         // Get the effective uid and gid from the process.
-        uid = proc_getuid(p);
-        gid = proc_getgid(p);
+        uid = _proc_getuid(p);
+        gid = _proc_getgid(p);
         
         proc_rele(p);
     }
@@ -957,6 +920,69 @@ static void
 procfs_construct_process_dir_name(proc_t p, char *buffer) {
     pid_t pid = proc_pid(proc_self());
     int len = snprintf(buffer, PROCESS_NAME_SIZE, "%d ", pid);
-    strlcpy(buffer + len, p->p_comm, MAXCOMLEN + 1);
+    struct procfs_proc *pfsp;
+    strlcpy(buffer + len, pfsp->p_comm, MAXCOMLEN + 1);
 }
 
+// Vnode Operations Function Descriptor
+#define VOPFUNC int (*)(void *)
+
+// Pointer to the constructed vnode operations vector. Set
+// when the file system is registered and used when creating
+// vnodes.
+int (**procfs_vnodeop_p)(void *);
+
+// Entries for the vnode operations that this file system supports.
+// This table is converted to a fully-populated vnode operations
+// vector when procfs is registered as a file system and a pointer
+// to that vector is stored in procfs_vnodeop_p.
+const static struct vnodeopv_entry_desc procfs_vnopv_entry_desc_list[] = {
+    { .opve_op = &vnop_default_desc,   .opve_impl = (VOPFUNC)vn_default_error },
+    { .opve_op = &vnop_lookup_desc,    .opve_impl = (VOPFUNC)procfs_vnop_lookup },      /* lookup */
+    { .opve_op = &vnop_create_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* create */
+    { .opve_op = &vnop_open_desc,      .opve_impl = (VOPFUNC)procfs_vnop_open },        /* open */
+    { .opve_op = &vnop_mknod_desc,     .opve_impl = (VOPFUNC)vn_default_error },        /* mknod */
+    { .opve_op = &vnop_close_desc,     .opve_impl = (VOPFUNC)procfs_vnop_close },       /* close */
+    { .opve_op = &vnop_access_desc,    .opve_impl = (VOPFUNC)procfs_vnop_access },      /* access */
+    { .opve_op = &vnop_getattr_desc,   .opve_impl = (VOPFUNC)procfs_vnop_getattr },     /* getattr */
+    { .opve_op = &vnop_setattr_desc,   .opve_impl = (VOPFUNC)vn_default_error },        /* setattr */
+    { .opve_op = &vnop_read_desc,      .opve_impl = (VOPFUNC)procfs_vnop_read },        /* read */
+    { .opve_op = &vnop_write_desc,     .opve_impl = (VOPFUNC)vn_default_error },        /* write */
+    { .opve_op = &vnop_ioctl_desc,     .opve_impl = (VOPFUNC)vn_default_error },        /* ioctl */
+    { .opve_op = &vnop_select_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* select */
+    { .opve_op = &vnop_mmap_desc,      .opve_impl = (VOPFUNC)vn_default_error },        /* mmap */
+    { .opve_op = &vnop_fsync_desc,     .opve_impl = (VOPFUNC)vn_default_error },        /* fsync */
+    { .opve_op = &vnop_remove_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* remove */
+    { .opve_op = &vnop_link_desc,      .opve_impl = (VOPFUNC)vn_default_error },        /* link */
+    { .opve_op = &vnop_rename_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* rename */
+    { .opve_op = &vnop_mkdir_desc,     .opve_impl = (VOPFUNC)vn_default_error},         /* mkdir */
+    { .opve_op = &vnop_rmdir_desc,     .opve_impl = (VOPFUNC)vn_default_error },        /* rmdir */
+    { .opve_op = &vnop_symlink_desc,   .opve_impl = (VOPFUNC)vn_default_error },        /* symlink */
+    { .opve_op = &vnop_readdir_desc,   .opve_impl = (VOPFUNC)procfs_vnop_readdir },     /* readdir */
+    { .opve_op = &vnop_readlink_desc,  .opve_impl = (VOPFUNC)procfs_vnop_readlink },    /* readlink */
+    { .opve_op = &vnop_inactive_desc,  .opve_impl = (VOPFUNC)procfs_vnop_inactive },    /* inactive */
+    { .opve_op = &vnop_reclaim_desc,   .opve_impl = (VOPFUNC)procfs_vnop_reclaim },     /* reclaim */
+    { .opve_op = &vnop_strategy_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* strategy */
+    { .opve_op = &vnop_pathconf_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* pathconf */
+    { .opve_op = &vnop_advlock_desc,   .opve_impl = (VOPFUNC)vn_default_error },        /* advlock */
+    { .opve_op = &vnop_bwrite_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* bwrite */
+    { .opve_op = &vnop_pagein_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* Pagein */
+    { .opve_op = &vnop_pageout_desc,   .opve_impl = (VOPFUNC)vn_default_error },        /* Pageout */
+    { .opve_op = &vnop_copyfile_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* Copyfile */
+    { .opve_op = &vnop_blktooff_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* blktooff */
+    { .opve_op = &vnop_offtoblk_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* offtoblk */
+    { .opve_op = &vnop_blockmap_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* blockmap */
+    { .opve_op = (struct vnodeop_desc*)NULL, .opve_impl = (int (*)(void *))NULL }
+};
+
+// Descriptor used to create the vnode operations vector for
+// procfs from procfs_vnopv_desc_list. Entries for operations that
+// we do not support will get appropriate defaults.
+const struct vnodeopv_desc procfs_vnopv_desc =
+{ .opv_desc_vector_p = &procfs_vnodeop_p, .opv_desc_ops = procfs_vnopv_desc_list };
+
+// List of descriptors used to build vnode operations
+// vectors. Since we only have one set of vnode operations,
+// there is only one descriptor.
+const struct vnodeopv_desc *procfs_vnopv_desc_list[PROCFS_FSTYPENUM] =
+{ &procfs_vnopv_desc };
