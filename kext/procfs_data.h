@@ -20,6 +20,8 @@
 
 #define SESS_LEADER(p, sessp)   ((sessp)->s_leader == (p))
 
+typedef struct pmap *pmap_t;
+
 // Functions that copy procfsnode_t data to a buffer described by a uio_t structure.
 extern int procfs_read_pid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_ppid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);

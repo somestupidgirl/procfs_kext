@@ -1,6 +1,10 @@
 #ifndef procfs_iterate_h
 #define procfs_iterate_h
 
+struct uthread {
+	vnode_t         uu_cdir;
+};
+
 typedef int (*proc_iterate_fn_t)(proc_t, void *);
 
 #define PID_MAX         99999
@@ -14,5 +18,6 @@ void proc_drop_zombref(proc_t p);
 void proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 void session_rele(struct session *sess);
 void pg_rele(struct pgrp * pgrp);
+void bsd_threadcdir(void * uth, void *vptr, int *vidp);
 
 #endif /* procfs_iterate_h */

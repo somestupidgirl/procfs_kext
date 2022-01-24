@@ -193,7 +193,7 @@ thread_dispatchqaddr(thread_t thread)
 	return dispatchqueue_addr;
 }
 
-static inline kern_return_t
+kern_return_t
 thread_info_internal(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info_out, mach_msg_type_number_t *thread_info_count)
 {
 	spl_t s;

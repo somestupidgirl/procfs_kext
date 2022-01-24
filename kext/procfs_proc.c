@@ -8,6 +8,7 @@
 #include <sys/proc_internal.h>
 #include <sys/queue.h>
 #include <sys/tty.h>
+#include <sys/vnode.h>
 
 #include "procfs_proc.h"
 #include "procfs_locks.h"
@@ -435,4 +436,22 @@ proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iter
     }
 out:
     pidlist_free(pl);
+}
+
+void
+bsd_threadcdir(void * uth, void *vptr, int *vidp)
+{
+    struct uthread * ut = (struct uthread *)uth;
+    vnode_t vp;
+    vnode_t *vpp = (vnode_t *)vptr;
+
+    vp = ut->uu_cdir;
+    if (vp != NULLVP) {
+        if (vpp != NULL) {
+            *vpp = vp;
+            if (vidp != NULL) {
+                *vidp = vnode_vid(&vpp);
+            }
+        }
+    }
 }

@@ -16,6 +16,11 @@
 
 #include <libkern/libkern.h>
 
+#include <mach/task_info.h>
+#include <mach/vm_map.h>
+#include <mach/vm_param.h>
+#include <mach/vm_types.h>
+
 #include <sys/file.h>
 #include <sys/file_internal.h>
 #include <sys/filedesc.h>
@@ -35,6 +40,8 @@
 #include "procfs_node.h"
 #include "procfs_structure.h"
 #include "procfs_subr.h"
+
+#include "utils.h"
 
 
 #pragma mark -
@@ -178,7 +185,6 @@ int
 procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     int error = 0;
-    int gotref = 0;
 
     struct session *sessionp;
     struct pgrp *pg;
@@ -359,6 +365,26 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     return error;
 }
 
+static inline
+vm_map_size_t vm_map_adjusted_size(vm_map_t map)
+{
+    mach_vm_address_t symbol;
+    struct kernel_info g_kernel_info;
+    symbol = solve_kernel_symbol(&g_kernel_info, "_vm_map_adjusted_size");
+
+    return symbol;
+}
+
+static inline
+mach_vm_size_t pmap_resident_count(pmap_t pmap)
+{
+    mach_vm_address_t symbol;
+    struct kernel_info g_kernel_info;
+    symbol = solve_kernel_symbol(&g_kernel_info, "_pmap_resident_count");
+
+    return symbol;
+}
+
 /*
  * Reads basic info for the Mach task associated with a process. Populates 
  * an instance of a proc_taskinfo structure and copies it to tthe area described
@@ -367,30 +393,37 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error = 0;
+    task_t task;
 
     // Get the process id from the node id in the procfsnode and locate
     // the process.
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    uint64_t threadid = pnp->node_id.nodeid_objectid;
 
-    uint64_t virtual_size = 0;
-    uint64_t resident_size = 0;
-    uint64_t total_user = 0;
-    uint64_t total_system = 0;
-    uint64_t threads_user = 0;
-    uint64_t threads_system = 0;
+    task_lock(task);
+
+    vm_map_t map;
+    uint64_t virtual_size = vm_map_adjusted_size(map);
+
+    pmap_t pmap;
+    uint64_t resident_size = pmap_resident_count(pmap) * PAGE_SIZE_64;
+
+    task_absolutetime_info_data_t tinfo;
+    uint64_t total_user = tinfo.total_user;
+    uint64_t total_system = tinfo.total_system;
+    uint64_t threads_user = tinfo.threads_user;
+    uint64_t threads_system = tinfo.threads_system;
     int32_t policy = 0;
-    int32_t faults = 0;
-    int32_t pageins = 0;
-    int32_t cow_faults = 0;
-    int32_t messages_sent = 0;
-    int32_t messages_received = 0;
-    int32_t syscalls_mach = 0;
-    int32_t syscalls_unix = 0;
-    int32_t csw = 0;
-    int32_t threadnum = 0;
-    int32_t numrunning = 0;
-    int32_t priority = 0;
+    int32_t faults = 0; //task->faults;
+    int32_t pageins = 0; //task->pageins;
+    int32_t cow_faults = 0; //task->cow_faults;
+    int32_t messages_sent = 0; //task->messages_sent;
+    int32_t messages_received = 0; //task->messages_received;
+    int32_t syscalls_mach = 0; //task->syscalls_mach + syscalls_mach;
+    int32_t syscalls_unix = 0; //task->syscalls_unix + syscalls_unix;
+    int32_t csw = 0; //task->c_switch + cswitch;
+    int32_t threadnum = 0; //task->thread_count;
+    int32_t numrunning = 0; //numrunning;
+    int32_t priority = 0; //task->priority;
 
     if (p != NULL) {
         // Get the task info and copy it out.
@@ -420,6 +453,7 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
         }
         proc_rele(p);
     }
+    task_unlock(task);
     return error;
 }
 
@@ -430,60 +464,104 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
 int
 procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error = 0;
-    int32_t run_state = 0;
-    uint32_t flags = 0;
+    uint64_t addr = 0;
+    task_t task;
+    thread_t thact;
+    kern_return_t kret;
+    thread_basic_info_data_t basic_info;
+    mach_msg_type_number_t count;
+    struct thread_extended_info * ptinfo;
+    void * vpp;
+    int *vidp;
+    bool thuniqueid;
 
     // Get the process id and thread from the node id in the procfsnode and locate
     // the process.
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    uint64_t threadid = pnp->node_id.nodeid_objectid;
+    uint64_t thaddr = pnp->node_id.nodeid_objectid;
 
     if (p != NULL) {
         // Get the task info and copy it out.
-        //error  = proc_pidthreadinfo(p, threadid, TRUE, &info);
+
+        task_lock(task);
 
         uint64_t user_time = 0;
         uint64_t system_time = 0;
         int32_t cpu_usage = 0;
         int32_t policy = 0;
-
         int32_t run_state = 0;
-        int isrunning = 0;
-        if (isrunning != 0) {
-            run_state |= TH_STATE_RUNNING;
-        }
-        int isstopped = 0;
-        if (isstopped != 0) {
-            run_state |= TH_STATE_STOPPED;
-        }
-        int iswaiting = 0;
-        if (iswaiting != 0) {
-            run_state |= TH_STATE_WAITING;
-        }
-        int isuninterruptable = 0;
-        if (isuninterruptable != 0) {
-            run_state |= TH_STATE_UNINTERRUPTIBLE;
-        }
-        int ishalted = 0;
-        if (ishalted != 0) {
-            run_state |= TH_STATE_HALTED;
-        }
-
         int32_t flags = 0;
-        int isswapped = 0;
-        if (isswapped != 0) {
-            flags |= TH_FLAGS_SWAPPED;
-        }
-        int isidle = 0;
-        if (isidle != 0) {
-            flags |= TH_FLAGS_IDLE;
-        }
-
         int32_t sleep_time = 0;
         int32_t curpri = 0;
         int32_t priority = 0;
         int32_t maxpriority = 0;
         int32_t name = 0;
+
+        for (thact  = (thread_t)(void *)queue_first(&task->threads);
+            !queue_end(&task->threads, (queue_entry_t)thact);) {
+            addr = (thuniqueid) ? thact->thread_id : thact->machine.cthread_self;
+            if (addr == thaddr) {
+                count = THREAD_BASIC_INFO_COUNT;
+                if ((kret = thread_info_internal(thact, THREAD_BASIC_INFO, (thread_info_t)&basic_info, &count)) != KERN_SUCCESS) {
+                    error = 1;
+                    goto out;
+                }
+                user_time = (((uint64_t)basic_info.user_time.seconds * NSEC_PER_SEC) + ((uint64_t)basic_info.user_time.microseconds * NSEC_PER_USEC));
+                system_time = (((uint64_t)basic_info.system_time.seconds * NSEC_PER_SEC) + ((uint64_t)basic_info.system_time.microseconds * NSEC_PER_USEC));
+
+                cpu_usage = basic_info.cpu_usage;
+                policy = basic_info.policy;
+                run_state = basic_info.run_state;
+
+                int isrunning = 0; // FIXME
+                if (isrunning != 0) {
+                    run_state |= TH_STATE_RUNNING;
+                }
+                int isstopped = 0; // FIXME
+                if (isstopped != 0) {
+                    run_state |= TH_STATE_STOPPED;
+                }
+                int iswaiting = 0; // FIXME
+                if (iswaiting != 0) {
+                    run_state |= TH_STATE_WAITING;
+                }
+                int isuninterruptable = 0; // FIXME
+                if (isuninterruptable != 0) {
+                    run_state |= TH_STATE_UNINTERRUPTIBLE;
+                }
+                int ishalted = 0; // FIXME
+                if (ishalted != 0) {
+                    run_state |= TH_STATE_HALTED;
+                }
+
+                flags = basic_info.flags;
+                int isswapped = 0; // FIXME
+                if (isswapped != 0) {
+                    flags |= TH_FLAGS_SWAPPED;
+                }
+                int isidle = 0; // FIXME
+                if (isidle != 0) {
+                    flags |= TH_FLAGS_IDLE;
+                }
+
+                sleep_time = basic_info.sleep_time;
+                curpri = thact->sched_pri;
+                priority = thact->base_pri;
+                maxpriority = thact->max_priority;
+
+                if ((vpp != NULL) && (thact->uthread != NULL)) {
+                    bsd_threadcdir(thact->uthread, vpp, vidp);
+                }
+                boolean_t hasname = thread_has_thread_name(thact);
+                if (thread_has_thread_name(thact) != 0) {
+                    name = sizeof(thread_set_thread_name(thact, &name));
+                }
+                error = 0;
+                goto out;
+            }
+            thact = (thread_t)(void *)queue_next(&thact->task_threads);
+        }
+        error = 1;
 
         struct proc_threadinfo info = {
             .pth_user_time                  = user_time,        /* user run time */
@@ -496,14 +574,15 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
             .pth_curpri                     = curpri,           /* current priority */
             .pth_priority                   = priority,         /* priority */
             .pth_maxpriority                = maxpriority,      /* max priority*/
-            .pth_name                       = {name},             /* thread name, if any */
+            .pth_name                       = name,             /* thread name, if any */
         };
-
+out:
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
         proc_rele(p);
     }
+    task_unlock(task);
     return error;
 }
 
