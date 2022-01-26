@@ -43,7 +43,6 @@ static int procfs_copy_data(char *data, int data_len, uio_t uio);
 #pragma mark -
 #pragma mark Symbol Resolver Prototypes
 
-static int (*_fp_drop)(proc_t p, int fd, struct fileproc *fp, int locked);
 static int (*_proc_pidbsdinfo)(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 static int (*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo);
 static int (*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
@@ -304,7 +303,6 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     struct kernel_info kinfo;
     if (_fill_fileinfo == NULL) _fill_fileinfo = (void*)solve_kernel_symbol(&kinfo, "_fill_fileinfo");
     if (_fill_vnodeinfo == NULL) _fill_vnodeinfo = (void*)solve_kernel_symbol(&kinfo, "_fill_vnodeinfo");
-    if (_fp_drop == NULL) _fp_drop = (void*)solve_kernel_symbol(&kinfo, "_fp_drop");
 
     // Get the vnode, vnode id and fileproc structure for the file.
     // The fileproc has an additional iocount, which we must remember
@@ -330,13 +328,11 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
                 info.pvip.vip_path[MAXPATHLEN-1] = 0;
                 error = procfs_copy_data((char *)&info, sizeof(info), uio);
             }
-            
             // Release the vnode hold.
             vnode_put(vp);
         }
-        
         // Release the hold on the fileproc structure
-        _fp_drop(p, fd, fp, FALSE);
+        file_drop(fd);
     }
     proc_rele(p);
     return error;
@@ -356,7 +352,6 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     struct kernel_info kinfo;
     if (_fill_fileinfo == NULL) _fill_fileinfo = (void*)solve_kernel_symbol(&kinfo, "_fill_fileinfo");
     if (_fill_socketinfo == NULL) _fill_socketinfo = (void*)solve_kernel_symbol(&kinfo, "_fill_socketinfo");
-    if (_fp_drop == NULL) _fp_drop = (void*)solve_kernel_symbol(&kinfo, "_fp_drop");
 
     int error = 0;
     proc_t p = proc_find(pid);
@@ -378,7 +373,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
             }
 
             // Release the hold on the fileproc structure
-            _fp_drop(p, fd, fp, FALSE);
+            file_drop(fd);
         }
         proc_rele(p);
     } else {
