@@ -155,7 +155,7 @@ endif
 
 # see: https://www.gnu.org/software/make/manual/html_node/Target_002dspecific.html
 # Those two flags must present at the same time  o.w. debug symbol cannot be generated
-debug: CFLAGS += -O0
+debug: CFLAGS += -O0 -g
 debug: $(KEXTBUNDLE)
 	sudo chown -R root:wheel $<
 	sudo chmod -R 755 $<

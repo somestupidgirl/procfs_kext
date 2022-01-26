@@ -10,9 +10,9 @@ all: debug
 debug:
 	sudo rm -rf $(OUT)
 	mkdir $(OUT)
-	$(MAKE) -C kext $(TARGET)
+	$(MAKE) debug -C kext $(TARGET)
 	sudo mv kext/procfs.kext kext/procfs.kext.dSYM $(OUT)
-	$(MAKE) -C fs $(TARGET)
+	$(MAKE) debug -C fs $(TARGET)
 	sudo mv fs/procfs.fs fs/procfs.fs.dsym $(OUT)
 
 
