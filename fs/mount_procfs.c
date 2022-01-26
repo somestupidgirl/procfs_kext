@@ -46,7 +46,7 @@ static struct mntopt mopts[] = {
         1,              // m_inverse: if a negative option, eg "dev"
         (1 << 0),       // m_flag: bit to set, eg. MNT_RDONLY
         0,              // m_altloc: 1 => set bit in altflags
-    }, // Inverse: if omitted, this option is enabled.
+    },                  // Inverse: if omitted, this option is enabled.
     { NULL } // End marker
 };
 
@@ -94,15 +94,13 @@ int main(int argc, char *argv[]) {
     }
 
     /* -- Mount the file system -- */
-    struct procfs_mount_args *mount_args = NULL;
-    mount_args->mnt_options = procfs_options;
-
     char *mntdir = argv[1];
     if (verbose) {
         syslog(PROCFS_SYSLOG_LEVEL, "%s: Mounting procfs on %s", prog_name, mntdir);
     }
     
-    int result = mount("procfs", mntdir, generic_options, &mount_args);
+    int mntoption = procfs_options;
+    int result = mount("procfs", mntdir, generic_options, &mntoption);
     if (result < 0) {
         fprintf(stderr, "%s: Failed to mount procfs on %s: %s\n", prog_name, mntdir, strerror(errno));
     }
