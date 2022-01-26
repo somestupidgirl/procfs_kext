@@ -17,11 +17,6 @@
 extern vfstable_t procfs_vfs_table_ref;
 extern struct vfs_fsentry procfs_vfsentry;
 
-lck_attr_t     *procfs_lock_attr    = NULL;
-lck_grp_attr_t *procfs_group_attr   = NULL;
-lck_grp_t      *procfs_lock_group   = NULL;
-lck_mtx_t      *procfs_device_mutex = NULL;
-
 kern_return_t procfs_start (kmod_info_t *kinfo, void *data);
 kern_return_t procfs_stop (kmod_info_t *kinfo, void *data);
 
@@ -37,7 +32,7 @@ procfs_start(__unused kmod_info_t *ki, __unused void *d)
         goto error;
     }
 
-    ret = procfs_init(&vfsconf);
+    ret = procfs_init(vfsconf);
     if (ret != KERN_SUCCESS) {
         goto error;
     }
