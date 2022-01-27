@@ -31,6 +31,8 @@
 extern proc_t proc_find(int pid);
 
 // These are only available in apple.kpi.private:
+typedef int (*proc_iterate_fn_t)(proc_t, void *);
+extern void proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 extern thread_t convert_port_to_thread(ipc_port_t port);
 
 #pragma mark -
