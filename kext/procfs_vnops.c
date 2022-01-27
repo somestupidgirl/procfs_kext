@@ -466,7 +466,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
     boolean_t suser = vfs_context_suser(ap->a_context) == 0;
     procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(vp));
     boolean_t check_access = !suser && procfs_should_access_check(pmp);
-    kauth_cred_t creds = ap->a_context->vc_ucred;
+    kauth_cred_t creds = vfs_context_ucred(ap->a_context);
     
     procfs_structure_node_t *snode = TAILQ_FIRST(&dir_snode->psn_children);
     while (snode != NULL && uio_resid(uio) > 0) {
