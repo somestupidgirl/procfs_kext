@@ -909,7 +909,7 @@ STATIC void
 procfs_construct_process_dir_name(proc_t p, char *buffer) {
     pid_t pid = proc_pid(proc_self());
     int len = snprintf(buffer, PROCESS_NAME_SIZE, "%d ", pid);
-    strlcpy(buffer + len, proc_best_name(&p), MAXCOMLEN + 1);
+    strlcpy(buffer + len, p->p_comm, MAXCOMLEN + 1);
 }
 
 // Vnode Operations Function Descriptor
