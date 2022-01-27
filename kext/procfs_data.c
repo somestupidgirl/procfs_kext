@@ -21,6 +21,7 @@
 #include <sys/uio.h>
 #include <sys/vnode.h>
 
+#include "procfs.h"
 #include "procfs_data.h"
 #include "procfs_node.h"
 #include "procfs_structure.h"
