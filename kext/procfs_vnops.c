@@ -221,7 +221,9 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     // Check whether it is a valid file descriptor.
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
-                        struct filedesc *fdp = target_proc->p_fd;
+                        struct proc_fdinfo *buf;
+                        int count = vcount(target_proc);
+                        struct filedesc *fdp = proc_fdlist(target_proc, buf, count);
                         proc_fdlock_spin(target_proc);
                         if (id < fdp->fd_nfiles) {
                             struct fileproc *fp = fdp->fd_ofiles[id];
