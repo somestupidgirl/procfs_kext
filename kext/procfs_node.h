@@ -13,6 +13,9 @@
 
 #include "procfs_structure.h"
 
+/* Dynamically allocated cache entries */
+#define M_CACHE             26
+
 #pragma mark -
 #pragma mark File System Dependent Node for procfs
 
