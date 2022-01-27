@@ -12,10 +12,7 @@
 #define procfs_h
 
 #include <sys/mount.h>
-
-#ifdef KERNEL
 #include <libkern/OSMalloc.h>
-#endif /* KERNEL */
 
 #pragma mark -
 #pragma mark Common Definitions
@@ -39,7 +36,6 @@ typedef struct procfs_mount_args {
 #pragma mark Internel Definitions - Kernel Only
 
 /* -- Internal definitions. -- */
-#ifdef KERNEL
 
 /* -- Global functions and data -- */
 // Tag used for memory allocation.
@@ -81,7 +77,5 @@ static inline procfs_mount_t *vfs_mp_to_procfs_mp(struct mount *vmp) {
 static inline boolean_t procfs_should_access_check(procfs_mount_t *pmp) {
     return (pmp->pmnt_flags & PROCFS_MOPT_NOPROCPERMS) == 0;
 }
-
-#endif /* KERNEL */
 
 #endif /* procfs_h */
