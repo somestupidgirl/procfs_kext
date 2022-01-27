@@ -26,6 +26,9 @@
 #pragma mark -
 #pragma mark External References.
 
+extern proc_t proc_find(int pid);
+
+// These are only available in apple.kpi.private:
 extern thread_t convert_port_to_thread(ipc_port_t port);
 
 #pragma mark -
