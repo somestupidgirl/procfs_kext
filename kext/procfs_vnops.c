@@ -351,7 +351,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     boolean_t suser = vfs_context_suser(ap->a_context) == 0;
                     procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(dvp));
                     boolean_t check_access = !suser && procfs_should_access_check(pmp);
-                    kauth_cred_t creds = ap->a_context->vc_ucred;
+                    kauth_cred_t creds = vfs_context_ucred(ap->a_context);
                     if (check_access && procfs_check_can_access_process(creds, target_proc) != 0) {
                         // Access not permitted - claim that the path does not exist.
                         error = ENOENT;
