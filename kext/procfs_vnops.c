@@ -952,7 +952,7 @@ procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp, vnode_t *v
     vnode_t new_vnode;
     int error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vnode_create_params, &new_vnode);
     
-    // Return the root vnode pointer to the caller, if it was created.
+    // Return the root vnode pointer to the caller, if it was created.gi
     *vpp = error == 0 ? new_vnode : NULLVP;
     
     return error;
@@ -965,7 +965,7 @@ procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp, vnode_t *v
  */
 STATIC void
 procfs_construct_process_dir_name(proc_t p, char *buffer) {
-    pid_t pid = p->p_pid;
+    pid_t pid = proc_pid(p);
     int len = snprintf(buffer, PROCESS_NAME_SIZE, "%d ", pid);
     strlcpy(buffer + len, p->p_comm, MAXCOMLEN + 1);
 }
