@@ -65,7 +65,7 @@ STATIC void procfsnode_free_node(procfsnode_t *procfsnode);
 void
 procfsnode_start_init(void) {
     // Allocate the lock group and the mutex lock for the hash table.
-    procfsnode_lck_grp = lck_grp_alloc_init("com.kadmas.procfs.procfsnode_locks", LCK_GRP_ATTR_NULL);
+    procfsnode_lck_grp = lck_grp_alloc_init("com.stupid.filesystems.procfs.procfsnode_locks", LCK_GRP_ATTR_NULL);
     procfsnode_hash_mutex = lck_mtx_alloc_init(procfsnode_lck_grp, LCK_ATTR_NULL);
 }
 
