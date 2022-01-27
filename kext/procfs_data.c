@@ -108,20 +108,20 @@ procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
 int
 procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error;
-    
+
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         pid_t session_id = (pid_t)0;
         PROC_LIST_LOCK();
-        struct pgrp *pgrp = p->p_pgrp;
+        proc_t pgrp = PROC_PGRP(p);
         if (pgrp != NULL) {
-            struct session *sp = pgrp->pg_session;
-            if (sp != NULL) {
-                session_id = sp->s_sid;
+            session_id = proc_sessionid(pgrp);
+            if (session_id < 0) {
+                session_id = 0;
             }
         }
         PROC_LIST_UNLOCK();
-        
+
         error = procfs_copy_data((char *)&session_id, sizeof(session_id), uio);
         proc_rele(p);
     } else {
