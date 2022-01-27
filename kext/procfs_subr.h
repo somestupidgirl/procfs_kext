@@ -11,6 +11,9 @@
 
 #include <sys/kernel_types.h>
 
+#define PROC_ALLPROCLIST    (1U << 0)
+#define PROC_RETURNED       (0)
+
 extern boolean_t procfs_node_type_has_pid(procfs_structure_node_type_t node_type);
 extern int procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp);
 extern uint64_t procfs_get_node_fileid(procfsnode_t *pnp);
