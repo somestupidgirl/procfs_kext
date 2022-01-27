@@ -106,7 +106,7 @@ procfs_init(__unused struct vfsconf *vfsconf) {
         initialized = 1;
         
         // Create the tag for memory allocation.
-        procfs_osmalloc_tag = OSMalloc_Tagalloc("com.kadmas.procfs", 0);
+        procfs_osmalloc_tag = OSMalloc_Tagalloc("com.stupid.filesystems.procfs", 0);
         if (procfs_osmalloc_tag == NULL) {
             return ENOMEM;   // Plausible error code.
         }
@@ -115,6 +115,16 @@ procfs_init(__unused struct vfsconf *vfsconf) {
         procfsnode_start_init();
     }
     return 0;
+}
+
+void
+procfs_fini(void)
+{
+    procfs_osmalloc_tag = OSMalloc_Tagalloc("com.stupid.filesystems.procfs", 0);
+    if (procfs_osmalloc_tag) {
+        OSMalloc_Tagfree(procfs_osmalloc_tag);
+        procfs_osmalloc_tag = NULL;
+    }
 }
 
 /*
