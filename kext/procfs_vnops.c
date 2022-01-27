@@ -59,6 +59,8 @@ static const int PROCESS_NAME_SIZE = MAXCOMLEN + PID_SIZE + PAD_SIZE;
 #pragma mark -
 #pragma mark External References
 
+extern proc_t proc_find(int pid);
+extern struct proc *current_proc(void);
 extern struct proclist allproc;
 
 #pragma mark -
