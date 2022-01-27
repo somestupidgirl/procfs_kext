@@ -290,7 +290,6 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     } else {
         error = ESRCH;
     }
-    
     return error;
 }
 
@@ -378,7 +377,6 @@ procfs_get_node_size_attr(procfsnode_t *pnp, kauth_cred_t creds) {
         procfs_node_size_fn node_size_fn = snode->psn_getsize_fn;
         size = node_size_fn == NULL ? snode->psn_node_size : node_size_fn(pnp, creds);
     }
-    
     return size;
 }
 
