@@ -161,13 +161,14 @@ procfs_get_pid(proc_t p, struct procfs_pidlist_data *data) {
  */
 void
 procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds) {
+    int nprocs = 0;
     uint32_t size = nprocs * sizeof(pid_t);
     pid_t *pidp = (pid_t *)OSMalloc(size, procfs_osmalloc_tag);
     
     struct procfs_pidlist_data data;
     data.creds = creds;
     data.next_pid = pidp;
-    
+
     proc_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
     *pidpp = pidp;
     *sizep = size;
