@@ -7,12 +7,13 @@
 //
 #include <libkern/libkern.h>
 #include <sys/dirent.h>
-#include <sys/kauth.h>
-#include <sys/proc.h>
-#include <sys/proc_internal.h>
+#include <sys/errno.h>
 #include <sys/filedesc.h>
+#include <sys/kauth.h>
+#include <sys/param.h>
+#include <sys/proc.h>
+#include <sys/proc_info.h>
 #include <sys/stat.h>
-#include <sys/user.h>
 #include <sys/vnode.h>
 
 #include "procfs.h"
