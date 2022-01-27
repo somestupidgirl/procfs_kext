@@ -634,7 +634,8 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                 proc_t p = proc_find(pid);
                 if (p != NULL) {
                     char fd_buffer[PROCESS_NAME_SIZE];
-                    struct filedesc *fdp = p->p_fd;
+                    struct proc_fdinfo *fdi;
+                    struct filedesc *fdp = fdi->proc_fd;
                     for (int i = 0; i < fdp->fd_nfiles; i++) {
                         proc_fdlock_spin(p);
                         struct fileproc *fp = fdp->fd_ofiles[i];
