@@ -193,7 +193,7 @@ procfs_get_process_count(kauth_cred_t creds) {
     pid_t *pidp;
     int process_count;
     uint32_t size;
-    
+
     boolean_t is_suser = suser(creds, NULL) == 0;
     procfs_get_pids(&pidp, &process_count, &size, is_suser ? NULL : creds);
     procfs_release_pids(pidp, size);
@@ -212,7 +212,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     int result = KERN_SUCCESS;
     thread_act_array_t threads;
     mach_msg_type_number_t count;
-    
+
     // Get all of the threads in the task.
     if (task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
         uint64_t thread_id_info[THREAD_IDENTIFIER_INFO_COUNT];
