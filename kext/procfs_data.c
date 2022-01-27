@@ -35,6 +35,7 @@ STATIC int procfs_copy_data(char *data, int data_len, uio_t uio);
 #pragma mark External References
 
 extern proc_t proc_find(int pid);
+extern task_t proc_task(proc_t);
 
 // These are only available in apple.kpi.private:
 extern int proc_pidbsdinfo(proc_t p, struct proc_bsdinfo *pinfo, int zombie);
