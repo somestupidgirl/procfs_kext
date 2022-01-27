@@ -43,7 +43,6 @@ extern int (**procfs_vnodeop_p)(void *);
 #pragma mark -
 #pragma mark Function Prototypes
 
-STATIC int procfs_init(struct vfsconf *vfsconf);
 STATIC int procfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t context);
 STATIC int procfs_unmount(struct mount *mp, int mntflags, vfs_context_t context);
 STATIC int procfs_root(struct mount *mp, struct vnode **vpp, vfs_context_t context);
@@ -99,7 +98,7 @@ STATIC int mounted_instance_count;
  * interlock anyway to ensure that we don't perform intialization
  * more than once. 
  */
-STATIC int
+int
 procfs_init(__unused struct vfsconf *vfsconf) {
     static int initialized;  // Protect against multiple calls.
     
