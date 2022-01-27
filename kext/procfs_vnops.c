@@ -783,18 +783,22 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
     // is no process for the root node. For other nodes. the uid
     // and gid are the real ids for the current process.
     proc_t current = current_proc();
-    uid_t uid = current == NULL ? (uid_t)0 : current->p_ruid;
-    gid_t gid = current == NULL ? (gid_t)0 : current->p_gid;
+    kauth_cred_t current_pcred = kauth_cred_proc_ref(current);
+    uid_t uid = current == NULL ? (uid_t)0 : kauth_cred_getruid(current_pcred);
+    gid_t gid = current == NULL ? (gid_t)0 : kauth_cred_getgid(current_pcred);
+    kauth_cred_unref(&current_pcred);
     if (p != NULL) {
         // Get the effective uid and gid from the process.
-        uid = p->p_uid;
-        gid = p->p_gid;
-        
+        kauth_cred_t pcred = kauth_cred_proc_ref(p);
+        uid = kauth_cred_getuid(pcred);
+        gid = kauth_cred_getgid(pcred);
+        kauth_cred_unref(&pcred);
+
         proc_rele(p);
     }
     VATTR_RETURN(vap, va_uid, uid);
     VATTR_RETURN(vap, va_gid, gid);
-    
+
     return error;
 }
 
