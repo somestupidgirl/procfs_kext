@@ -14,6 +14,12 @@
 #include "procfs_structure.h"
 
 #pragma mark -
+#pragma mark Local Definitions
+
+/* Additional malloc flags */
+#define M_CACHE 26 /* Dynamically allocated cache entries */
+
+#pragma mark -
 #pragma mark File System Dependent Node for procfs
 
 /*
