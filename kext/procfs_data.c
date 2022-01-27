@@ -258,7 +258,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
         // Get the vnode, vnode id and fileproc structure for the file.
         // The fileproc has an additional iocount, which we must remember
         // to release.
-        if ((error = fp_getfvpandvid(p, fd, &fp, &vp, &vid)) == 0) {
+        if ((error = file_vnode_withvid(fd, &vp, &vid)) == 0) {
             // Get a hold on the vnode and check that it did not
             // change id.
             if ((error = vnode_getwithvid(vp, vid)) == 0) {
