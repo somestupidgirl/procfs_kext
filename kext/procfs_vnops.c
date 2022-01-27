@@ -821,7 +821,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
     VATTR_RETURN(vap, va_fsid, pmp->pmnt_id);                           // File system id.
     VATTR_RETURN(vap, va_fileid, procfs_get_node_fileid(procfs_node));  // Unique file id.
     VATTR_RETURN(vap, va_data_size,
-                 procfs_get_node_size_attr(procfs_node, ap->a_context->vc_ucred)); // File size.
+                 procfs_get_node_size_attr(procfs_node, vfs_context_ucred(ap->a_context))); // File size.
     
     // Use the process start time as the create time if we have a process.
     // otherwise use the file system mount time. Set the other times to the
