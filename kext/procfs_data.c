@@ -290,7 +290,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
             }
             
             // Release the hold on the fileproc structure
-            fp_drop(p, fd, fp, FALSE);
+            file_drop(fd);
         }
         proc_rele(p);
     } else {
@@ -330,7 +330,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
             }
 
             // Release the hold on the fileproc structure
-            fp_drop(p, fd, fp, FALSE);
+            file_drop(fd);
         }
         proc_rele(p);
     } else {
