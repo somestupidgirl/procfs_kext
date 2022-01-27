@@ -295,21 +295,23 @@ procfs_get_task_thread_count(task_t task) {
  */
 int
 procfs_check_can_access_process(kauth_cred_t creds, proc_t p) {
+    kauth_cred_t pcred = kauth_cred_proc_ref(p);
     posix_cred_t posix_creds = &creds->cr_posix;
     
     // Allow access if the effective user id matches the
     // effective or real user id of the process.
     uid_t cred_euid = posix_creds->cr_uid;
-    if (cred_euid == proc_getuid(p) || cred_euid == kauth_cred_getruid(p)) {
+    if (cred_euid == kauth_cred_getuid(pcred) || cred_euid == kauth_cred_getruid(p)) {
         return 0;
     }
     
     // Also allow access if the effective group id matches
     // the effective or saved group id of the process.
     gid_t cred_egid = posix_creds->cr_groups[0];
-    if (cred_egid == proc_getgid(p) || cred_egid == kauth_cred_getruid(p)) {
+    if (cred_egid == kauth_cred_getgid(pcred) || cred_egid == kauth_cred_getruid(p)) {
         return 0;
     }
+    kauth_cred_unref(&pcred);
     return EACCES;
 }
 
