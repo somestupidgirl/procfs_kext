@@ -6,13 +6,14 @@
 //
 //
 
-#ifndef procfsnode_h
-#define procfsnode_h
+#ifndef procfs_node_h
+#define procfs_node_h
 
 #if KERNEL 
 
 #include <sys/vnode.h>
-#include "procfsstructure.h"
+
+#include "procfs_structure.h"
 
 #pragma mark -
 #pragma mark File System Dependent Node for procfs
@@ -115,4 +116,4 @@ extern void procfs_get_parent_node_id(procfsnode_t *pnp, procfsnode_id_t *idp);
 
 #endif /* KERNEL */
 
-#endif /* procfsnode_h */
+#endif /* procfs_node_h */

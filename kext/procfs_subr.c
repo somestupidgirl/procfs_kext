@@ -14,7 +14,8 @@
 #include <sys/ucred.h>
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
-#include "procfsnode.h"
+
+#include "procfs_node.h"
 #include "procfs_subr.h"
 
 #pragma mark -

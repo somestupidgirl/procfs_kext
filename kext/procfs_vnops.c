@@ -14,9 +14,10 @@
 #include <sys/stat.h>
 #include <sys/user.h>
 #include <sys/vnode.h>
+
 #include "procfs.h"
-#include "procfsnode.h"
 #include "procfs_data.h"
+#include "procfs_node.h"
 #include "procfs_subr.h"
 
 #pragma mark -

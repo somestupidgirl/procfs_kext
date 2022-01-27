@@ -6,11 +6,12 @@
 //
 //
 
-#ifndef procfsstructure_h
-#define procfsstructure_h
+#ifndef procfs_structure_h
+#define procfs_structure_h
 
 #include <sys/kernel_types.h>
 #include <sys/queue.h>
+
 #include "procfs.h"
 
 enum vtype;
@@ -135,4 +136,4 @@ extern void procfs_structure_free(void);
 // Gets the vnode type that is appropriate for a given structure node type.
 extern enum vtype vnode_type_for_structure_node_type(procfs_structure_node_type_t);
 
-#endif /* procfsstructure_h */
+#endif /* procfs_structure_h */

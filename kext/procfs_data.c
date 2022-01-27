@@ -18,9 +18,10 @@
 #include <sys/proc_internal.h>
 #include <sys/uio_internal.h>
 #include <sys/vnode_internal.h>
-#include "procfsnode.h"
-#include "procfsstructure.h"
+
 #include "procfs_data.h"
+#include "procfs_node.h"
+#include "procfs_structure.h"
 #include "procfs_subr.h"
 
 #pragma mark -

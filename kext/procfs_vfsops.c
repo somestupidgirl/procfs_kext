@@ -10,8 +10,9 @@
 #include <libkern/OSMalloc.h>
 #include <sys/mount.h>
 #include <sys/vnode.h>
+
 #include "procfs.h"
-#include "procfsnode.h"
+#include "procfs_node.h"
 
 #pragma mark Local Definitions
 

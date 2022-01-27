@@ -10,8 +10,9 @@
 #include <sys/systm.h>
 #include <sys/types.h>
 #include <sys/vnode.h>
+
 #include "procfs.h"
-#include "procfsnode.h"
+#include "procfs_node.h"
 
 #pragma mark -
 #pragma mark Global Definitions
