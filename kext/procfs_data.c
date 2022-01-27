@@ -44,6 +44,7 @@ extern int proc_pidtaskinfo(proc_t p, struct proc_taskinfo *tinfo);
 extern int proc_pidthreadinfo(proc_t p, uint64_t threadid,  int thuniqueid, struct proc_threadinfo *info);
 extern int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo);
 extern void fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
+extern int fill_socketinfo(socket_t so, struct socket_info *si);
 
 #pragma mark -
 #pragma mark Process and Thread Node Data
