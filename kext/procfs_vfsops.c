@@ -55,6 +55,24 @@ STATIC int procfs_create_root_vnode(mount_t mp, procfsnode_t *pnp, vnode_t *vpp)
 #pragma mark -
 #pragma mark VFS Operations Structure and VFS declaration
 
+
+const struct vfs_fsentry procfs_vfsentry = {
+    // VFS operations
+    .vfe_vfsops         = &procfs_vfsops,
+    // Number of vnodeopv_desc being registered
+    .vfe_vopcnt         = (int)(sizeof(*procfs_vnopv_desc_list)),
+    // The vnodeopv_desc's
+    .vfe_opvdescs       = procfs_vnopv_desc_list,
+    // File system type number
+    .vfe_fstypenum      = 0,
+    // File system name
+    .vfe_fsname         = PROCFS_NAME,
+    // Flags specifying file system capabilities
+    .vfe_flags          = VFS_TBL64BITREADY | VFC_VFSNOMACLABEL,
+    // Reserved for future use
+    .vfe_reserv         = {NULL, NULL}
+};
+
 /*
  * VFS OPS structure maps VFS-level operations to
  * the functions that implement them, all of which
@@ -64,7 +82,7 @@ struct vfsops procfs_vfsops = {
     &procfs_mount,      // mount
     NULL,               // start
     &procfs_unmount,    // unmount
-    &procfs_root,        // root
+    &procfs_root,       // root
     NULL,               // quotactl
     &procfs_getattr,    // getattr (for statfs(2) system call)
     NULL,               // sync
@@ -338,3 +356,4 @@ populate_vfs_attr(struct mount *mp, struct vfs_attr *fsap) {
     VFSATTR_RETURN(fsap, f_modify_time, procfs_mp->pmnt_mount_time);
     VFSATTR_RETURN(fsap, f_access_time, procfs_mp->pmnt_mount_time);
 }
+
