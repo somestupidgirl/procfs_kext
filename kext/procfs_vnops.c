@@ -21,6 +21,7 @@
 #include "procfs_locks.h"
 #include "procfs_node.h"
 #include "procfs_subr.h"
+#include "procfs_vnops.h"
 
 #pragma mark -
 #pragma mark Local Definitions
@@ -45,7 +46,7 @@
 
 // Structure used to hold the values needed to create a new vnode
 // corresponding to a procfsnode_t.
-STATIC typedef struct {
+typedef struct {
     // Parent vnode.
     vnode_t vca_parentvp;
     

@@ -13,6 +13,8 @@
 
 #include "procfs.h"
 #include "procfs_node.h"
+#include "procfs_vfsops.h"
+#include "procfs_vnops.h"
 
 #pragma mark Local Definitions
 
@@ -66,7 +68,7 @@ const struct vfs_fsentry procfs_vfsentry = {
     // File system type number
     .vfe_fstypenum      = 0,
     // File system name
-    .vfe_fsname         = PROCFS_NAME,
+    .vfe_fsname         = "procfs",
     // Flags specifying file system capabilities
     .vfe_flags          = VFS_TBL64BITREADY | VFC_VFSNOMACLABEL,
     // Reserved for future use
