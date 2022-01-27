@@ -309,7 +309,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     // both of them from the node id.
     pid_t pid = pnp->node_id.nodeid_pid;
     int fd = (int)pnp->node_id.nodeid_objectid;
-    
+
     int error = 0;
     proc_t p = proc_find(pid);
     if (p != NULL) {
@@ -320,7 +320,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
         // file is not a socket, this fails and we will return an error.
         // Otherwise, the fileproc has an additional iocount, which we
         // must remember to release.
-        if ((error = fp_getfsock(p, fd, &fp, &so)) == 0) {
+        if ((error = file_socket(fd, &so)) == 0) {
             struct socket_fdinfo info;
             
             bzero(&info, sizeof(info));
@@ -336,7 +336,6 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     } else {
         error = ESRCH;
     }
-    
     return error;
 }
 
