@@ -25,15 +25,22 @@
 #include "procfs_node.h"
 #include "procfs_subr.h"
 
+#include "utils.h"
+
 #pragma mark -
 #pragma mark External References.
 
 extern proc_t proc_find(int pid);
 
-// These are only available in apple.kpi.private:
+#pragma mark -
+#pragma mark Symbol Resolver
+
 typedef int (*proc_iterate_fn_t)(proc_t, void *);
-extern void proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
-extern thread_t convert_port_to_thread(ipc_port_t port);
+static kern_return_t (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+static kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
+static kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
+static thread_t (*_convert_port_to_thread)(ipc_port_t port);
+static int (*_suser)(kauth_cred_t cred, u_short *acflag);
 
 #pragma mark -
 #pragma mark Function Prototypes.
@@ -173,10 +180,14 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
     data.creds = creds;
     data.next_pid = pidp;
 
-    proc_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
+    struct kernel_info kinfo;
+    if (_proc_iterate == NULL) _proc_iterate = (void*)solve_kernel_symbol(&kinfo, "_proc_iterate");
+    
+    _proc_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
     *pidpp = pidp;
     *sizep = size;
     *pid_count = (int)(data.next_pid - pidp);
+    cleanup_kernel_info(&kinfo);
 }
 
 /*
@@ -198,11 +209,15 @@ procfs_get_process_count(kauth_cred_t creds) {
     int process_count;
     uint32_t size;
 
-    boolean_t is_suser = suser(creds, NULL) == 0;
+    struct kernel_info kinfo;
+    if (_suser == NULL) _suser = (void*)solve_kernel_symbol(&kinfo, "_suser");
+
+    boolean_t is_suser = _suser(creds, NULL) == 0;
     procfs_get_pids(&pidp, &process_count, &size, is_suser ? NULL : creds);
     procfs_release_pids(pidp, size);
     
     return process_count;
+    cleanup_kernel_info(&kinfo);
 }
 
 /*
@@ -217,8 +232,13 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     thread_act_array_t threads;
     mach_msg_type_number_t count;
 
+    struct kernel_info kinfo;
+    if (_thread_info == NULL) _thread_info = (void*)solve_kernel_symbol(&kinfo, "_thread_info");
+    if (_task_threads == NULL) _task_threads = (void*)solve_kernel_symbol(&kinfo, "_task_threads");
+    if (_convert_port_to_thread == NULL) _convert_port_to_thread = (void*)solve_kernel_symbol(&kinfo, "_convert_port_to_thread");
+
     // Get all of the threads in the task.
-    if (task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
+    if (_task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
         uint64_t thread_id_info[THREAD_IDENTIFIER_INFO_COUNT];
         uint64_t *threadid_ptr = (uint64_t *)OSMalloc(count * sizeof(uint64_t), procfs_osmalloc_tag);
         *thread_ids = threadid_ptr;
@@ -227,9 +247,9 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
         for (unsigned int i = 0; i < count && result == KERN_SUCCESS; i++) {
             unsigned int thread_info_count = THREAD_IDENTIFIER_INFO_COUNT;
             ipc_port_t thread_port = (ipc_port_t)threads[i];
-            thread_t thread = convert_port_to_thread(thread_port);
+            thread_t thread = _convert_port_to_thread(thread_port);
             if (thread != NULL) {
-                result = thread_info(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&thread_id_info, &thread_info_count);
+                result = _thread_info(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&thread_id_info, &thread_info_count);
                 if (result == KERN_SUCCESS) {
                     struct thread_identifier_info *idinfo = (struct thread_identifier_info *)thread_id_info;
                     *threadid_ptr++ = idinfo->thread_id;
@@ -265,6 +285,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     *thread_count = result == KERN_SUCCESS ? count : 0;
     
     return result;
+    cleanup_kernel_info(&kinfo);
 }
 
 /*
