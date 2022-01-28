@@ -13,6 +13,7 @@
 #include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
+#include <sys/proc_internal.h>
 #include <sys/stat.h>
 #include <sys/vnode.h>
 
@@ -769,6 +770,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
     // same value, since there is really no way to track them.
     struct timespec create_time;
     if (p != NULL) {
+        // FIXME:
         create_time.tv_sec = p->p_start.tv_sec;
         create_time.tv_nsec = p->p_start.tv_usec * 1000;
     } else {
@@ -909,6 +911,7 @@ STATIC void
 procfs_construct_process_dir_name(proc_t p, char *buffer) {
     pid_t pid = proc_pid(proc_self());
     int len = snprintf(buffer, PROCESS_NAME_SIZE, "%d ", pid);
+    // FIXME:
     strlcpy(buffer + len, p->p_comm, MAXCOMLEN + 1);
 }
 
