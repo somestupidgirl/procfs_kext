@@ -28,10 +28,8 @@
 #define PROCFS_NOTYPENUM     0
 #define PROCFS_VFS_FLAGS  ( \
         VFS_TBL64BITREADY | \
-        VFS_TBLFSNODELOCK | \
-        VFS_TBLNOTYPENUM  | \
-        VFS_TBLLOCALVOL   | \
         VFC_VFSNOMACLABEL | \
+        VFS_TBLFSNODELOCK | \
         0                   \
 )
 

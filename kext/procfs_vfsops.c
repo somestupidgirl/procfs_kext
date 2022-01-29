@@ -17,6 +17,7 @@
 
 #include "procfs.h"
 #include "procfs_node.h"
+#include "utils.h"
 
 #pragma mark Local Definitions
 
@@ -37,7 +38,7 @@ STATIC int32_t procfs_mount_id;
 
 /* -- External references -- */
 // Vnode ops descriptor for this file system.
-extern struct vnodeopv_desc *procfs_vnodeops_list[];
+extern struct vnodeopv_desc *procfs_vnodeops_list[1];
 
 // Pointer to the constructed vnode operations vector. Set
 // when the file system is registered and used when creating
@@ -79,7 +80,7 @@ struct vfsops procfs_vfsops = {
 
 struct vfs_fsentry procfs_vfsentry = {
     .vfe_vfsops         = &procfs_vfsops,
-    .vfe_vopcnt         = (int)(sizeof(&procfs_vnodeops_list)),
+    .vfe_vopcnt         = ARRAY_SIZE(procfs_vnodeops_list),
     .vfe_opvdescs       = &procfs_vnodeops_list,
     .vfe_fstypenum      = PROCFS_NOTYPENUM,
     .vfe_fsname         = PROCFS_FSNAME,
@@ -109,7 +110,7 @@ STATIC int mounted_instance_count;
  */
 int
 procfs_init(__unused struct vfsconf *vfsconf) {
-    static int initialized;  // Protect against multiple calls.
+    static int initialized = 0;  // Protect against multiple calls.
     
     if (!initialized) {
         initialized = 1;
@@ -140,6 +141,7 @@ procfs_fini(void)
     procfs_lck_grp = lck_grp_alloc_init(PROCFS_LCK_GRP_NAME, LCK_GRP_ATTR_NULL);
     if (procfs_lck_grp) {
         lck_grp_free(procfs_lck_grp);
+        return;
     }
     procfs_hash_mutex = lck_mtx_alloc_init(procfs_lck_grp, LCK_ATTR_NULL);
     if (procfs_hash_mutex) {

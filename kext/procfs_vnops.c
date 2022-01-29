@@ -77,6 +77,7 @@ static int (*_proc_fdlist)(proc_t p, struct proc_fdinfo *buf, size_t *count);
 #pragma mark -
 #pragma mark Function Prototypes
 
+STATIC int procfs_vnop_default(struct vnop_generic_args *arg);
 STATIC int procfs_vnop_lookup(struct vnop_lookup_args *ap);
 STATIC int procfs_vnop_getattr(struct vnop_getattr_args *ap);
 STATIC int procfs_vnop_reclaim(struct vnop_reclaim_args *ap);
@@ -94,62 +95,39 @@ STATIC int procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp,
 STATIC void procfs_construct_process_dir_name(proc_t p, char *buffer);
 
 #pragma mark -
-#pragma mark Vnode Entry and Operations Structures
+#pragma mark Vnode Structures
 
-// Entries for the vnode operations that this file system supports.
-// This table is converted to a fully-populated vnode operations
-// vector when procfs is registered as a file system and a pointer
-// to that vector is stored in procfs_vnodeop_p.
-struct vnodeopv_entry_desc procfs_vnodeop_entries[] = {
-    { .opve_op = &vnop_default_desc,   .opve_impl = (VOPFUNC)vn_default_error },
-    { .opve_op = &vnop_lookup_desc,    .opve_impl = (VOPFUNC)procfs_vnop_lookup },      /* lookup */
-    { .opve_op = &vnop_create_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* create */
-    { .opve_op = &vnop_open_desc,      .opve_impl = (VOPFUNC)procfs_vnop_open },        /* open */
-    { .opve_op = &vnop_mknod_desc,     .opve_impl = (VOPFUNC)vn_default_error },        /* mknod */
-    { .opve_op = &vnop_close_desc,     .opve_impl = (VOPFUNC)procfs_vnop_close },       /* close */
-    { .opve_op = &vnop_access_desc,    .opve_impl = (VOPFUNC)procfs_vnop_access },      /* access */
-    { .opve_op = &vnop_getattr_desc,   .opve_impl = (VOPFUNC)procfs_vnop_getattr },     /* getattr */
-    { .opve_op = &vnop_setattr_desc,   .opve_impl = (VOPFUNC)vn_default_error },        /* setattr */
-    { .opve_op = &vnop_read_desc,      .opve_impl = (VOPFUNC)procfs_vnop_read },        /* read */
-    { .opve_op = &vnop_write_desc,     .opve_impl = (VOPFUNC)vn_default_error },        /* write */
-    { .opve_op = &vnop_ioctl_desc,     .opve_impl = (VOPFUNC)vn_default_error },        /* ioctl */
-    { .opve_op = &vnop_select_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* select */
-    { .opve_op = &vnop_mmap_desc,      .opve_impl = (VOPFUNC)vn_default_error },        /* mmap */
-    { .opve_op = &vnop_fsync_desc,     .opve_impl = (VOPFUNC)vn_default_error },        /* fsync */
-    { .opve_op = &vnop_remove_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* remove */
-    { .opve_op = &vnop_link_desc,      .opve_impl = (VOPFUNC)vn_default_error },        /* link */
-    { .opve_op = &vnop_rename_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* rename */
-    { .opve_op = &vnop_mkdir_desc,     .opve_impl = (VOPFUNC)vn_default_error },         /* mkdir */
-    { .opve_op = &vnop_rmdir_desc,     .opve_impl = (VOPFUNC)vn_default_error },        /* rmdir */
-    { .opve_op = &vnop_symlink_desc,   .opve_impl = (VOPFUNC)vn_default_error },        /* symlink */
-    { .opve_op = &vnop_readdir_desc,   .opve_impl = (VOPFUNC)procfs_vnop_readdir },     /* readdir */
-    { .opve_op = &vnop_readlink_desc,  .opve_impl = (VOPFUNC)procfs_vnop_readlink },    /* readlink */
-    { .opve_op = &vnop_inactive_desc,  .opve_impl = (VOPFUNC)procfs_vnop_inactive },    /* inactive */
-    { .opve_op = &vnop_reclaim_desc,   .opve_impl = (VOPFUNC)procfs_vnop_reclaim },     /* reclaim */
-    { .opve_op = &vnop_strategy_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* strategy */
-    { .opve_op = &vnop_pathconf_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* pathconf */
-    { .opve_op = &vnop_advlock_desc,   .opve_impl = (VOPFUNC)vn_default_error },        /* advlock */
-    { .opve_op = &vnop_bwrite_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* bwrite */
-    { .opve_op = &vnop_pagein_desc,    .opve_impl = (VOPFUNC)vn_default_error },        /* Pagein */
-    { .opve_op = &vnop_pageout_desc,   .opve_impl = (VOPFUNC)vn_default_error },        /* Pageout */
-    { .opve_op = &vnop_copyfile_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* Copyfile */
-    { .opve_op = &vnop_blktooff_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* blktooff */
-    { .opve_op = &vnop_offtoblk_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* offtoblk */
-    { .opve_op = &vnop_blockmap_desc,  .opve_impl = (VOPFUNC)vn_default_error },        /* blockmap */
-    { .opve_op = (struct vnodeop_desc*)NULL, .opve_impl = (int (*)(void *))NULL }
-};
 
 // Pointer to the constructed vnode operations vector. Set
 // when the file system is registered and used when creating
 // vnodes.
 int (**procfs_vnodeop_p)(void *);
 
+// Entries for the vnode operations that this file system supports.
+// This table is converted to a fully-populated vnode operations
+// vector when procfs is registered as a file system and a pointer
+// to that vector is stored in procfs_vnodeop_p.
+struct vnodeopv_entry_desc procfs_vnodeop_entries[] = {
+    { .opve_op = &vnop_default_desc,   .opve_impl = (VOPFUNC) procfs_vnop_default },     /* default */
+    { .opve_op = &vnop_lookup_desc,    .opve_impl = (VOPFUNC) procfs_vnop_lookup },      /* lookup */
+    { .opve_op = &vnop_open_desc,      .opve_impl = (VOPFUNC) procfs_vnop_open },        /* open */
+    { .opve_op = &vnop_close_desc,     .opve_impl = (VOPFUNC) procfs_vnop_close },       /* close */
+    { .opve_op = &vnop_access_desc,    .opve_impl = (VOPFUNC) procfs_vnop_access },      /* access */
+    { .opve_op = &vnop_getattr_desc,   .opve_impl = (VOPFUNC) procfs_vnop_getattr },     /* getattr */
+    { .opve_op = &vnop_read_desc,      .opve_impl = (VOPFUNC) procfs_vnop_read },        /* read */
+    { .opve_op = &vnop_readdir_desc,   .opve_impl = (VOPFUNC) procfs_vnop_readdir },     /* readdir */
+    { .opve_op = &vnop_readlink_desc,  .opve_impl = (VOPFUNC) procfs_vnop_readlink },    /* readlink */
+    { .opve_op = &vnop_inactive_desc,  .opve_impl = (VOPFUNC) procfs_vnop_inactive },    /* inactive */
+    { .opve_op = &vnop_reclaim_desc,   .opve_impl = (VOPFUNC) procfs_vnop_reclaim },     /* reclaim */
+    { .opve_op = (struct vnodeop_desc*)NULL, .opve_impl = (int (*)(void *))NULL }
+};
+
 // Descriptor used to create the vnode operations vector for
 // procfs from procfs_vnodeop_entries. Entries for operations that
 // we do not support will get appropriate defaults.
 struct vnodeopv_desc procfs_vnodeop_opv_desc = {
-    &procfs_vnodeop_p,
-    procfs_vnodeop_entries
+    .opv_desc_vector_p  = &procfs_vnodeop_p,
+    .opv_desc_ops       = procfs_vnodeop_entries
 };
 
 // List of descriptors used to build vnode operations
@@ -185,6 +163,23 @@ STATIC
 int procfs_vnop_inactive(__unused struct vnop_inactive_args *ap) {
     // We do everything in procfs_vnop_reclaim.
     return 0;
+}
+
+/*
+ * Q: default vnode operation if a specific vnop not yet implemented?
+ *      i.e. a fallback generic operation if NYI
+ *
+ * NOTE:
+ *  you may use builtin <sys/vnode.h>#vn_default_error()
+ *  it merely return ENOTSUP  like what we do
+ *  the KPI resides in com.apple.kpi.bsd
+ */
+STATIC
+int procfs_vnop_default(struct vnop_generic_args *arg)
+{
+    kassert_nonnull(arg);
+    LOG_DBG("desc: %p", arg->a_desc);
+    return ENOTSUP;
 }
 
 /*

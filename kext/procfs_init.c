@@ -27,66 +27,82 @@ extern vfstable_t procfs_vfs_table_ref;
 #pragma mark -
 #pragma mark Function Prototypes
 
-kern_return_t procfs_start(__unused kmod_info_t *kinfo, __unused void *data);
-kern_return_t procfs_stop(__unused kmod_info_t *kinfo, __unused void *data);
+kern_return_t procfs_start(kmod_info_t *ki, __unused void *d);
+kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d);
 
 #pragma mark -
 #pragma mark Start/Stop Routines
 
 kern_return_t
-procfs_start(__unused kmod_info_t *kinfo, __unused void *data)
+procfs_start(kmod_info_t *ki, __unused void *d)
 {
-    int ret;
+    kern_return_t ret = KERN_SUCCESS;
     uuid_string_t uuid;
-    struct vfsconf *vfsconf;
+    struct vfsconf *vfsc;
 
-    ret = util_vma_uuid(kinfo->address, uuid);
-    kassert(ret == 0);
+    ret = util_vma_uuid(ki->address, uuid);
+    kassert(ret == KERN_SUCCESS);
     LOG("kext executable uuid %s", uuid);
 
-    ret = procfs_init(vfsconf);
-    if (ret == 0) {
-        LOG_DBG("lock group(%s) allocated", PROCFS_LCK_GRP_NAME);
-    } else {
-        LOG_ERR("lck_grp_alloc_init() fail");
-        goto error;
+    ret = procfs_init(&vfsc);
+    if (ret != KERN_SUCCESS) {
+        LOG_ERR("procfs_init() fail");
+        goto out_error;
     }
+    LOG_DBG("lock group(%s) allocated", PROCFS_LCK_GRP_NAME);
 
     ret = vfs_fsadd(&procfs_vfsentry, &procfs_vfs_table_ref);
-    if (ret == 0) {
-        LOG_DBG("%s file system registered", procfs_vfsentry.vfe_fsname);
-    } else {
+    if (ret != KERN_SUCCESS) {
         LOG_ERR("vfs_fsadd() failure  errno: %d", ret);
         procfs_vfs_table_ref = NULL;
-        goto error;
+        goto out_vfsadd;
     }
+    LOG_DBG("%s file system registered", procfs_vfsentry.vfe_fsname);
 
     LOG("loaded %s version %s build %s (%s)",
         PROCFS_BUNDLEID, PROCFS_VERSION, PROCFS_BUILDNUM, __TS__);
 
-    return KERN_SUCCESS;
-
-error:
-    if (procfs_vfs_table_ref) {
-        (void)vfs_fsremove(procfs_vfs_table_ref);
+    if (ret == KERN_SUCCESS) {
+        goto out_exit;
+    } else {
+        goto out_error;
     }
-    procfs_fini();
 
-    return KERN_FAILURE;
+out_exit:
+    return ret;
+
+out_vfsadd:
+    procfs_fini();
+    goto out_error;
+
+out_error:
+    ret = KERN_FAILURE;
+    goto out_exit;
 }
 
-kern_return_t
-procfs_stop(__unused kmod_info_t *kinfo, __unused void *data)
+kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 {
-    int ret;
+    kern_return_t ret = KERN_SUCCESS;
 
     ret = vfs_fsremove(procfs_vfs_table_ref);
-    if (ret != 0) {
-        return KERN_FAILURE;
+    if (ret) {
+        LOG_ERR("vfs_fsremove() failure  errno: %d", ret);
+        goto out_vfs_rm;
     }
+
     procfs_fini();
 
-    return KERN_SUCCESS;
+    util_massert();
+
+    LOG("unloaded %s version %s build %s (%s)",
+        BUNDLEID_S, KEXTVERSION_S, KEXTBUILD_S, __TS__);
+
+out_exit:
+    return ret;
+
+out_vfs_rm:
+    ret = KERN_FAILURE;
+    goto out_exit;
 }
 
 KMOD_EXPLICIT_DECL (PROCFS_BUNDLEID, PROCFS_BUILDNUM, procfs_start, procfs_stop)
