@@ -5,16 +5,18 @@
 //  Created by Kim Topley on 12/3/15.
 //
 //
+#include <kern/locks.h>
+#include <kern/lock_group.h>
+
 #include <libkern/libkern.h>
 #include <libkern/OSAtomic.h>
 #include <libkern/OSMalloc.h>
+
 #include <sys/mount.h>
 #include <sys/vnode.h>
 
 #include "procfs.h"
 #include "procfs_node.h"
-#include "procfs_vfsops.h"
-#include "procfs_vnops.h"
 
 #pragma mark Local Definitions
 
@@ -45,6 +47,9 @@ extern int (**procfs_vnodeop_p)(void *);
 #pragma mark -
 #pragma mark Function Prototypes
 
+int procfs_init(__unused struct vfsconf *vfsconf);
+void procfs_fini(void);
+
 STATIC int procfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t context);
 STATIC int procfs_unmount(struct mount *mp, int mntflags, vfs_context_t context);
 STATIC int procfs_root(struct mount *mp, struct vnode **vpp, vfs_context_t context);
@@ -57,23 +62,7 @@ STATIC int procfs_create_root_vnode(mount_t mp, procfsnode_t *pnp, vnode_t *vpp)
 #pragma mark -
 #pragma mark VFS Operations Structure and VFS declaration
 
-
-const struct vfs_fsentry procfs_vfsentry = {
-    // VFS operations
-    .vfe_vfsops         = &procfs_vfsops,
-    // Number of vnodeopv_desc being registered
-    .vfe_vopcnt         = (int)(sizeof(*procfs_vnopv_desc_list)),
-    // The vnodeopv_desc's
-    .vfe_opvdescs       = procfs_vnopv_desc_list,
-    // File system type number
-    .vfe_fstypenum      = 0,
-    // File system name
-    .vfe_fsname         = "procfs",
-    // Flags specifying file system capabilities
-    .vfe_flags          = VFS_TBL64BITREADY | VFC_VFSNOMACLABEL,
-    // Reserved for future use
-    .vfe_reserv         = {NULL, NULL}
-};
+vfstable_t procfs_vfs_table_ref;
 
 /*
  * VFS OPS structure maps VFS-level operations to
@@ -81,20 +70,20 @@ const struct vfs_fsentry procfs_vfsentry = {
  * are in this file.
  */
 struct vfsops procfs_vfsops = {
-    &procfs_mount,      // mount
-    NULL,               // start
-    &procfs_unmount,    // unmount
-    &procfs_root,       // root
-    NULL,               // quotactl
-    &procfs_getattr,    // getattr (for statfs(2) system call)
-    NULL,               // sync
-    NULL,               // vget
-    NULL,               // fhtovp
-    NULL,               // vptofh
-    &procfs_init,       // init
-    NULL,               // sysctl,
-    NULL,               // setattr,
-    {NULL}
+    .vfs_mount          = procfs_mount,
+    .vfs_unmount        = procfs_unmount,
+    .vfs_root           = procfs_root,
+    .vfs_getattr        = procfs_getattr,
+    .vfs_init           = procfs_init,
+};
+
+struct vfs_fsentry procfs_vfsentry = {
+    .vfe_vfsops         = &procfs_vfsops,
+    .vfe_vopcnt         = (int)(sizeof(&procfs_vnodeops_list)),
+    .vfe_opvdescs       = &procfs_vnodeops_list,
+    .vfe_fstypenum      = PROCFS_NOTYPENUM,
+    .vfe_fsname         = PROCFS_FSNAME,
+    .vfe_flags          = PROCFS_VFS_FLAGS
 };
 
 #pragma mark -
@@ -140,10 +129,21 @@ procfs_init(__unused struct vfsconf *vfsconf) {
 void
 procfs_fini(void)
 {
+    lck_grp_t *procfs_lck_grp;
+    lck_mtx_t *procfs_hash_mutex;
+    
     procfs_osmalloc_tag = OSMalloc_Tagalloc("com.stupid.filesystems.procfs", 0);
     if (procfs_osmalloc_tag) {
         OSMalloc_Tagfree(procfs_osmalloc_tag);
         procfs_osmalloc_tag = NULL;
+    }
+    procfs_lck_grp = lck_grp_alloc_init(PROCFS_LCK_GRP_NAME, LCK_GRP_ATTR_NULL);
+    if (procfs_lck_grp) {
+        lck_grp_free(procfs_lck_grp);
+    }
+    procfs_hash_mutex = lck_mtx_alloc_init(procfs_lck_grp, LCK_ATTR_NULL);
+    if (procfs_hash_mutex) {
+        lck_mtx_free(procfs_hash_mutex, procfs_lck_grp);
     }
 }
 
@@ -169,6 +169,7 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
         }
         
         // Allocate the procfs mount structure and link it to the VFS structure.
+        procfs_osmalloc_tag = OSMalloc_Tagalloc("com.stupid.filesystems.procfs", 0);
         procfs_mp = (procfs_mount_t *)OSMalloc(sizeof(procfs_mount_t), procfs_osmalloc_tag);
         if (procfs_mp == NULL) {
             printf("procfs: Failed to allocate procfs_mount_t");

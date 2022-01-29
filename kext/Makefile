@@ -94,7 +94,7 @@ LIBS+=		-LMacKernelSDK/Library/x86_64
 LIBS+=		-lcc_kext -lkmod
 
 # kextlibs flags
-KLFLAGS+=	-xml -c -undef-symbols
+KLFLAGS+=	-xml -c -undef-symbols -unsupported
 
 # targets
 

@@ -17,8 +17,23 @@
 #pragma mark -
 #pragma mark Common Definitions
 
+#define VFC_VFSNOMACLABEL    0x1000
+
 // File system type name.
-#define PROCFS_FSNAME "procfs"
+#define PROCFS_FSNAME        "procfs"
+#define PROCFS_BUNDLEID      "com.stupid.filesystems.procfs"
+#define PROCFS_BUILDNUM      "1"
+#define PROCFS_VERSION       "1.0.0"
+#define PROCFS_LCK_GRP_NAME  PROCFS_BUNDLEID ".lckgrp"
+#define PROCFS_NOTYPENUM     0
+#define PROCFS_VFS_FLAGS  ( \
+        VFS_TBL64BITREADY | \
+        VFS_TBLFSNODELOCK | \
+        VFS_TBLNOTYPENUM  | \
+        VFS_TBLLOCALVOL   | \
+        VFC_VFSNOMACLABEL | \
+        0                   \
+)
 
 // Mount option flags.
 // Do not apply process permissions to the pid entries in /proc.
