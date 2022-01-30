@@ -30,13 +30,13 @@
 #pragma mark -
 #pragma mark External References.
 
+typedef int (*proc_iterate_fn_t)(proc_t, void *);
+extern void procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 extern proc_t proc_find(int pid);
 
 #pragma mark -
 #pragma mark Symbol Resolver
 
-typedef int (*proc_iterate_fn_t)(proc_t, void *);
-static kern_return_t (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 static kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 static kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
 static thread_t (*_convert_port_to_thread)(ipc_port_t port);
@@ -179,15 +179,11 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
     struct procfs_pidlist_data data;
     data.creds = creds;
     data.next_pid = pidp;
-
-    struct kernel_info kinfo;
-    if (_proc_iterate == NULL) _proc_iterate = (void*)solve_kernel_symbol(&kinfo, "_proc_iterate");
     
-    _proc_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
+    procfs_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
     *pidpp = pidp;
     *sizep = size;
     *pid_count = (int)(data.next_pid - pidp);
-    cleanup_kernel_info(&kinfo);
 }
 
 /*

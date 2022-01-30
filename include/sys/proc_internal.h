@@ -412,8 +412,5 @@ struct	proc {
     uint64_t	p_dispatchqueue_offset;
     uint64_t	p_dispatchqueue_serialno_offset;
 };
-#endif	/* !_SYS_PROC_INTERNAL_H_ */
 
-struct proclist {
-    struct proc *lh_first;
-};
+#endif	/* !_SYS_PROC_INTERNAL_H_ */
