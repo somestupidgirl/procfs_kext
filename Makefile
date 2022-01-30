@@ -19,9 +19,13 @@ debug:
 release: TARGET=release
 release: debug
 
+install:
+	sudo cp -r $(OUT)/procfs.kext /Library/Extensions
+	sudo cp -r $(OUT)/procfs.fs /Library/Filesystems
+
 clean:
 	sudo rm -rf $(OUT)
 	sudo $(MAKE) -C kext clean
 	sudo $(MAKE) -C fs clean
 
-.PHONY: all debug release clean
+.PHONY: all debug release install clean
