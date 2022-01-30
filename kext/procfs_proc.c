@@ -14,6 +14,13 @@
 
 #include "procfs_proc.h"
 
+#if 0
+ZONE_DECLARE(pgrp_zone, "pgrp",
+    sizeof(struct pgrp), ZC_ZFREE_CLEARMEM);
+ZONE_DECLARE(session_zone, "session",
+    sizeof(struct session), ZC_ZFREE_CLEARMEM);
+#endif
+
 #pragma mark -
 #pragma mark External References
 
@@ -31,6 +38,22 @@ extern void procfs_tty_unlock(struct tty *tp);
 proc_t procfs_find_zombref(int pid);
 void procfs_drop_zombref(proc_t p);
 void procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+int procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
+
+#pragma mark -
+#pragma mark Structures
+
+typedef struct pidlist_entry {
+    SLIST_ENTRY(pidlist_entry) pe_link;
+    u_int pe_nused;
+    pid_t pe_pid[PIDS_PER_ENTRY];
+} pidlist_entry_t;
+
+typedef struct {
+    SLIST_HEAD(, pidlist_entry) pl_head;
+    struct pidlist_entry *pl_active;
+    u_int pl_nalloc;
+} pidlist_t;
 
 #pragma mark -
 #pragma mark Static Inline Functions
@@ -124,6 +147,199 @@ procfs_pfind_locked(pid_t pid)
     return NULL;
 }
 
+/*
+ * delete a process group
+ */
+static inline void
+procfs_pgdelete_dropref(struct pgrp *pgrp)
+{
+    struct tty *ttyp;
+    int emptypgrp  = 1;
+    struct session *sessp;
+    lck_grp_t * proc_mlock_grp;
+
+    procfs_pgrp_lock(pgrp);
+    if (pgrp->pg_membercnt != 0) {
+        emptypgrp = 0;
+    }
+    procfs_pgrp_unlock(pgrp);
+
+    procfs_list_lock();
+    pgrp->pg_refcount--;
+    if ((emptypgrp == 0) || (pgrp->pg_membercnt != 0)) {
+        procfs_list_unlock();
+        return;
+    }
+
+    pgrp->pg_listflags |= PGRP_FLAG_TERMINATE;
+
+    if (pgrp->pg_refcount > 0) {
+        procfs_list_unlock();
+        return;
+    }
+
+    pgrp->pg_listflags |= PGRP_FLAG_DEAD;
+    LIST_REMOVE(pgrp, pg_hash);
+
+    procfs_list_unlock();
+
+    ttyp = SESSION_TP(pgrp->pg_session);
+    if (ttyp != TTY_NULL) {
+        if (ttyp->t_pgrp == pgrp) {
+            procfs_tty_lock(ttyp);
+            /* Re-check after acquiring the lock */
+            if (ttyp->t_pgrp == pgrp) {
+                ttyp->t_pgrp = NULL;
+                pgrp->pg_session->s_ttypgrpid = NO_PID;
+            }
+            procfs_tty_unlock(ttyp);
+        }
+    }
+
+    procfs_list_lock();
+
+    sessp = pgrp->pg_session;
+    if ((sessp->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
+        panic("pg_deleteref: manipulating refs of already terminating session");
+    }
+    if (--sessp->s_count == 0) {
+        if ((sessp->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
+            panic("pg_deleteref: terminating already terminated session");
+        }
+        sessp->s_listflags |= S_LIST_TERM;
+        ttyp = SESSION_TP(sessp);
+        LIST_REMOVE(sessp, s_hash);
+        procfs_list_unlock();
+
+        if (ttyp != TTY_NULL) {
+            procfs_tty_lock(ttyp);
+            if (ttyp->t_session == sessp) {
+                ttyp->t_session = NULL;
+            }
+            procfs_tty_unlock(ttyp);
+        }
+
+        procfs_list_lock();
+        sessp->s_listflags |= S_LIST_DEAD;
+        if (sessp->s_count != 0) {
+            panic("pg_deleteref: freeing session in use");
+        }
+        procfs_list_unlock();
+        lck_mtx_destroy(&sessp->s_mlock, proc_mlock_grp);
+        //zfree(session_zone, sessp);
+    } else {
+        procfs_list_unlock();
+    }
+    lck_mtx_destroy(&pgrp->pg_mlock, proc_mlock_grp);
+    //zfree(pgrp_zone, pgrp);
+}
+
+static inline void
+procfs_pg_rele_dropref(struct pgrp * pgrp)
+{
+    procfs_list_lock();
+    if ((pgrp->pg_refcount == 1) && ((pgrp->pg_listflags & PGRP_FLAG_TERMINATE) == PGRP_FLAG_TERMINATE)) {
+        procfs_list_unlock();
+        procfs_pgdelete_dropref(pgrp);
+        return;
+    }
+
+    pgrp->pg_refcount--;
+    procfs_list_unlock();
+}
+
+static inline struct pgrp *
+procfs_pgrp(proc_t p)
+{
+    struct pgrp * pgrp;
+    lck_mtx_t * proc_list_mlock;
+
+    if (p == PROC_NULL) {
+        return PGRP_NULL;
+    }
+    procfs_list_lock();
+
+    while ((p->p_listflag & P_LIST_PGRPTRANS) == P_LIST_PGRPTRANS) {
+        p->p_listflag |= P_LIST_PGRPTRWAIT;
+        (void)msleep(&p->p_pgrpid, proc_list_mlock, 0, "procfs_pgrp", 0);
+    }
+
+    pgrp = p->p_pgrp;
+
+    assert(pgrp != NULL);
+
+    if (pgrp != PGRP_NULL) {
+        pgrp->pg_refcount++;
+        if ((pgrp->pg_listflags & (PGRP_FLAG_TERMINATE | PGRP_FLAG_DEAD)) != 0) {
+            panic("procfs_pgrp: ref being povided for dead pgrp");
+        }
+    }
+
+    procfs_list_unlock();
+
+    return pgrp;
+}
+
+static inline void
+procfs_pg_rele(struct pgrp * pgrp)
+{
+    if (pgrp == PGRP_NULL) {
+        return;
+    }
+    procfs_pg_rele_dropref(pgrp);
+}
+
+static inline void
+procfs_session_rele(struct session *sess)
+{
+    lck_grp_t * proc_mlock_grp;
+    procfs_list_lock();
+    if (--sess->s_count == 0) {
+        if ((sess->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
+            panic("procfs_session_rele: terminating already terminated session");
+        }
+        sess->s_listflags |= S_LIST_TERM;
+        LIST_REMOVE(sess, s_hash);
+        sess->s_listflags |= S_LIST_DEAD;
+        if (sess->s_count != 0) {
+            panic("session_rele: freeing session in use");
+        }
+        procfs_list_unlock();
+        lck_mtx_destroy(&sess->s_mlock, proc_mlock_grp);
+        //zfree(session_zone, sess);
+    } else {
+        procfs_list_unlock();
+    }
+}
+
+static inline struct session *
+procfs_session(proc_t p)
+{
+    struct session * sess = SESSION_NULL;
+    lck_mtx_t * proc_list_mlock;
+
+    if (p == PROC_NULL) {
+        return SESSION_NULL;
+    }
+
+    procfs_list_lock();
+
+    /* wait during transitions */
+    while ((p->p_listflag & P_LIST_PGRPTRANS) == P_LIST_PGRPTRANS) {
+        p->p_listflag |= P_LIST_PGRPTRWAIT;
+        (void)msleep(&p->p_pgrpid, proc_list_mlock, 0, "procfs_pgrp", 0);
+    }
+
+    if ((p->p_pgrp != PGRP_NULL) && ((sess = p->p_pgrp->pg_session) != SESSION_NULL)) {
+        if ((sess->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
+            panic("procfs_session:returning sesssion ref on terminating session");
+        }
+        sess->s_count++;
+    }
+    procfs_list_unlock();
+    return sess;
+}
+
 #pragma mark -
 #pragma mark Global Functions
 
@@ -131,6 +347,7 @@ proc_t
 procfs_find_zombref(int pid)
 {
     proc_t p;
+    lck_mtx_t * proc_list_mlock;
 
     procfs_list_lock();
 
@@ -277,4 +494,129 @@ procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_it
     }
 out:
     procfs_pidlist_free(pl);
+}
+
+int
+procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
+{
+
+	struct tty *tp;
+	struct session *sessionp = NULL;
+	struct pgrp * pg;
+	kauth_cred_t my_cred;
+
+	pg = procfs_pgrp(p);
+	sessionp = procfs_session(p);
+
+	my_cred = kauth_cred_proc_ref(p);
+	bzero(pbsd, sizeof(struct proc_bsdinfo));
+	pbsd->pbi_status = p->p_stat;
+	pbsd->pbi_xstatus = p->p_xstat;
+	pbsd->pbi_pid = p->p_pid;
+	pbsd->pbi_ppid = p->p_ppid;
+	pbsd->pbi_uid = kauth_cred_getuid(my_cred);
+	pbsd->pbi_gid = kauth_cred_getgid(my_cred);
+	pbsd->pbi_ruid =  kauth_cred_getruid(my_cred);
+	pbsd->pbi_rgid = kauth_cred_getrgid(my_cred);
+	pbsd->pbi_svuid =  kauth_cred_getsvuid(my_cred);
+	pbsd->pbi_svgid = kauth_cred_getsvgid(my_cred);
+	kauth_cred_unref(&my_cred);
+
+	pbsd->pbi_nice = p->p_nice;
+	pbsd->pbi_start_tvsec = p->p_start.tv_sec;
+	pbsd->pbi_start_tvusec = p->p_start.tv_usec;
+	bcopy(&p->p_comm, &pbsd->pbi_comm[0], MAXCOMLEN);
+	pbsd->pbi_comm[MAXCOMLEN - 1] = '\0';
+	bcopy(&p->p_name, &pbsd->pbi_name[0], 2 * MAXCOMLEN);
+	pbsd->pbi_name[(2 * MAXCOMLEN) - 1] = '\0';
+
+	pbsd->pbi_flags = 0;
+	if ((p->p_flag & P_SYSTEM) == P_SYSTEM) {
+		pbsd->pbi_flags |= PROC_FLAG_SYSTEM;
+	}
+	if ((p->p_lflag & P_LTRACED) == P_LTRACED) {
+		pbsd->pbi_flags |= PROC_FLAG_TRACED;
+	}
+	if ((p->p_lflag & P_LEXIT) == P_LEXIT) {
+		pbsd->pbi_flags |= PROC_FLAG_INEXIT;
+	}
+	if ((p->p_lflag & P_LPPWAIT) == P_LPPWAIT) {
+		pbsd->pbi_flags |= PROC_FLAG_PPWAIT;
+	}
+	if ((p->p_flag & P_LP64) == P_LP64) {
+		pbsd->pbi_flags |= PROC_FLAG_LP64;
+	}
+	if ((p->p_flag & P_CONTROLT) == P_CONTROLT) {
+		pbsd->pbi_flags |= PROC_FLAG_CONTROLT;
+	}
+	if ((p->p_flag & P_THCWD) == P_THCWD) {
+		pbsd->pbi_flags |= PROC_FLAG_THCWD;
+	}
+	if ((p->p_flag & P_SUGID) == P_SUGID) {
+		pbsd->pbi_flags |= PROC_FLAG_PSUGID;
+	}
+	if ((p->p_flag & P_EXEC) == P_EXEC) {
+		pbsd->pbi_flags |= PROC_FLAG_EXEC;
+	}
+
+	if (sessionp != SESSION_NULL) {
+		if (SESS_LEADER(p, sessionp)) {
+			pbsd->pbi_flags |= PROC_FLAG_SLEADER;
+		}
+		if (sessionp->s_ttyvp) {
+			pbsd->pbi_flags |= PROC_FLAG_CTTY;
+		}
+	}
+
+	switch (PROC_CONTROL_STATE(p)) {
+	case P_PCTHROTTLE:
+		pbsd->pbi_flags |= PROC_FLAG_PC_THROTTLE;
+		break;
+	case P_PCSUSP:
+		pbsd->pbi_flags |= PROC_FLAG_PC_SUSP;
+		break;
+	case P_PCKILL:
+		pbsd->pbi_flags |= PROC_FLAG_PC_KILL;
+		break;
+	};
+
+	switch (PROC_ACTION_STATE(p)) {
+	case P_PCTHROTTLE:
+		pbsd->pbi_flags |= PROC_FLAG_PA_THROTTLE;
+		break;
+	case P_PCSUSP:
+		pbsd->pbi_flags |= PROC_FLAG_PA_SUSP;
+		break;
+	};
+
+#if 0
+	/* if process is a zombie skip bg state */
+	if ((zombie == 0) && (p->p_stat != SZOMB) && (p->task != TASK_NULL)) {
+		proc_get_darwinbgstate(p->task, &pbsd->pbi_flags);
+	}
+#endif
+
+	if (zombie == 0) {
+		pbsd->pbi_nfiles = p->p_fd->fd_nfiles;
+	}
+
+	pbsd->e_tdev = NODEV;
+	if (pg != PGRP_NULL) {
+		pbsd->pbi_pgid = p->p_pgrpid;
+		pbsd->pbi_pjobc = pg->pg_jobc;
+		if ((p->p_flag & P_CONTROLT) && (sessionp != SESSION_NULL) && (tp = SESSION_TP(sessionp))) {
+			pbsd->e_tdev = tp->t_dev;
+			pbsd->e_tpgid = sessionp->s_ttypgrpid;
+		}
+	}
+
+	if (sessionp != SESSION_NULL) {
+		procfs_session_rele(sessionp);
+	}
+
+	if (pg != PGRP_NULL) {
+		procfs_pg_rele(pg);
+	}
+
+	return 0;
 }

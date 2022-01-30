@@ -43,12 +43,12 @@ extern void procfs_list_lock(void);
 extern void procfs_list_unlock(void);
 extern void procfs_fdlock_spin(proc_t p);
 extern void procfs_fdunlock(proc_t p);
+extern int procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 
 #pragma mark -
 #pragma mark Symbol Resolver
 
 static task_t (*_proc_task)(proc_t);
-static int (*_proc_pidbsdinfo)(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 static int (*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo);
 static int (*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
 static int (*_proc_gettty)(proc_t p, vnode_t *vp);
@@ -191,18 +191,15 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
     // Get the process id from the node id in the procfsnode and locate
     // the process.
     int error = 0;
-    struct kernel_info kinfo;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         struct proc_bsdinfo info;
-        if (_proc_pidbsdinfo == NULL) _proc_pidbsdinfo = (void*)solve_kernel_symbol(&kinfo, "_proc_pidbsdinfo");
         // Get the BSD-centric process info and copy it out.
-        error = _proc_pidbsdinfo(p, &info, FALSE);
+        error = procfs_pidbsdinfo(p, &info, FALSE);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
-        cleanup_kernel_info(&kinfo);
         proc_rele(p);
     }
     return error;
