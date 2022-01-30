@@ -2,23 +2,28 @@
 
 #include <kern/debug.h>
 #include <kern/kalloc.h>
-#include <kern/zalloc.h>
 
+#include <sys/filedesc.h>
 #include <sys/kauth.h>
 #include <sys/proc.h>
+#include <sys/proc_info.h>
 #include <sys/proc_internal.h>
 #include <sys/queue.h>
+#include <sys/tty.h>
 #include <sys/vnode.h>
 
 #include "procfs_proc.h"
-#include "procfs_locks.h"
 
 #pragma mark -
 #pragma mark External References
 
 extern struct proc *current_proc(void);
-extern void tty_lock(struct tty *tp);
-extern void tty_unlock(struct tty *tp);
+extern void procfs_list_lock(void);
+extern void procfs_list_unlock(void);
+extern void procfs_pgrp_lock(struct pgrp * pgrp);
+extern void procfs_pgrp_unlock(struct pgrp * pgrp);
+extern void procfs_tty_lock(struct tty *tp);
+extern void procfs_tty_unlock(struct tty *tp);
 
 #pragma mark -
 #pragma mark Function Prototypes

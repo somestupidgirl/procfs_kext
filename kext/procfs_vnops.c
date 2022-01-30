@@ -19,7 +19,6 @@
 
 #include "procfs.h"
 #include "procfs_data.h"
-#include "procfs_locks.h"
 #include "procfs_node.h"
 #include "procfs_subr.h"
 
@@ -66,6 +65,8 @@ static const int PROCESS_NAME_SIZE = MAXCOMLEN + PID_SIZE + PAD_SIZE;
 extern proc_t proc_find(int pid);
 extern struct proc *current_proc(void);
 extern struct proclist allproc;
+extern void procfs_fdlock_spin(proc_t p);
+extern void procfs_fdunlock(proc_t p);
 
 #pragma mark -
 #pragma mark Symbol Resolver
