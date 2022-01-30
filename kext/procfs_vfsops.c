@@ -116,7 +116,7 @@ procfs_init(__unused struct vfsconf *vfsconf) {
         initialized = 1;
         
         // Create the tag for memory allocation.
-        procfs_osmalloc_tag = OSMalloc_Tagalloc("com.stupid.filesystems.procfs", 0);
+        procfs_osmalloc_tag = OSMalloc_Tagalloc(PROCFS_BUNDLEID, 0);
         if (procfs_osmalloc_tag == NULL) {
             return ENOMEM;   // Plausible error code.
         }
@@ -133,7 +133,7 @@ procfs_fini(void)
     lck_grp_t *procfs_lck_grp;
     lck_mtx_t *procfs_hash_mutex;
     
-    procfs_osmalloc_tag = OSMalloc_Tagalloc("com.stupid.filesystems.procfs", 0);
+    procfs_osmalloc_tag = OSMalloc_Tagalloc(PROCFS_BUNDLEID, 0);
     if (procfs_osmalloc_tag) {
         OSMalloc_Tagfree(procfs_osmalloc_tag);
         procfs_osmalloc_tag = NULL;
@@ -171,13 +171,16 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
         }
         
         // Allocate the procfs mount structure and link it to the VFS structure.
-        procfs_osmalloc_tag = OSMalloc_Tagalloc("com.stupid.filesystems.procfs", 0);
+        if (!procfs_osmalloc_tag) {
+            procfs_osmalloc_tag = OSMalloc_Tagalloc(PROCFS_BUNDLEID, 0);
+        }
+
         procfs_mp = (procfs_mount_t *)OSMalloc(sizeof(procfs_mount_t), procfs_osmalloc_tag);
         if (procfs_mp == NULL) {
             printf("procfs: Failed to allocate procfs_mount_t");
             return ENOMEM;
         }
-        
+
         OSAddAtomic(1, &procfs_mount_id);
         procfs_mp->pmnt_id = procfs_mount_id;
         procfs_mp->pmnt_mp = mp;
