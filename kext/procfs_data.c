@@ -23,6 +23,7 @@
 
 #include "procfs.h"
 #include "procfs_data.h"
+#include "procfs_locks.h"
 #include "procfs_node.h"
 #include "procfs_structure.h"
 #include "procfs_subr.h"
@@ -49,10 +50,6 @@ static int (*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo);
 static int (*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
 static int (*_proc_gettty)(proc_t p, vnode_t *vp);
 static int (*_proc_fdlist)(proc_t p, struct proc_fdinfo *buf, size_t *count);
-static void (*_proc_fdunlock)(proc_t p);
-static void (*_proc_fdlock_spin)(proc_t p);
-static void (*_proc_list_lock)(void);
-static void (*_proc_list_unlock)(void);
 
 static int (*_fill_vnodeinfo)(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
 static void (*_fill_fileinfo)(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
@@ -118,14 +115,10 @@ int
 procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error;
 
-    struct kernel_info kinfo;
-    if (_proc_list_lock == NULL) _proc_list_lock = (void*)solve_kernel_symbol(&kinfo, "_proc_list_lock");
-    if (_proc_list_unlock == NULL) _proc_list_unlock = (void*)solve_kernel_symbol(&kinfo, "_proc_list_unlock");
-
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         pid_t session_id = (pid_t)0;
-        _proc_list_lock();
+        procfs_list_lock();
         proc_t pgrp = proc_find(proc_pgrpid(p));
         if (pgrp != NULL) {
             session_id = proc_sessionid(pgrp);
@@ -133,10 +126,9 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
                 session_id = 0;
             }
         }
-        _proc_list_unlock();
+        procfs_list_unlock();
         
         error = procfs_copy_data((char *)&session_id, sizeof(session_id), uio);
-        cleanup_kernel_info(&kinfo);
         proc_rele(p);
     } else {
         error = ESRCH;
@@ -153,13 +145,11 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error = 0;
 
     struct kernel_info kinfo;
-    if (_proc_list_lock == NULL) _proc_list_lock = (void*)solve_kernel_symbol(&kinfo, "_proc_list_lock");
-    if (_proc_list_unlock == NULL) _proc_list_unlock = (void*)solve_kernel_symbol(&kinfo, "_proc_list_unlock");
     if (_proc_gettty == NULL) _proc_gettty = (void*)solve_kernel_symbol(&kinfo, "_proc_gettty");
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
-        _proc_list_lock();
+        procfs_list_lock();
         pid_t pgrpid = proc_pgrpid(p);
         proc_t pgrp = proc_find(pgrpid);
         if (pgrp != NULL) {
@@ -180,7 +170,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
                 }
             }
         }
-        _proc_list_unlock();
+        procfs_list_unlock();
         cleanup_kernel_info(&kinfo);
         proc_rele(p);
     } else {
@@ -473,8 +463,6 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
     int size = 0;
 
     struct kernel_info kinfo;
-    if (_proc_fdlock_spin == NULL) _proc_fdlock_spin = (void*)solve_kernel_symbol(&kinfo, "_proc_fdlock_spin");
-    if (_proc_fdunlock == NULL) _proc_fdunlock = (void*)solve_kernel_symbol(&kinfo, "_proc_fdunlock");
     if (_proc_fdlist == NULL) _proc_fdlist = (void*)solve_kernel_symbol(&kinfo, "_proc_fdlist");
 
     pid_t pid = pnp->node_id.nodeid_pid;
@@ -484,14 +472,14 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
         struct proc_fdinfo *buf;
         int count = vcount(p);
         struct filedesc *fdp = _proc_fdlist(p, buf, count);
-        _proc_fdlock_spin(p);
+        procfs_fdlock_spin(p);
         for (int i = 0; i < fdp->fd_nfiles; i++) {
             struct fileproc *fp = fdp->fd_ofiles[i];
             if (fp != NULL && !(fdp->fd_ofileflags[i] & UF_RESERVED)) {
                 size++;
             }
         }
-        _proc_fdunlock(p);
+        procfs_fdunlock(p);
         cleanup_kernel_info(&kinfo);
         proc_rele(p);
     }
