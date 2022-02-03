@@ -32,13 +32,13 @@
 
 typedef int (*proc_iterate_fn_t)(proc_t, void *);
 extern void procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+extern kern_return_t procfs_thread_info(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
+extern kern_return_t procfs_task_threads(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 extern proc_t proc_find(int pid);
 
 #pragma mark -
 #pragma mark Symbol Resolver
 
-static kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
-static kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
 static thread_t (*_convert_port_to_thread)(ipc_port_t port);
 static int (*_suser)(kauth_cred_t cred, u_short *acflag);
 
@@ -229,12 +229,10 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     mach_msg_type_number_t count;
 
     struct kernel_info kinfo;
-    if (_thread_info == NULL) _thread_info = (void*)solve_kernel_symbol(&kinfo, "_thread_info");
-    if (_task_threads == NULL) _task_threads = (void*)solve_kernel_symbol(&kinfo, "_task_threads");
     if (_convert_port_to_thread == NULL) _convert_port_to_thread = (void*)solve_kernel_symbol(&kinfo, "_convert_port_to_thread");
 
     // Get all of the threads in the task.
-    if (_task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
+    if (procfs_task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
         uint64_t thread_id_info[THREAD_IDENTIFIER_INFO_COUNT];
         uint64_t *threadid_ptr = (uint64_t *)OSMalloc(count * sizeof(uint64_t), procfs_osmalloc_tag);
         *thread_ids = threadid_ptr;
@@ -245,7 +243,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
             ipc_port_t thread_port = (ipc_port_t)threads[i];
             thread_t thread = _convert_port_to_thread(thread_port);
             if (thread != NULL) {
-                result = _thread_info(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&thread_id_info, &thread_info_count);
+                result = procfs_thread_info(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&thread_id_info, &thread_info_count);
                 if (result == KERN_SUCCESS) {
                     struct thread_identifier_info *idinfo = (struct thread_identifier_info *)thread_id_info;
                     *threadid_ptr++ = idinfo->thread_id;
