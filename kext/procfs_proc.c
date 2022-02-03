@@ -37,6 +37,7 @@ extern int fill_taskthreadinfo(task_t task, uint64_t thaddr, bool thuniqueid, st
 #pragma mark -
 #pragma mark Function Prototypes
 
+task_t procfs_task(proc_t proc);
 proc_t procfs_find_zombref(int pid);
 void procfs_drop_zombref(proc_t p);
 void procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
@@ -670,4 +671,10 @@ procfs_pidthreadinfo(proc_t p, uint64_t arg, bool thuniqueid, struct proc_thread
     } else {
         return 0;
     }
+}
+
+task_t
+procfs_task(proc_t proc)
+{
+    return (task_t)proc->task;
 }
