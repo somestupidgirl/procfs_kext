@@ -31,8 +31,6 @@ extern void procfs_pgrp_lock(struct pgrp * pgrp);
 extern void procfs_pgrp_unlock(struct pgrp * pgrp);
 extern void procfs_tty_lock(struct tty *tp);
 extern void procfs_tty_unlock(struct tty *tp);
-extern void fill_taskprocinfo(task_t task, struct proc_taskinfo_internal * ptinfo);
-extern int fill_taskthreadinfo(task_t task, uint64_t thaddr, bool thuniqueid, struct proc_threadinfo_internal * ptinfo, void * vpp, int *vidp);
 
 #pragma mark -
 #pragma mark Function Prototypes
@@ -361,6 +359,142 @@ procfs_session(proc_t p)
     }
     procfs_list_unlock();
     return sess;
+}
+
+static inline void
+fill_taskprocinfo(task_t task, struct proc_taskinfo_internal * ptinfo)
+{
+#if 0
+    vm_map_t map;
+    task_absolutetime_info_data_t   tinfo;
+    thread_t thread;
+    uint32_t cswitch = 0, numrunning = 0;
+    uint32_t syscalls_unix = 0;
+    uint32_t syscalls_mach = 0;
+
+    task_lock(task);
+
+    map = (task == kernel_task)? kernel_map: task->map;
+
+    ptinfo->pti_virtual_size  = vm_map_adjusted_size(map);
+    ptinfo->pti_resident_size =
+        (mach_vm_size_t)(pmap_resident_count(map->pmap))
+        * PAGE_SIZE_64;
+
+    ptinfo->pti_policy = ((task != kernel_task)?
+        POLICY_TIMESHARE: POLICY_RR);
+
+    tinfo.threads_user = tinfo.threads_system = 0;
+    tinfo.total_user = task->total_user_time;
+    tinfo.total_system = task->total_system_time;
+
+    queue_iterate(&task->threads, thread, thread_t, task_threads) {
+        uint64_t    tval;
+        spl_t x;
+
+        if (thread->options & TH_OPT_IDLE_THREAD) {
+            continue;
+        }
+
+        x = splsched();
+        thread_lock(thread);
+
+        if ((thread->state & TH_RUN) == TH_RUN) {
+            numrunning++;
+        }
+        cswitch += thread->c_switch;
+        tval = timer_grab(&thread->user_timer);
+        tinfo.threads_user += tval;
+        tinfo.total_user += tval;
+
+        tval = timer_grab(&thread->system_timer);
+
+        if (thread->precise_user_kernel_time) {
+            tinfo.threads_system += tval;
+            tinfo.total_system += tval;
+        } else {
+            /* system_timer may represent either sys or user */
+            tinfo.threads_user += tval;
+            tinfo.total_user += tval;
+        }
+
+        syscalls_unix += thread->syscalls_unix;
+        syscalls_mach += thread->syscalls_mach;
+
+        thread_unlock(thread);
+        splx(x);
+    }
+
+    ptinfo->pti_total_system = tinfo.total_system;
+    ptinfo->pti_total_user = tinfo.total_user;
+    ptinfo->pti_threads_system = tinfo.threads_system;
+    ptinfo->pti_threads_user = tinfo.threads_user;
+
+    ptinfo->pti_faults = task->faults;
+    ptinfo->pti_pageins = task->pageins;
+    ptinfo->pti_cow_faults = task->cow_faults;
+    ptinfo->pti_messages_sent = task->messages_sent;
+    ptinfo->pti_messages_received = task->messages_received;
+    ptinfo->pti_syscalls_mach = task->syscalls_mach + syscalls_mach;
+    ptinfo->pti_syscalls_unix = task->syscalls_unix + syscalls_unix;
+    ptinfo->pti_csw = task->c_switch + cswitch;
+    ptinfo->pti_threadnum = task->thread_count;
+    ptinfo->pti_numrunning = numrunning;
+    ptinfo->pti_priority = task->priority;
+
+    task_unlock(task);
+#endif
+}
+
+static inline int
+fill_taskthreadinfo(task_t task, uint64_t thaddr, bool thuniqueid, struct proc_threadinfo_internal * ptinfo, void * vpp, int *vidp)
+{
+    thread_t  thact;
+    int err = 0;
+#if 0
+    mach_msg_type_number_t count;
+    thread_basic_info_data_t basic_info;
+    kern_return_t kret;
+    uint64_t addr = 0;
+
+    task_lock(task);
+
+    for (thact  = (thread_t)(void *)queue_first(&task->threads);
+        !queue_end(&task->threads, (queue_entry_t)thact);) {
+        addr = (thuniqueid) ? thact->thread_id : thact->machine.cthread_self;
+        if (addr == thaddr) {
+            count = THREAD_BASIC_INFO_COUNT;
+            if ((kret = thread_info_internal(thact, THREAD_BASIC_INFO, (thread_info_t)&basic_info, &count)) != KERN_SUCCESS) {
+                err = 1;
+                goto out;
+            }
+            ptinfo->pth_user_time = (((uint64_t)basic_info.user_time.seconds * NSEC_PER_SEC) + ((uint64_t)basic_info.user_time.microseconds * NSEC_PER_USEC));
+            ptinfo->pth_system_time = (((uint64_t)basic_info.system_time.seconds * NSEC_PER_SEC) + ((uint64_t)basic_info.system_time.microseconds * NSEC_PER_USEC));
+
+            ptinfo->pth_cpu_usage = basic_info.cpu_usage;
+            ptinfo->pth_policy = basic_info.policy;
+            ptinfo->pth_run_state = basic_info.run_state;
+            ptinfo->pth_flags = basic_info.flags;
+            ptinfo->pth_sleep_time = basic_info.sleep_time;
+            ptinfo->pth_curpri = thact->sched_pri;
+            ptinfo->pth_priority = thact->base_pri;
+            ptinfo->pth_maxpriority = thact->max_priority;
+
+            if ((vpp != NULL) && (thact->uthread != NULL)) {
+                bsd_threadcdir(thact->uthread, vpp, vidp);
+            }
+            bsd_getthreadname(thact->uthread, ptinfo->pth_name);
+            err = 0;
+            goto out;
+        }
+        thact = (thread_t)(void *)queue_next(&thact->task_threads);
+    }
+    err = 1;
+
+out:
+    task_unlock(task);
+#endif
+    return err;
 }
 
 #pragma mark -
