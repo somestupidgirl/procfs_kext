@@ -3,6 +3,11 @@
 
 #include <sys/queue.h>
 
+// malloc flags
+#define M_PGRP 17
+#define M_PROC 41
+#define M_TTYS 65
+
 #define PROC_RETURNED                   (0)
 #define PROC_RETURNED_DONE              (1)
 #define PROC_CLAIMED                    (2)

@@ -5,6 +5,7 @@
 
 #include <sys/filedesc.h>
 #include <sys/kauth.h>
+#include <sys/malloc.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
@@ -13,13 +14,6 @@
 #include <sys/vnode.h>
 
 #include "procfs_proc.h"
-
-#if 0
-ZONE_DECLARE(pgrp_zone, "pgrp",
-    sizeof(struct pgrp), ZC_ZFREE_CLEARMEM);
-ZONE_DECLARE(session_zone, "session",
-    sizeof(struct session), ZC_ZFREE_CLEARMEM);
-#endif
 
 #pragma mark -
 #pragma mark External References
@@ -158,6 +152,18 @@ procfs_pgdelete_dropref(struct pgrp *pgrp)
     struct session *sessp;
     lck_grp_t * proc_mlock_grp;
 
+    pgrp = _MALLOC_ZONE((u_int32_t)sizeof(struct pgrp), M_PGRP, M_WAITOK);
+    if (!pgrp) {
+        panic("procfs_pgdelete_dropref: unable to allocate pgrp structure\n");
+    }
+    bzero((char *)pgrp, sizeof(struct pgrp));
+
+    sessp = _MALLOC_ZONE((u_int32_t)sizeof(struct session), M_TTYS, M_WAITOK);
+    if (!sessp) {
+        panic("procfs_pgdelete_dropref: unable to allocate session structure\n");
+    }
+    bzero((char *)&sessp, sizeof(struct session));
+
     procfs_pgrp_lock(pgrp);
     if (pgrp->pg_membercnt != 0) {
         emptypgrp = 0;
@@ -226,12 +232,12 @@ procfs_pgdelete_dropref(struct pgrp *pgrp)
         }
         procfs_list_unlock();
         lck_mtx_destroy(&sessp->s_mlock, proc_mlock_grp);
-        //zfree(session_zone, sessp);
+        _FREE_ZONE(&sessp, sizeof(struct session), M_TTYS);
     } else {
         procfs_list_unlock();
     }
     lck_mtx_destroy(&pgrp->pg_mlock, proc_mlock_grp);
-    //zfree(pgrp_zone, pgrp);
+    _FREE_ZONE(pgrp, sizeof(struct pgrp), M_PGRP);
 }
 
 static inline void
@@ -292,6 +298,12 @@ procfs_pg_rele(struct pgrp * pgrp)
 static inline void
 procfs_session_rele(struct session *sess)
 {
+    sess = _MALLOC_ZONE((u_int32_t)sizeof(struct session), M_TTYS, M_WAITOK);
+    if (!sess) {
+        panic("procfs_session_rele: unable to allocate session structure\n");
+    }
+    bzero((char *)&sess, sizeof(struct session));
+
     lck_grp_t * proc_mlock_grp;
     procfs_list_lock();
     if (--sess->s_count == 0) {
@@ -306,7 +318,7 @@ procfs_session_rele(struct session *sess)
         }
         procfs_list_unlock();
         lck_mtx_destroy(&sess->s_mlock, proc_mlock_grp);
-        //zfree(session_zone, sess);
+        _FREE_ZONE(&sess, sizeof(struct session), M_TTYS);
     } else {
         procfs_list_unlock();
     }
