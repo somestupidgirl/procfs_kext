@@ -12,6 +12,7 @@
 #include <sys/tty.h>
 #include <sys/vnode.h>
 
+#include "procfs_pidlist.h"
 #include "procfs_proc.h"
 
 #if 0
@@ -31,82 +32,23 @@ extern void procfs_pgrp_lock(struct pgrp * pgrp);
 extern void procfs_pgrp_unlock(struct pgrp * pgrp);
 extern void procfs_tty_lock(struct tty *tp);
 extern void procfs_tty_unlock(struct tty *tp);
+extern pidlist_t *procfs_pidlist_init(pidlist_t *pl);
+extern u_int procfs_pidlist_alloc(pidlist_t *pl, u_int needed);
+extern u_int procfs_pidlist_nalloc(const pidlist_t *pl);
+extern void procfs_pidlist_set_active(pidlist_t *pl);
+extern void procfs_pidlist_free(pidlist_t *pl);
 
 #pragma mark -
 #pragma mark Function Prototypes
 
-proc_t procfs_find_zombref(int pid);
-void procfs_drop_zombref(proc_t p);
-void procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
-int procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
-
-#pragma mark -
-#pragma mark Structures
-
-typedef struct pidlist_entry {
-    SLIST_ENTRY(pidlist_entry) pe_link;
-    u_int pe_nused;
-    pid_t pe_pid[PIDS_PER_ENTRY];
-} pidlist_entry_t;
-
-typedef struct {
-    SLIST_HEAD(, pidlist_entry) pl_head;
-    struct pidlist_entry *pl_active;
-    u_int pl_nalloc;
-} pidlist_t;
+void procfs_proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+int procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 
 #pragma mark -
 #pragma mark Static Inline Functions
 
-static inline pidlist_t *
-procfs_pidlist_init(pidlist_t *pl)
-{
-	SLIST_INIT(&pl->pl_head);
-	pl->pl_active = NULL;
-	pl->pl_nalloc = 0;
-	return pl;
-}
-
-static inline u_int
-procfs_pidlist_alloc(pidlist_t *pl, u_int needed)
-{
-	while (pl->pl_nalloc < needed) {
-		pidlist_entry_t *pe = kalloc(sizeof(*pe));
-		if (NULL == pe) {
-			panic("no space for pidlist entry");
-		}
-		SLIST_INSERT_HEAD(&pl->pl_head, pe, pe_link);
-		pl->pl_nalloc += (sizeof(pe->pe_pid) / sizeof(pe->pe_pid[0]));
-	}
-	return pl->pl_nalloc;
-}
-
-static inline u_int
-procfs_pidlist_nalloc(const pidlist_t *pl)
-{
-	return pl->pl_nalloc;
-}
-
-static inline void
-procfs_pidlist_set_active(pidlist_t *pl)
-{
-	pl->pl_active = SLIST_FIRST(&pl->pl_head);
-	assert(pl->pl_active);
-}
-
-static inline void
-procfs_pidlist_free(pidlist_t *pl)
-{
-    pidlist_entry_t *pe;
-    while (NULL != (pe = SLIST_FIRST(&pl->pl_head))) {
-        SLIST_FIRST(&pl->pl_head) = SLIST_NEXT(pe, pe_link);
-        kalloc(sizeof(*pe));
-    }
-    pl->pl_nalloc = 0;
-}
-
 static inline int
-procfs_transwait(proc_t p, int locked)
+procfs_proc_transwait(proc_t p, int locked)
 {
 	if (locked == 0) {
 		procfs_list_lock();
@@ -249,7 +191,7 @@ procfs_pg_rele_dropref(struct pgrp * pgrp)
 }
 
 static inline struct pgrp *
-procfs_pgrp(proc_t p)
+procfs_proc_pgrp(proc_t p)
 {
     struct pgrp * pgrp;
     lck_mtx_t * proc_list_mlock;
@@ -313,7 +255,7 @@ procfs_session_rele(struct session *sess)
 }
 
 static inline struct session *
-procfs_session(proc_t p)
+procfs_proc_session(proc_t p)
 {
     struct session * sess = SESSION_NULL;
     lck_mtx_t * proc_list_mlock;
@@ -340,11 +282,8 @@ procfs_session(proc_t p)
     return sess;
 }
 
-#pragma mark -
-#pragma mark Global Functions
-
-proc_t
-procfs_find_zombref(int pid)
+static inline proc_t
+procfs_proc_find_zombref(int pid)
 {
     proc_t p;
     lck_mtx_t * proc_list_mlock;
@@ -375,8 +314,8 @@ again:
     return p;
 }
 
-void
-procfs_drop_zombref(proc_t p)
+static inline void
+procfs_proc_drop_zombref(proc_t p)
 {
     procfs_list_lock();
     if ((p->p_listflag & P_LIST_WAITING) == P_LIST_WAITING) {
@@ -386,8 +325,11 @@ procfs_drop_zombref(proc_t p)
     procfs_list_unlock();
 }
 
+#pragma mark -
+#pragma mark Global Functions
+
 void
-procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg)
+procfs_proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg)
 {
 	uint32_t nprocs = 0;
 
@@ -444,7 +386,7 @@ procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_it
             proc_t p = proc_find(pid);
             if (p) {
                 if ((flags & PROC_NOWAITTRANS) == 0) {
-                    procfs_transwait(p, 0);
+                    procfs_proc_transwait(p, 0);
                 }
                 const int callout_ret = callout(p, arg);
 
@@ -466,7 +408,7 @@ procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_it
                     break;
                 }
             } else if (flags & PROC_ZOMBPROCLIST) {
-                p = procfs_find_zombref(pid);
+                p = procfs_proc_find_zombref(pid);
                 if (!p) {
                     continue;
                 }
@@ -474,13 +416,13 @@ procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_it
 
                 switch (callout_ret) {
                 case PROC_RETURNED_DONE:
-                    procfs_drop_zombref(p);
+                    procfs_proc_drop_zombref(p);
                     OS_FALLTHROUGH;
                 case PROC_CLAIMED_DONE:
                     goto out;
 
                 case PROC_RETURNED:
-                    procfs_drop_zombref(p);
+                    procfs_proc_drop_zombref(p);
                     OS_FALLTHROUGH;
                 case PROC_CLAIMED:
                     break;
@@ -497,7 +439,7 @@ out:
 }
 
 int
-procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
+procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
 {
 
 	struct tty *tp;
@@ -505,8 +447,8 @@ procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
 	struct pgrp * pg;
 	kauth_cred_t my_cred;
 
-	pg = procfs_pgrp(p);
-	sessionp = procfs_session(p);
+	pg = procfs_proc_pgrp(p);
+	sessionp = procfs_proc_session(p);
 
 	my_cred = kauth_cred_proc_ref(p);
 	bzero(pbsd, sizeof(struct proc_bsdinfo));

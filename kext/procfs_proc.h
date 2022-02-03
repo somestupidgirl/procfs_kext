@@ -29,14 +29,12 @@ struct proclist zombproc;
 
 #define SESS_LEADER(p, sessp)   ((sessp)->s_leader == (p))
 
-#define PIDS_PER_ENTRY                  1021
+#define PGRPID_DEAD                     0xdeaddead
 
 #define PIDHASH(pid)    (&pidhashtbl[(pid) & pidhash])
 
 LIST_HEAD(pidhashhead, proc) * pidhashtbl;
 u_long pidhash;
-
-#define PGRPID_DEAD                     0xdeaddead
 
 /* p_listflag */
 #define P_LIST_DRAIN                    0x00000001

@@ -43,7 +43,7 @@ extern void procfs_list_lock(void);
 extern void procfs_list_unlock(void);
 extern void procfs_fdlock_spin(proc_t p);
 extern void procfs_fdunlock(proc_t p);
-extern int procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
+extern int procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 
 #pragma mark -
 #pragma mark Symbol Resolver
@@ -196,7 +196,7 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
     if (p != NULL) {
         struct proc_bsdinfo info;
         // Get the BSD-centric process info and copy it out.
-        error = procfs_pidbsdinfo(p, &info, FALSE);
+        error = procfs_proc_pidbsdinfo(p, &info, FALSE);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
