@@ -31,8 +31,7 @@
 #pragma mark External References.
 
 typedef int (*proc_iterate_fn_t)(proc_t, void *);
-extern void procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
-extern proc_t proc_find(int pid);
+extern void procfs_proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 
 #pragma mark -
 #pragma mark Symbol Resolver
@@ -180,7 +179,7 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
     data.creds = creds;
     data.next_pid = pidp;
     
-    procfs_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
+    procfs_proc_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
     *pidpp = pidp;
     *sizep = size;
     *pid_count = (int)(data.next_pid - pidp);
