@@ -1,6 +1,8 @@
 #ifndef procfs_proc_h
 #define procfs_proc_h
 
+#include <kern/locks.h>
+#include <os/refcnt.h>
 #include <sys/queue.h>
 
 // malloc flags

@@ -44,16 +44,15 @@ extern void procfs_list_unlock(void);
 extern void procfs_fdlock_spin(proc_t p);
 extern void procfs_fdunlock(proc_t p);
 extern int procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
+extern int procfs_pidtaskinfo(proc_t p, struct proc_taskinfo * ptinfo);
+extern int procfs_pidthreadinfo(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
 
 #pragma mark -
 #pragma mark Symbol Resolver
 
 static task_t (*_proc_task)(proc_t);
-static int (*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo);
-static int (*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
 static int (*_proc_gettty)(proc_t p, vnode_t *vp);
 static int (*_proc_fdlist)(proc_t p, struct proc_fdinfo *buf, size_t *count);
-
 static int (*_fill_vnodeinfo)(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
 static void (*_fill_fileinfo)(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
 static errno_t (*_fill_socketinfo)(struct socket *so, struct socket_info *si);
@@ -215,19 +214,16 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
     // Get the process id from the node id in the procfsnode and locate
     // the process.
     int error = 0;
-    struct kernel_info kinfo;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         struct proc_taskinfo info;
 
-        if (_proc_pidtaskinfo == NULL) _proc_pidtaskinfo = (void*)solve_kernel_symbol(&kinfo, "_proc_pidtaskinfo");
         // Get the task info and copy it out.
-        error = _proc_pidtaskinfo(p, &info);
+        error = procfs_pidtaskinfo(p, &info);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
-        cleanup_kernel_info(&kinfo);
         proc_rele(p);
     }
     return error;
@@ -242,20 +238,17 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     // Get the process id and thread from the node id in the procfsnode and locate
     // the process.
     int error = 0;
-    struct kernel_info kinfo;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         struct proc_threadinfo info;
         uint64_t threadid = pnp->node_id.nodeid_objectid;
 
-        if (_proc_pidthreadinfo == NULL) _proc_pidthreadinfo = (void*)solve_kernel_symbol(&kinfo, "_proc_pidthreadinfo");
         // Get the task info and copy it out.
-        error  = _proc_pidthreadinfo(p, threadid, TRUE, &info);
+        error  = procfs_pidthreadinfo(p, threadid, TRUE, &info);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
-        cleanup_kernel_info(&kinfo);
         proc_rele(p);
     }
     return error;

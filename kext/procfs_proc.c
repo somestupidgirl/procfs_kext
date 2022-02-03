@@ -2,7 +2,11 @@
 
 #include <kern/debug.h>
 #include <kern/kalloc.h>
+#include <kern/task.h>
 
+#include <mach/thread_info.h>
+
+#include <sys/bsdtask_info.h>
 #include <sys/filedesc.h>
 #include <sys/kauth.h>
 #include <sys/malloc.h>
@@ -18,6 +22,8 @@
 #pragma mark -
 #pragma mark External References
 
+extern vm_map_t kernel_map;
+extern vm_map_size_t vm_map_adjusted_size(vm_map_t map);
 extern struct proc *current_proc(void);
 extern void procfs_list_lock(void);
 extern void procfs_list_unlock(void);
@@ -25,6 +31,8 @@ extern void procfs_pgrp_lock(struct pgrp * pgrp);
 extern void procfs_pgrp_unlock(struct pgrp * pgrp);
 extern void procfs_tty_lock(struct tty *tp);
 extern void procfs_tty_unlock(struct tty *tp);
+extern void fill_taskprocinfo(task_t task, struct proc_taskinfo_internal * ptinfo);
+extern int fill_taskthreadinfo(task_t task, uint64_t thaddr, bool thuniqueid, struct proc_threadinfo_internal * ptinfo, void * vpp, int *vidp);
 
 #pragma mark -
 #pragma mark Function Prototypes
@@ -33,6 +41,8 @@ proc_t procfs_find_zombref(int pid);
 void procfs_drop_zombref(proc_t p);
 void procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 int procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
+int procfs_pidtaskinfo(proc_t p, struct proc_taskinfo * ptinfo);
+int procfs_pidthreadinfo(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
 
 #pragma mark -
 #pragma mark Structures
@@ -631,4 +641,33 @@ procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
 	}
 
 	return 0;
+}
+
+int
+procfs_pidtaskinfo(proc_t p, struct proc_taskinfo * ptinfo)
+{
+    task_t task;
+
+    task = p->task;
+
+    bzero(ptinfo, sizeof(struct proc_taskinfo));
+    fill_taskprocinfo(task, (struct proc_taskinfo_internal *)ptinfo);
+
+    return 0;
+}
+
+int
+procfs_pidthreadinfo(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo)
+{
+    int error = 0;
+    uint64_t threadaddr = (uint64_t)arg;
+
+    bzero(pthinfo, sizeof(struct proc_threadinfo));
+
+    error = fill_taskthreadinfo(p->task, threadaddr, thuniqueid, (struct proc_threadinfo_internal *)pthinfo, NULL, NULL);
+    if (error) {
+        return ESRCH;
+    } else {
+        return 0;
+    }
 }
