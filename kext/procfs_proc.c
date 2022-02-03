@@ -14,6 +14,13 @@
 
 #include "procfs_proc.h"
 
+#if 0
+ZONE_DECLARE(pgrp_zone, "pgrp",
+    sizeof(struct pgrp), ZC_ZFREE_CLEARMEM);
+ZONE_DECLARE(session_zone, "session",
+    sizeof(struct session), ZC_ZFREE_CLEARMEM);
+#endif
+
 #pragma mark -
 #pragma mark External References
 
@@ -28,8 +35,10 @@ extern void procfs_tty_unlock(struct tty *tp);
 #pragma mark -
 #pragma mark Function Prototypes
 
-void procfs_proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
-int procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
+proc_t procfs_find_zombref(int pid);
+void procfs_drop_zombref(proc_t p);
+void procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+int procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 
 #pragma mark -
 #pragma mark Structures
@@ -96,49 +105,246 @@ procfs_pidlist_free(pidlist_t *pl)
     pl->pl_nalloc = 0;
 }
 
+static inline int
+procfs_transwait(proc_t p, int locked)
+{
+	if (locked == 0) {
+		procfs_list_lock();
+	}
+	while ((p->p_lflag & P_LINTRANSIT) == P_LINTRANSIT) {
+		if ((p->p_lflag & P_LTRANSCOMMIT) == P_LTRANSCOMMIT && current_proc() == p) {
+			if (locked == 0) {
+				procfs_list_unlock();
+			}
+			return EDEADLK;
+		}
+		p->p_lflag |= P_LTRANSWAIT;
+		msleep(&p->p_lflag, &p->p_mlock, 0, "proc_signstart", NULL);
+	}
+	if (locked == 0) {
+		procfs_list_unlock();
+	}
+	return 0;
+}
+
+/*
+ * Locate a process by number
+ */
 static inline proc_t
 procfs_pfind_locked(pid_t pid)
 {
     proc_t p;
-    pid = proc_pid(p);
-    uint32_t getpid = proc_find(pid);
 
     if (!pid) {
         return kernproc;
     }
 
     for (p = PIDHASH(pid)->lh_first; p != 0; p = p->p_hash.le_next) {
-        if (getpid == pid) {
+        if (p->p_pid == pid) {
             return p;
         }
     }
     return NULL;
 }
 
-static inline int
-procfs_proc_transwait(proc_t p, int locked)
+/*
+ * delete a process group
+ */
+static inline void
+procfs_pgdelete_dropref(struct pgrp *pgrp)
 {
-    if (locked == 0) {
-        procfs_list_lock();
+    struct tty *ttyp;
+    int emptypgrp  = 1;
+    struct session *sessp;
+    lck_grp_t * proc_mlock_grp;
+
+    procfs_pgrp_lock(pgrp);
+    if (pgrp->pg_membercnt != 0) {
+        emptypgrp = 0;
     }
-    while ((p->p_lflag & P_LINTRANSIT) == P_LINTRANSIT) {
-        if ((p->p_lflag & P_LTRANSCOMMIT) == P_LTRANSCOMMIT && current_proc() == p) {
-            if (locked == 0) {
-                procfs_list_unlock();
+    procfs_pgrp_unlock(pgrp);
+
+    procfs_list_lock();
+    pgrp->pg_refcount--;
+    if ((emptypgrp == 0) || (pgrp->pg_membercnt != 0)) {
+        procfs_list_unlock();
+        return;
+    }
+
+    pgrp->pg_listflags |= PGRP_FLAG_TERMINATE;
+
+    if (pgrp->pg_refcount > 0) {
+        procfs_list_unlock();
+        return;
+    }
+
+    pgrp->pg_listflags |= PGRP_FLAG_DEAD;
+    LIST_REMOVE(pgrp, pg_hash);
+
+    procfs_list_unlock();
+
+    ttyp = SESSION_TP(pgrp->pg_session);
+    if (ttyp != TTY_NULL) {
+        if (ttyp->t_pgrp == pgrp) {
+            procfs_tty_lock(ttyp);
+            /* Re-check after acquiring the lock */
+            if (ttyp->t_pgrp == pgrp) {
+                ttyp->t_pgrp = NULL;
+                pgrp->pg_session->s_ttypgrpid = NO_PID;
             }
-            return EDEADLK;
+            procfs_tty_unlock(ttyp);
         }
-        p->p_lflag |= P_LTRANSWAIT;
-        msleep(&p->p_lflag, &p->p_mlock, 0, "proc_signstart", NULL);
     }
-    if (locked == 0) {
+
+    procfs_list_lock();
+
+    sessp = pgrp->pg_session;
+    if ((sessp->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
+        panic("pg_deleteref: manipulating refs of already terminating session");
+    }
+    if (--sessp->s_count == 0) {
+        if ((sessp->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
+            panic("pg_deleteref: terminating already terminated session");
+        }
+        sessp->s_listflags |= S_LIST_TERM;
+        ttyp = SESSION_TP(sessp);
+        LIST_REMOVE(sessp, s_hash);
+        procfs_list_unlock();
+
+        if (ttyp != TTY_NULL) {
+            procfs_tty_lock(ttyp);
+            if (ttyp->t_session == sessp) {
+                ttyp->t_session = NULL;
+            }
+            procfs_tty_unlock(ttyp);
+        }
+
+        procfs_list_lock();
+        sessp->s_listflags |= S_LIST_DEAD;
+        if (sessp->s_count != 0) {
+            panic("pg_deleteref: freeing session in use");
+        }
+        procfs_list_unlock();
+        lck_mtx_destroy(&sessp->s_mlock, proc_mlock_grp);
+        //zfree(session_zone, sessp);
+    } else {
         procfs_list_unlock();
     }
-    return 0;
+    lck_mtx_destroy(&pgrp->pg_mlock, proc_mlock_grp);
+    //zfree(pgrp_zone, pgrp);
 }
 
-static inline proc_t
-procfs_proc_find_zombref(int pid)
+static inline void
+procfs_pg_rele_dropref(struct pgrp * pgrp)
+{
+    procfs_list_lock();
+    if ((pgrp->pg_refcount == 1) && ((pgrp->pg_listflags & PGRP_FLAG_TERMINATE) == PGRP_FLAG_TERMINATE)) {
+        procfs_list_unlock();
+        procfs_pgdelete_dropref(pgrp);
+        return;
+    }
+
+    pgrp->pg_refcount--;
+    procfs_list_unlock();
+}
+
+static inline struct pgrp *
+procfs_pgrp(proc_t p)
+{
+    struct pgrp * pgrp;
+    lck_mtx_t * proc_list_mlock;
+
+    if (p == PROC_NULL) {
+        return PGRP_NULL;
+    }
+    procfs_list_lock();
+
+    while ((p->p_listflag & P_LIST_PGRPTRANS) == P_LIST_PGRPTRANS) {
+        p->p_listflag |= P_LIST_PGRPTRWAIT;
+        (void)msleep(&p->p_pgrpid, proc_list_mlock, 0, "procfs_pgrp", 0);
+    }
+
+    pgrp = p->p_pgrp;
+
+    assert(pgrp != NULL);
+
+    if (pgrp != PGRP_NULL) {
+        pgrp->pg_refcount++;
+        if ((pgrp->pg_listflags & (PGRP_FLAG_TERMINATE | PGRP_FLAG_DEAD)) != 0) {
+            panic("procfs_pgrp: ref being povided for dead pgrp");
+        }
+    }
+
+    procfs_list_unlock();
+
+    return pgrp;
+}
+
+static inline void
+procfs_pg_rele(struct pgrp * pgrp)
+{
+    if (pgrp == PGRP_NULL) {
+        return;
+    }
+    procfs_pg_rele_dropref(pgrp);
+}
+
+static inline void
+procfs_session_rele(struct session *sess)
+{
+    lck_grp_t * proc_mlock_grp;
+    procfs_list_lock();
+    if (--sess->s_count == 0) {
+        if ((sess->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
+            panic("procfs_session_rele: terminating already terminated session");
+        }
+        sess->s_listflags |= S_LIST_TERM;
+        LIST_REMOVE(sess, s_hash);
+        sess->s_listflags |= S_LIST_DEAD;
+        if (sess->s_count != 0) {
+            panic("session_rele: freeing session in use");
+        }
+        procfs_list_unlock();
+        lck_mtx_destroy(&sess->s_mlock, proc_mlock_grp);
+        //zfree(session_zone, sess);
+    } else {
+        procfs_list_unlock();
+    }
+}
+
+static inline struct session *
+procfs_session(proc_t p)
+{
+    struct session * sess = SESSION_NULL;
+    lck_mtx_t * proc_list_mlock;
+
+    if (p == PROC_NULL) {
+        return SESSION_NULL;
+    }
+
+    procfs_list_lock();
+
+    /* wait during transitions */
+    while ((p->p_listflag & P_LIST_PGRPTRANS) == P_LIST_PGRPTRANS) {
+        p->p_listflag |= P_LIST_PGRPTRWAIT;
+        (void)msleep(&p->p_pgrpid, proc_list_mlock, 0, "procfs_pgrp", 0);
+    }
+
+    if ((p->p_pgrp != PGRP_NULL) && ((sess = p->p_pgrp->pg_session) != SESSION_NULL)) {
+        if ((sess->s_listflags & (S_LIST_TERM | S_LIST_DEAD)) != 0) {
+            panic("procfs_session:returning sesssion ref on terminating session");
+        }
+        sess->s_count++;
+    }
+    procfs_list_unlock();
+    return sess;
+}
+
+#pragma mark -
+#pragma mark Global Functions
+
+proc_t
+procfs_find_zombref(int pid)
 {
     proc_t p;
     lck_mtx_t * proc_list_mlock;
@@ -169,8 +375,8 @@ again:
     return p;
 }
 
-static inline void
-procfs_proc_drop_zombref(proc_t p)
+void
+procfs_drop_zombref(proc_t p)
 {
     procfs_list_lock();
     if ((p->p_listflag & P_LIST_WAITING) == P_LIST_WAITING) {
@@ -180,11 +386,8 @@ procfs_proc_drop_zombref(proc_t p)
     procfs_list_unlock();
 }
 
-#pragma mark -
-#pragma mark Global Functions
-
 void
-procfs_proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg)
+procfs_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg)
 {
 	uint32_t nprocs = 0;
 
@@ -241,7 +444,7 @@ procfs_proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, pr
             proc_t p = proc_find(pid);
             if (p) {
                 if ((flags & PROC_NOWAITTRANS) == 0) {
-                    procfs_proc_transwait(p, 0);
+                    procfs_transwait(p, 0);
                 }
                 const int callout_ret = callout(p, arg);
 
@@ -263,7 +466,7 @@ procfs_proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, pr
                     break;
                 }
             } else if (flags & PROC_ZOMBPROCLIST) {
-                p = procfs_proc_find_zombref(pid);
+                p = procfs_find_zombref(pid);
                 if (!p) {
                     continue;
                 }
@@ -271,13 +474,13 @@ procfs_proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, pr
 
                 switch (callout_ret) {
                 case PROC_RETURNED_DONE:
-                    procfs_proc_drop_zombref(p);
+                    procfs_drop_zombref(p);
                     OS_FALLTHROUGH;
                 case PROC_CLAIMED_DONE:
                     goto out;
 
                 case PROC_RETURNED:
-                    procfs_proc_drop_zombref(p);
+                    procfs_drop_zombref(p);
                     OS_FALLTHROUGH;
                 case PROC_CLAIMED:
                     break;
@@ -294,29 +497,23 @@ out:
 }
 
 int
-procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
+procfs_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
 {
 
 	struct tty *tp;
 	struct session *sessionp = NULL;
-	struct pgrp *pg;
-    struct proc_fdinfo *fdi;
-    struct filedesc *fdp;
+	struct pgrp * pg;
+	kauth_cred_t my_cred;
 
-    pg = proc_pgrpid(p);
-    sessionp = proc_sessionid(p);
-    fdp = fdi->proc_fd;
+	pg = procfs_pgrp(p);
+	sessionp = procfs_session(p);
 
-    int pid = proc_pid(p);
-    int ppid = proc_ppid(p);
-
-    kauth_cred_t my_cred;
 	my_cred = kauth_cred_proc_ref(p);
 	bzero(pbsd, sizeof(struct proc_bsdinfo));
 	pbsd->pbi_status = p->p_stat;
 	pbsd->pbi_xstatus = p->p_xstat;
-	pbsd->pbi_pid = proc_find(pid);
-	pbsd->pbi_ppid = proc_find(ppid);
+	pbsd->pbi_pid = p->p_pid;
+	pbsd->pbi_ppid = p->p_ppid;
 	pbsd->pbi_uid = kauth_cred_getuid(my_cred);
 	pbsd->pbi_gid = kauth_cred_getgid(my_cred);
 	pbsd->pbi_ruid =  kauth_cred_getruid(my_cred);
@@ -333,23 +530,20 @@ procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
 	bcopy(&p->p_name, &pbsd->pbi_name[0], 2 * MAXCOMLEN);
 	pbsd->pbi_name[(2 * MAXCOMLEN) - 1] = '\0';
 
-    int is64bit = proc_is64bit(p);
-    int isinexit = proc_exiting(p);
-
-    pbsd->pbi_flags = 0;
+	pbsd->pbi_flags = 0;
 	if ((p->p_flag & P_SYSTEM) == P_SYSTEM) {
 		pbsd->pbi_flags |= PROC_FLAG_SYSTEM;
 	}
 	if ((p->p_lflag & P_LTRACED) == P_LTRACED) {
 		pbsd->pbi_flags |= PROC_FLAG_TRACED;
 	}
-	if (isinexit == 0) {
+	if ((p->p_lflag & P_LEXIT) == P_LEXIT) {
 		pbsd->pbi_flags |= PROC_FLAG_INEXIT;
 	}
 	if ((p->p_lflag & P_LPPWAIT) == P_LPPWAIT) {
 		pbsd->pbi_flags |= PROC_FLAG_PPWAIT;
 	}
-	if (is64bit == 0) {
+	if ((p->p_flag & P_LP64) == P_LP64) {
 		pbsd->pbi_flags |= PROC_FLAG_LP64;
 	}
 	if ((p->p_flag & P_CONTROLT) == P_CONTROLT) {
@@ -403,26 +597,26 @@ procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
 #endif
 
 	if (zombie == 0) {
-		pbsd->pbi_nfiles = &fdp->fd_nfiles;
+		pbsd->pbi_nfiles = p->p_fd->fd_nfiles;
 	}
 
 	pbsd->e_tdev = NODEV;
 	if (pg != PGRP_NULL) {
-		pbsd->pbi_pgid = pg;
+		pbsd->pbi_pgid = p->p_pgrpid;
 		pbsd->pbi_pjobc = pg->pg_jobc;
 		if ((p->p_flag & P_CONTROLT) && (sessionp != SESSION_NULL) && (tp = SESSION_TP(sessionp))) {
 			pbsd->e_tdev = tp->t_dev;
 			pbsd->e_tpgid = sessionp->s_ttypgrpid;
 		}
 	}
-#if 0
+
 	if (sessionp != SESSION_NULL) {
-		session_rele(sessionp);
+		procfs_session_rele(sessionp);
 	}
 
 	if (pg != PGRP_NULL) {
-		pg_rele(pg);
+		procfs_pg_rele(pg);
 	}
-#endif
+
 	return 0;
 }
