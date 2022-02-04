@@ -43,6 +43,7 @@ extern void procfs_pidlist_free(pidlist_t *pl);
 #pragma mark -
 #pragma mark Function Prototypes
 
+typedef int (*proc_iterate_fn_t)(proc_t, void *);
 void procfs_proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 int procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 
