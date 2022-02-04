@@ -85,7 +85,7 @@ procfs_pfind_locked(pid_t pid)
     }
 
     for (p = PIDHASH(pid)->lh_first; p != 0; p = p->p_hash.le_next) {
-        if (p->p_pid == pid) {
+        if (proc_pid(p) == pid) {
             return p;
         }
     }
