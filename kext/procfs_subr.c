@@ -201,7 +201,7 @@ procfs_get_process_count(kauth_cred_t creds) {
     int process_count;
     uint32_t size;
 
-    boolean_t is_suser = suser(creds, NULL) == 0;
+    boolean_t is_suser = kauth_cred_issuser(creds) == 0;
     procfs_get_pids(&pidp, &process_count, &size, is_suser ? NULL : creds);
     procfs_release_pids(pidp, size);
     
