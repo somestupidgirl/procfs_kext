@@ -62,17 +62,14 @@ static const int PROCESS_NAME_SIZE = MAXCOMLEN + PID_SIZE + PAD_SIZE;
 #pragma mark -
 #pragma mark External References
 
-extern proc_t proc_find(int pid);
 extern struct proc *current_proc(void);
-extern struct proclist allproc;
 
 #pragma mark -
-#pragma mark Symbol Resolver
+#pragma mark Missing Symbols
 
-static task_t (*_proc_task)(proc_t);
-static void (*_proc_fdunlock)(proc_t p);
-static void (*_proc_fdlock_spin)(proc_t p);
-static int (*_proc_fdlist)(proc_t p, struct proc_fdinfo *buf, size_t *count);
+extern task_t proc_task(proc_t);
+extern void proc_fdunlock(proc_t p);
+extern void proc_fdlock_spin(proc_t p);
 
 #pragma mark -
 #pragma mark Function Prototypes
@@ -214,12 +211,6 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
     struct componentname *cnp = ap->a_cnp;
     vnode_t dvp = ap->a_dvp; // Parent of the name to be looked up
 
-    struct kernel_info kinfo;
-    if (_proc_fdlock_spin == NULL) _proc_fdlock_spin = (void*)solve_kernel_symbol(&kinfo, "_proc_fdlock_spin");
-    if (_proc_fdunlock == NULL) _proc_fdunlock = (void*)solve_kernel_symbol(&kinfo, "_proc_fdunlock");
-    if (_proc_fdlist == NULL) _proc_fdlist = (void*)solve_kernel_symbol(&kinfo, "_proc_fdlist");
-    if (_proc_task == NULL) _proc_task = (void*)solve_kernel_symbol(&kinfo, "_proc_task");
-
     // The parent directory must not be NULL and the name
     // length must be at least 1.
     if (dvp == NULLVP || vnode_vtype(dvp) != VDIR || cnp->cn_namelen < 1) {
@@ -296,15 +287,14 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     // Check whether it is a valid file descriptor.
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
-                        struct proc_fdinfo *buf;
-                        int count = vcount(target_proc);
-                        struct filedesc *fdp = _proc_fdlist(target_proc, buf, count);
-                        _proc_fdlock_spin(target_proc);
+                        struct proc_fdinfo *fdi;
+                        struct filedesc *fdp = fdi->proc_fd;
+                        proc_fdlock_spin(target_proc);
                         if (id < fdp->fd_nfiles) {
                             struct fileproc *fp = fdp->fd_ofiles[id];
                             valid = fp!= NULL && !(fdp->fd_ofileflags[id] & UF_RESERVED);
                         }
-                        _proc_fdunlock(target_proc);
+                        proc_fdunlock(target_proc);
                     }
                 }
                 
@@ -378,7 +368,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                             uint64_t *thread_ids;
                             int thread_count;
                             
-                            task_t task = _proc_task(target_proc);
+                            task_t task = proc_task(target_proc);
                             int result =  procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
                             if (result == KERN_SUCCESS) {
                                 boolean_t found = FALSE;
@@ -434,7 +424,6 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
     }
 
 out:
-    cleanup_kernel_info(&kinfo);
     return error;
 }
 
@@ -476,11 +465,6 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
     uio_t uio = ap->a_uio;
     off_t nextpos = 0;
     off_t startpos = uio_offset(uio);
-    
-    struct kernel_info kinfo;
-    if (_proc_fdlock_spin == NULL) _proc_fdlock_spin = (void*)solve_kernel_symbol(&kinfo, "_proc_fdlock_spin");
-    if (_proc_fdunlock == NULL) _proc_fdunlock = (void*)solve_kernel_symbol(&kinfo, "_proc_fdunlock");
-    if (_proc_task == NULL) _proc_task = (void*)solve_kernel_symbol(&kinfo, "_proc_task");
 
     // Determine whether access checks are required for process-related
     // nodes. Do not check if root or if the file system is mounted with
@@ -659,11 +643,11 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                     struct proc_fdinfo *fdi;
                     struct filedesc *fdp = fdi->proc_fd;
                     for (int i = 0; i < fdp->fd_nfiles; i++) {
-                        _proc_fdlock_spin(p);
+                        proc_fdlock_spin(p);
                         struct fileproc *fp = fdp->fd_ofiles[i];
                         if (fp != NULL && !(fdp->fd_ofileflags[i] & UF_RESERVED)) {
                             // Need to unlock before copy out in case of fault and because it's a "long" operation.
-                            _proc_fdunlock(p);
+                            proc_fdunlock(p);
                             snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
                             int size = procfs_calc_dirent_size(fd_buffer);
                             
@@ -676,12 +660,11 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                                 numentries++;
                             }
                             nextpos += size;
-                            _proc_fdlock_spin(p);
+                            proc_fdlock_spin(p);
                         }
-                        _proc_fdunlock(p);
+                        proc_fdunlock(p);
                     }
                     proc_rele(p);
-                    cleanup_kernel_info(&kinfo);
                     break;   // Exit from the outer loop.
                 } else {
                     // No process for the current pid.

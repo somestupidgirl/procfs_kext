@@ -1,58 +1,18 @@
-#ifndef utils_h
-#define utils_h
-
-#include <mach/i386/kern_return.h>
-#include <mach/i386/vm_types.h>
-#include <mach/mach_types.h>
-#include <mach-o/loader.h>
-#include <sys/types.h>
-#include <stdint.h>
-
-struct kernel_info
-{
-    mach_vm_address_t       running_text_addr;      // the address of running __TEXT segment
-    mach_vm_address_t       disk_text_addr;         // the same address at /mach_kernel in filesystem
-    mach_vm_address_t       kaslr_slide;            // the kernel aslr slide, computed as the difference between above's addresses
-    void                   *linkedit_buf;           // pointer to __LINKEDIT buffer containing symbols to solve
-    uint64_t                linkedit_fileoff;       // __LINKEDIT file offset so we can read
-    uint64_t                linkedit_size;
-    uint32_t                symboltable_fileoff;    // file offset to symbol table - used to position inside the __LINKEDIT buffer
-    uint32_t                symboltable_nr_symbols;
-    uint32_t                stringtable_fileoff;    // file offset to string table
-    uint32_t                stringtable_size;
-    // other info from the header we might need
-    uint64_t                text_size;              // size of __text section to disassemble
-    struct                  mach_header_64 *mh;     // ptr to mach-o header of running kernel
-};
-
-struct descriptor_idt
-{
-    uint16_t offset_low;
-    uint16_t seg_selector;
-    uint8_t reserved;
-    uint8_t flag;
-    uint16_t offset_middle;
-    uint32_t offset_high;
-    uint32_t reserved2;
-};
-
-#define MACH_KERNEL         "/System/Library/Kernels/kernel"
-#define MH_MAGIC_64         0xfeedfacf
-#define MH_EXECUTE          0x2
-#define LC_SEGMENT_64       0x19
-#define LC_SYMTAB           0x2
-
-kern_return_t init_kernel_info(struct kernel_info *kinfo);
-kern_return_t cleanup_kernel_info(struct kernel_info *kinfo);
-mach_vm_address_t solve_kernel_symbol(struct kernel_info *kinfo, char *symbol_to_solve);
-void get_addr_idt(mach_vm_address_t *idt);
-uint16_t get_size_idt(void);
-
 /*
  * Created 181110  lynnl
  *
  * Help functions used in kernel extension
  */
+
+#ifndef utils_h
+#define utils_h
+
+#include <Availability.h>
+#include <sys/types.h>
+#include <mach/vm_types.h>
+#include <sys/malloc.h>
+#include <kern/debug.h>
+#include <libkern/libkern.h>
 
 /*
  * Used to indicate unused function parameters
