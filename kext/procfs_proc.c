@@ -5,6 +5,7 @@
 
 #include <sys/filedesc.h>
 #include <sys/kauth.h>
+#include <sys/malloc.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
@@ -15,12 +16,12 @@
 #include "procfs_pidlist.h"
 #include "procfs_proc.h"
 
-#if 0
-ZONE_DECLARE(pgrp_zone, "pgrp",
-    sizeof(struct pgrp), ZC_ZFREE_CLEARMEM);
-ZONE_DECLARE(session_zone, "session",
-    sizeof(struct session), ZC_ZFREE_CLEARMEM);
-#endif
+#pragma mark -
+#pragma mark Local Definitions
+
+// malloc flags
+#define M_PGRP 17
+#define M_TTYS 65
 
 #pragma mark -
 #pragma mark External References
@@ -168,12 +169,12 @@ procfs_pgdelete_dropref(struct pgrp *pgrp)
         }
         procfs_list_unlock();
         lck_mtx_destroy(&sessp->s_mlock, proc_mlock_grp);
-        //zfree(session_zone, sessp);
+        _FREE_ZONE(sessp, sizeof(struct session), M_TTYS);
     } else {
         procfs_list_unlock();
     }
     lck_mtx_destroy(&pgrp->pg_mlock, proc_mlock_grp);
-    //zfree(pgrp_zone, pgrp);
+    _FREE_ZONE(pgrp, sizeof(struct pgrp), M_PGRP);
 }
 
 static inline void
@@ -193,6 +194,8 @@ procfs_pg_rele_dropref(struct pgrp * pgrp)
 static inline struct pgrp *
 procfs_proc_pgrp(proc_t p)
 {
+	_MALLOC_ZONE((int)sizeof(struct pgrp), M_PGRP, M_ZERO);
+
     struct pgrp * pgrp;
     lck_mtx_t * proc_list_mlock;
 
@@ -248,7 +251,7 @@ procfs_session_rele(struct session *sess)
         }
         procfs_list_unlock();
         lck_mtx_destroy(&sess->s_mlock, proc_mlock_grp);
-        //zfree(session_zone, sess);
+        _FREE_ZONE(sess, sizeof(struct session), M_TTYS);
     } else {
         procfs_list_unlock();
     }
@@ -257,6 +260,8 @@ procfs_session_rele(struct session *sess)
 static inline struct session *
 procfs_proc_session(proc_t p)
 {
+	_MALLOC_ZONE((int)sizeof(struct session), M_TTYS, M_ZERO);
+
     struct session * sess = SESSION_NULL;
     lck_mtx_t * proc_list_mlock;
 
