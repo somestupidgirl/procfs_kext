@@ -79,6 +79,7 @@ LDFLAGS+=	$(SDKFLAGS) \
 		$(ARCHFLAGS) \
 		-nostdlib \
 		-Xlinker -kext \
+		-Xlinker -object_path_lto kernel_resolver.o \
 		-Xlinker -object_path_lto procfs_init.o \
 		-Xlinker -object_path_lto procfs_data.o \
 		-Xlinker -object_path_lto procfs_node.o \

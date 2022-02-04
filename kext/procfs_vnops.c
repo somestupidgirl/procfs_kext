@@ -23,6 +23,7 @@
 #include "procfs_node.h"
 #include "procfs_subr.h"
 
+#include "kernel_resolver.h"
 #include "utils.h"
 
 #pragma mark -
@@ -61,16 +62,11 @@ static const int PID_SIZE = 16;
 static const int PROCESS_NAME_SIZE = MAXCOMLEN + PID_SIZE + PAD_SIZE;
 
 #pragma mark -
-#pragma mark External References
-
-extern struct proc *current_proc(void);
-
-#pragma mark -
 #pragma mark Missing Symbols
 
-extern task_t proc_task(proc_t);
-extern void proc_fdunlock(proc_t p);
-extern void proc_fdlock_spin(proc_t p);
+static task_t (*_proc_task)(proc_t);
+static void (*_proc_fdlock_spin)(proc_t p);
+static void (*_proc_fdunlock)(proc_t p);
 
 #pragma mark -
 #pragma mark Function Prototypes
@@ -212,6 +208,10 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
     struct componentname *cnp = ap->a_cnp;
     vnode_t dvp = ap->a_dvp; // Parent of the name to be looked up
 
+    _proc_task = (void*)lookup_symbol("_proc_task");
+    _proc_fdlock_spin = (void*)lookup_symbol("_proc_fdlock_spin");
+    _proc_fdunlock = (void*)lookup_symbol("_proc_fdunlock");
+
     // The parent directory must not be NULL and the name
     // length must be at least 1.
     if (dvp == NULLVP || vnode_vtype(dvp) != VDIR || cnp->cn_namelen < 1) {
@@ -290,12 +290,12 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     if (target_proc != NULL) { // target_proc is released at loop end.
                         struct proc_fdinfo *fdi;
                         struct filedesc *fdp = fdi->proc_fd;
-                        proc_fdlock_spin(target_proc);
+                        _proc_fdlock_spin(target_proc);
                         if (id < fdp->fd_nfiles) {
                             struct fileproc *fp = fdp->fd_ofiles[id];
                             valid = fp!= NULL && !(fdp->fd_ofileflags[id] & UF_RESERVED);
                         }
-                        proc_fdunlock(target_proc);
+                        _proc_fdunlock(target_proc);
                     }
                 }
                 
@@ -369,7 +369,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                             uint64_t *thread_ids;
                             int thread_count;
                             
-                            task_t task = proc_task(target_proc);
+                            task_t task = _proc_task(target_proc);
                             int result =  procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
                             if (result == KERN_SUCCESS) {
                                 boolean_t found = FALSE;
@@ -453,6 +453,10 @@ out:
  */
 STATIC int
 procfs_vnop_readdir(struct vnop_readdir_args *ap) {
+    _proc_task = (void*)lookup_symbol("_proc_task");
+    _proc_fdlock_spin = (void*)lookup_symbol("_proc_fdlock_spin");
+    _proc_fdunlock = (void*)lookup_symbol("_proc_fdunlock");
+
     vnode_t vp = ap->a_vp;
     if (vnode_vtype(vp) != VDIR) {
         return ENOTDIR;
@@ -644,11 +648,11 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                     struct proc_fdinfo *fdi;
                     struct filedesc *fdp = fdi->proc_fd;
                     for (int i = 0; i < fdp->fd_nfiles; i++) {
-                        proc_fdlock_spin(p);
+                        _proc_fdlock_spin(p);
                         struct fileproc *fp = fdp->fd_ofiles[i];
                         if (fp != NULL && !(fdp->fd_ofileflags[i] & UF_RESERVED)) {
                             // Need to unlock before copy out in case of fault and because it's a "long" operation.
-                            proc_fdunlock(p);
+                            _proc_fdunlock(p);
                             snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
                             int size = procfs_calc_dirent_size(fd_buffer);
                             
@@ -661,9 +665,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                                 numentries++;
                             }
                             nextpos += size;
-                            proc_fdlock_spin(p);
+                            _proc_fdlock_spin(p);
                         }
-                        proc_fdunlock(p);
+                        _proc_fdunlock(p);
                     }
                     proc_rele(p);
                     break;   // Exit from the outer loop.
