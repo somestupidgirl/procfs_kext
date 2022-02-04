@@ -463,7 +463,7 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
     proc_t p = proc_find(pid);
     if (p != NULL) {
         // Count the open files in this process.
-        struct proc_fdinfo *fdi;
+        struct proc_fdinfo *fdi = proc_find(p);
         struct filedesc *fdp = fdi->proc_fd;
         _proc_fdlock_spin(p);
         for (int i = 0; i < fdp->fd_nfiles; i++) {

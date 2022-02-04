@@ -288,7 +288,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     // Check whether it is a valid file descriptor.
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
-                        struct proc_fdinfo *fdi;
+                        struct proc_fdinfo *fdi = proc_find(target_proc);
                         struct filedesc *fdp = fdi->proc_fd;
                         _proc_fdlock_spin(target_proc);
                         if (id < fdp->fd_nfiles) {
@@ -645,7 +645,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                 proc_t p = proc_find(pid);
                 if (p != NULL) {
                     char fd_buffer[PROCESS_NAME_SIZE];
-                    struct proc_fdinfo *fdi;
+                    struct proc_fdinfo *fdi = proc_find(p);
                     struct filedesc *fdp = fdi->proc_fd;
                     for (int i = 0; i < fdp->fd_nfiles; i++) {
                         _proc_fdlock_spin(p);
