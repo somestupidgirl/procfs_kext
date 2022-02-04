@@ -52,7 +52,6 @@ static task_t (*_proc_task)(proc_t);
 static int (*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo);
 static int (*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
 static int (*_proc_gettty)(proc_t p, vnode_t *vp);
-static int (*_proc_fdlist)(proc_t p, struct proc_fdinfo *buf, size_t *count);
 
 static int (*_fill_vnodeinfo)(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
 static void (*_fill_fileinfo)(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
@@ -462,16 +461,12 @@ size_t
 procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
     int size = 0;
 
-    struct kernel_info kinfo;
-    if (_proc_fdlist == NULL) _proc_fdlist = (void*)solve_kernel_symbol(&kinfo, "_proc_fdlist");
-
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != NULL) {
         // Count the open files in this process.
-        struct proc_fdinfo *buf;
-        int count = vcount(p);
-        struct filedesc *fdp = _proc_fdlist(p, buf, count);
+        struct proc_fdinfo *fdi;
+        struct filedesc *fdp = fdi->proc_fd;
         procfs_fdlock_spin(p);
         for (int i = 0; i < fdp->fd_nfiles; i++) {
             struct fileproc *fp = fdp->fd_ofiles[i];
@@ -480,7 +475,6 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
             }
         }
         procfs_fdunlock(p);
-        cleanup_kernel_info(&kinfo);
         proc_rele(p);
     }
     return size;
