@@ -441,21 +441,30 @@ out:
 int
 procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
 {
+	int pid = proc_pid(p);
+	int ppid = proc_ppid(p);
 
 	struct tty *tp;
 	struct session *sessionp = NULL;
 	struct pgrp * pg;
+	struct proc_fdinfo *fdi;
+	struct filedesc *fdp;
 	kauth_cred_t my_cred;
 
 	pg = procfs_proc_pgrp(p);
 	sessionp = procfs_proc_session(p);
-
+	fdp = fdi->proc_fd;
 	my_cred = kauth_cred_proc_ref(p);
+
 	bzero(pbsd, sizeof(struct proc_bsdinfo));
+
 	pbsd->pbi_status = p->p_stat;
 	pbsd->pbi_xstatus = p->p_xstat;
-	pbsd->pbi_pid = p->p_pid;
-	pbsd->pbi_ppid = p->p_ppid;
+
+	pbsd->pbi_pid = proc_find(pid);
+	pbsd->pbi_ppid = proc_find(ppid);
+	proc_rele(p);
+
 	pbsd->pbi_uid = kauth_cred_getuid(my_cred);
 	pbsd->pbi_gid = kauth_cred_getgid(my_cred);
 	pbsd->pbi_ruid =  kauth_cred_getruid(my_cred);
@@ -465,27 +474,32 @@ procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
 	kauth_cred_unref(&my_cred);
 
 	pbsd->pbi_nice = p->p_nice;
+
 	pbsd->pbi_start_tvsec = p->p_start.tv_sec;
 	pbsd->pbi_start_tvusec = p->p_start.tv_usec;
+
 	bcopy(&p->p_comm, &pbsd->pbi_comm[0], MAXCOMLEN);
 	pbsd->pbi_comm[MAXCOMLEN - 1] = '\0';
 	bcopy(&p->p_name, &pbsd->pbi_name[0], 2 * MAXCOMLEN);
 	pbsd->pbi_name[(2 * MAXCOMLEN) - 1] = '\0';
 
 	pbsd->pbi_flags = 0;
+	int is64bit = proc_is64bit(p);
+	int isinexit = proc_exiting(p);
+
 	if ((p->p_flag & P_SYSTEM) == P_SYSTEM) {
 		pbsd->pbi_flags |= PROC_FLAG_SYSTEM;
 	}
 	if ((p->p_lflag & P_LTRACED) == P_LTRACED) {
 		pbsd->pbi_flags |= PROC_FLAG_TRACED;
 	}
-	if ((p->p_lflag & P_LEXIT) == P_LEXIT) {
+	if (isinexit == 0) {
 		pbsd->pbi_flags |= PROC_FLAG_INEXIT;
 	}
 	if ((p->p_lflag & P_LPPWAIT) == P_LPPWAIT) {
 		pbsd->pbi_flags |= PROC_FLAG_PPWAIT;
 	}
-	if ((p->p_flag & P_LP64) == P_LP64) {
+	if (is64bit == 0) {
 		pbsd->pbi_flags |= PROC_FLAG_LP64;
 	}
 	if ((p->p_flag & P_CONTROLT) == P_CONTROLT) {
@@ -539,12 +553,12 @@ procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
 #endif
 
 	if (zombie == 0) {
-		pbsd->pbi_nfiles = p->p_fd->fd_nfiles;
+		pbsd->pbi_nfiles = fdp->fd_nfiles;
 	}
 
 	pbsd->e_tdev = NODEV;
 	if (pg != PGRP_NULL) {
-		pbsd->pbi_pgid = p->p_pgrpid;
+		pbsd->pbi_pgid = proc_pgrpid(p);
 		pbsd->pbi_pjobc = pg->pg_jobc;
 		if ((p->p_flag & P_CONTROLT) && (sessionp != SESSION_NULL) && (tp = SESSION_TP(sessionp))) {
 			pbsd->e_tdev = tp->t_dev;
