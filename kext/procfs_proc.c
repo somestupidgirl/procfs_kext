@@ -26,12 +26,13 @@
 #pragma mark -
 #pragma mark External References
 
-task_t procfs_proc_task(proc_t proc);
 extern struct proc *current_proc(void);
 extern void procfs_list_lock(void);
 extern void procfs_list_unlock(void);
 extern void procfs_pgrp_lock(struct pgrp * pgrp);
 extern void procfs_pgrp_unlock(struct pgrp * pgrp);
+extern void procfs_session_lock(struct session * sess);
+extern void procfs_session_unlock(struct session * sess);
 extern void procfs_tty_lock(struct tty *tp);
 extern void procfs_tty_unlock(struct tty *tp);
 extern pidlist_t *procfs_pidlist_init(pidlist_t *pl);
@@ -44,6 +45,8 @@ extern void procfs_pidlist_free(pidlist_t *pl);
 #pragma mark Function Prototypes
 
 typedef int (*proc_iterate_fn_t)(proc_t, void *);
+task_t procfs_proc_task(proc_t proc);
+int procfs_proc_gettty(proc_t p, vnode_t *vp);
 void procfs_proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 int procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 
@@ -339,6 +342,37 @@ task_t
 procfs_proc_task(proc_t proc)
 {
 	return (task_t)proc->task;
+}
+
+int
+procfs_proc_gettty(proc_t p, vnode_t *vp)
+{
+	if (!p || !vp) {
+		return EINVAL;
+	}
+
+	struct session *procsp = procfs_proc_session(p);
+	int err = EINVAL;
+
+	if (procsp != SESSION_NULL) {
+		procfs_session_lock(procsp);
+		vnode_t ttyvp = procsp->s_ttyvp;
+		int ttyvid = procsp->s_ttyvid;
+		procfs_session_unlock(procsp);
+
+		if (ttyvp) {
+			if (vnode_getwithvid(ttyvp, ttyvid) == 0) {
+				*vp = ttyvp;
+				err = 0;
+			}
+		} else {
+			err = ENOENT;
+		}
+
+		procfs_session_rele(procsp);
+	}
+
+	return err;
 }
 
 void

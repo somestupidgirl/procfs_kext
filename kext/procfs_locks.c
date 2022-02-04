@@ -24,6 +24,8 @@ void procfs_fdlock_spin(proc_t p);
 void procfs_fdunlock(proc_t p);
 void procfs_pgrp_lock(struct pgrp * pgrp);
 void procfs_pgrp_unlock(struct pgrp * pgrp);
+void procfs_session_lock(struct session * sess);
+void procfs_session_unlock(struct session * sess);
 void procfs_tty_lock(struct tty *tp);
 void procfs_tty_unlock(struct tty *tp);
 
@@ -80,6 +82,18 @@ void
 procfs_pgrp_unlock(struct pgrp * pgrp)
 {
    lck_mtx_unlock(&pgrp->pg_mlock);
+}
+
+void
+procfs_session_lock(struct session * sess)
+{
+   lck_mtx_lock(&sess->s_mlock);
+}
+
+void
+procfs_session_unlock(struct session * sess)
+{
+   lck_mtx_unlock(&sess->s_mlock);
 }
 
 void

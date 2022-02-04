@@ -38,20 +38,19 @@ STATIC int procfs_copy_data(char *data, int data_len, uio_t uio);
 #pragma mark External References
 
 extern proc_t proc_find(int pid);
-extern task_t proc_task(proc_t);
+extern task_t procfs_proc_task(proc_t);
 extern void procfs_list_lock(void);
 extern void procfs_list_unlock(void);
 extern void procfs_fdlock_spin(proc_t p);
 extern void procfs_fdunlock(proc_t p);
 extern int procfs_proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
+extern int procfs_proc_gettty(proc_t p, vnode_t *vp);
 
 #pragma mark -
 #pragma mark Symbol Resolver
 
-static task_t (*_proc_task)(proc_t);
 static int (*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo);
 static int (*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
-static int (*_proc_gettty)(proc_t p, vnode_t *vp);
 
 static int (*_fill_vnodeinfo)(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
 static void (*_fill_fileinfo)(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
@@ -146,9 +145,6 @@ int
 procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error = 0;
 
-    struct kernel_info kinfo;
-    if (_proc_gettty == NULL) _proc_gettty = (void*)solve_kernel_symbol(&kinfo, "_proc_gettty");
-
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         procfs_list_lock();
@@ -161,7 +157,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
             proc_t session = proc_find(sessionid);
             if (session != NULL) {
                 vnode_t cttyvp;
-                int err = _proc_gettty(session, &cttyvp);
+                int err = procfs_proc_gettty(session, &cttyvp);
                 if (err == 0) {
                     // Convert the vnode to a full path.
                     int name_len = MAXPATHLEN;
@@ -173,7 +169,6 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
             }
         }
         procfs_list_unlock();
-        cleanup_kernel_info(&kinfo);
         proc_rele(p);
     } else {
         error = ESRCH;
@@ -437,17 +432,14 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
     // structured, the pid of the owning process is available in the
     // node_id of the procfs node.
     int size = 0;
-    struct kernel_info kinfo;
-    if (_proc_task == NULL) _proc_task = (void*)solve_kernel_symbol(&kinfo, "_proc_task");
 
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != NULL) {
-        task_t task = _proc_task(p);
+        task_t task = procfs_proc_task(p);
         if (task != NULL) {
             size += procfs_get_task_thread_count(task);
         }
-        cleanup_kernel_info(&kinfo);
         proc_rele(p);
     }
     return size;
