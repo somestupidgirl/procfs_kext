@@ -26,6 +26,7 @@
 #pragma mark -
 #pragma mark External References
 
+task_t procfs_proc_task(proc_t proc);
 extern struct proc *current_proc(void);
 extern void procfs_list_lock(void);
 extern void procfs_list_unlock(void);
@@ -332,6 +333,12 @@ procfs_proc_drop_zombref(proc_t p)
 
 #pragma mark -
 #pragma mark Global Functions
+
+task_t
+procfs_proc_task(proc_t proc)
+{
+	return (task_t)proc->task;
+}
 
 void
 procfs_proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg)

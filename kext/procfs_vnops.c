@@ -67,11 +67,7 @@ extern struct proc *current_proc(void);
 extern struct proclist allproc;
 extern void procfs_fdlock_spin(proc_t p);
 extern void procfs_fdunlock(proc_t p);
-
-#pragma mark -
-#pragma mark Symbol Resolver
-
-static task_t (*_proc_task)(proc_t);
+extern task_t procfs_proc_task(proc_t);
 
 #pragma mark -
 #pragma mark Function Prototypes
@@ -212,9 +208,6 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
     int error = 0;
     struct componentname *cnp = ap->a_cnp;
     vnode_t dvp = ap->a_dvp; // Parent of the name to be looked up
-
-    struct kernel_info kinfo;
-    if (_proc_task == NULL) _proc_task = (void*)solve_kernel_symbol(&kinfo, "_proc_task");
 
     // The parent directory must not be NULL and the name
     // length must be at least 1.
@@ -373,7 +366,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                             uint64_t *thread_ids;
                             int thread_count;
                             
-                            task_t task = _proc_task(target_proc);
+                            task_t task = procfs_proc_task(target_proc);
                             int result =  procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
                             if (result == KERN_SUCCESS) {
                                 boolean_t found = FALSE;
@@ -429,7 +422,6 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
     }
 
 out:
-    cleanup_kernel_info(&kinfo);
     return error;
 }
 
@@ -471,9 +463,6 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
     uio_t uio = ap->a_uio;
     off_t nextpos = 0;
     off_t startpos = uio_offset(uio);
-    
-    struct kernel_info kinfo;
-    if (_proc_task == NULL) _proc_task = (void*)solve_kernel_symbol(&kinfo, "_proc_task");
 
     // Determine whether access checks are required for process-related
     // nodes. Do not check if root or if the file system is mounted with
@@ -610,7 +599,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                 // until we fill up the space or run out of threads.
                 proc_t p = proc_find(pid);
                 if (p != NULL) {
-                    task_t task = _proc_task(p);
+                    task_t task = procfs_proc_task(p);
                     int thread_count;
                     uint64_t *thread_ids;
                     error = procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
@@ -674,7 +663,6 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                         procfs_fdunlock(p);
                     }
                     proc_rele(p);
-                    cleanup_kernel_info(&kinfo);
                     break;   // Exit from the outer loop.
                 } else {
                     // No process for the current pid.
