@@ -299,7 +299,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
 
                 _fill_fileinfo(fp, p, fd, &info.pfi);
                 boolean_t check_fsgetpath;
-                error = _fill_vnodeinfo(vp, &info.pvip.vip_vi, &check_fsgetpath);
+                error = _fill_vnodeinfo(vp, &info.pvip.vip_vi, check_fsgetpath);
                 
                 // If all is well, add in the file path and copy the data
                 // out to user space.

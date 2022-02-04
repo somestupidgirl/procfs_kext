@@ -44,7 +44,7 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     kassert(ret == KERN_SUCCESS);
     LOG("kext executable uuid %s", uuid);
 
-    ret = procfs_init(&vfsc);
+    ret = procfs_init(vfsc);
     if (ret != KERN_SUCCESS) {
         LOG_ERR("procfs_init() fail");
         goto out_error;

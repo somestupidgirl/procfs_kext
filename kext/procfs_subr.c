@@ -37,6 +37,7 @@ static kern_return_t (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t call
 static kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 static kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
 static thread_t (*_convert_port_to_thread)(ipc_port_t port);
+static int (*_kauth_cred_issuser)(kauth_cred_t _cred);
 
 #pragma mark -
 #pragma mark Function Prototypes.
