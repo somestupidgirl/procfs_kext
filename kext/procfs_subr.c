@@ -40,7 +40,6 @@ extern proc_t proc_find(int pid);
 static kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 static kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
 static thread_t (*_convert_port_to_thread)(ipc_port_t port);
-static int (*_suser)(kauth_cred_t cred, u_short *acflag);
 
 #pragma mark -
 #pragma mark Function Prototypes.
@@ -205,15 +204,11 @@ procfs_get_process_count(kauth_cred_t creds) {
     int process_count;
     uint32_t size;
 
-    struct kernel_info kinfo;
-    if (_suser == NULL) _suser = (void*)solve_kernel_symbol(&kinfo, "_suser");
-
-    boolean_t is_suser = _suser(creds, NULL) == 0;
+    boolean_t is_suser = kauth_cred_issuser(creds) == 0;
     procfs_get_pids(&pidp, &process_count, &size, is_suser ? NULL : creds);
     procfs_release_pids(pidp, size);
     
     return process_count;
-    cleanup_kernel_info(&kinfo);
 }
 
 /*
