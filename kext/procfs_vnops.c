@@ -15,6 +15,7 @@
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
 #include <sys/stat.h>
+#include <sys/vm.h>
 #include <sys/vnode.h>
 
 #include "procfs.h"
