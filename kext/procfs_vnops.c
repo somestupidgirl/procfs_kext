@@ -72,7 +72,6 @@ extern void procfs_fdunlock(proc_t p);
 #pragma mark Symbol Resolver
 
 static task_t (*_proc_task)(proc_t);
-static int (*_proc_fdlist)(proc_t p, struct proc_fdinfo *buf, size_t *count);
 
 #pragma mark -
 #pragma mark Function Prototypes
@@ -215,7 +214,6 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
     vnode_t dvp = ap->a_dvp; // Parent of the name to be looked up
 
     struct kernel_info kinfo;
-    if (_proc_fdlist == NULL) _proc_fdlist = (void*)solve_kernel_symbol(&kinfo, "_proc_fdlist");
     if (_proc_task == NULL) _proc_task = (void*)solve_kernel_symbol(&kinfo, "_proc_task");
 
     // The parent directory must not be NULL and the name
@@ -294,9 +292,8 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     // Check whether it is a valid file descriptor.
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
-                        struct proc_fdinfo *buf;
-                        int count = vcount(target_proc);
-                        struct filedesc *fdp = _proc_fdlist(target_proc, buf, count);
+                        struct proc_fdinfo *fdi;
+                        struct filedesc *fdp = fdi->proc_fd;
                         procfs_fdlock_spin(target_proc);
                         if (id < fdp->fd_nfiles) {
                             struct fileproc *fp = fdp->fd_ofiles[id];
