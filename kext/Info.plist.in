@@ -30,6 +30,22 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>__KEXTVERSION__</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>__BUNDLEID__</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>__BUNDLEID__</string>
+			<key>IOClass</key>
+			<string>procfs</string>
+			<key>IOMatchCategory</key>
+			<string>procfs</string>
+			<key>IOProviderClass</key>
+			<string>IOResources</string>
+			<key>IOResourceMatch</key>
+			<string>IOBSD</string>
+		</dict>
+	</dict>
 __KEXTLIBS__
 </dict>
 </plist>
