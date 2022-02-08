@@ -13,8 +13,8 @@ FSBUNDLE?=				$(FSNAME).fs
 FSMACHO?=				$(FSNAME).out
 ARCHFLAGS?=				-arch x86_64
 PREFIX?=				/Library/Filesystems
-DEVELOPER_DIR?=			/Applications/Xcode-13.1.app/Contents/Developer
-SIGNCERT?=				sunnevanattsol@gmail.com
+DEVELOPER_DIR?=			/Applications/Xcode.app/Contents/Developer
+SIGNCERT?=				foozlefairy@gmail.com
 MACOSX_VERSION_MIN?= 	11.5
 
 #
