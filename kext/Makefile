@@ -13,7 +13,7 @@ KEXTBUNDLE?=			$(KEXTNAME).kext
 KEXTMACHO?=				$(KEXTNAME).out
 ARCHFLAGS?=				-arch x86_64
 PREFIX?=				/Library/Extensions
-DEVELOPER_DIR?=			/Applications/Xcode-13.1.app/Contents/Developer
+DEVELOPER_DIR?=			/Applications/Xcode.app/Contents/Developer
 SIGNCERT?=				foozlefairy@gmail.com
 MACOSX_VERSION_MIN?= 	11.5
 
