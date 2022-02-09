@@ -141,7 +141,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         PROC_LIST_LOCK();
-        struct pgrp *pgrp = p->p_pgrp;
+        proc_t pgrp = PROC_PGRP(p);
         if (pgrp != NULL) {
             // Get the controlling terminal vnode from the process session,
             // if it has one.
