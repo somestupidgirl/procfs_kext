@@ -35,7 +35,7 @@ STATIC int32_t procfs_mount_id;
 
 /* -- External references -- */
 // Vnode ops descriptor for this file system.
-extern struct vnodeopv_desc *procfs_vnodeops_list[];
+extern struct vnodeopv_desc *procfs_vnodeops_list[1];
 
 // Pointer to the constructed vnode operations vector. Set
 // when the file system is registered and used when creating
