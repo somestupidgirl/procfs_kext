@@ -32,6 +32,7 @@
 #pragma mark Local Definitions.
 
 #define PROC_ALLPROCLIST (1U << 0)
+#define PROC_RETURNED    (0)
 
 #pragma mark -
 #pragma mark External References.
