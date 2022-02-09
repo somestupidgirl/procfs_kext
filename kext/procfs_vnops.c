@@ -13,6 +13,7 @@
 #include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
+#include <sys/proc_internal.h> // Temp
 #include <sys/stat.h>
 #include <sys/vnode.h>
 

@@ -21,6 +21,7 @@
 #include <sys/ucred.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
+#include <sys/proc_internal.h> // Temp
 
 #include "procfs_node.h"
 #include "procfs_subr.h"

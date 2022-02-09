@@ -18,6 +18,7 @@
 #include <sys/filedesc.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
+#include <sys/proc_internal.h> // Temp
 #include <sys/uio.h>
 #include <sys/vnode.h>
 
