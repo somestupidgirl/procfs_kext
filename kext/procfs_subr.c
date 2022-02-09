@@ -22,6 +22,8 @@
 #include "procfs_node.h"
 #include "procfs_subr.h"
 
+#include "kernel_resolver.h"
+
 #pragma mark -
 #pragma mark External References.
 
