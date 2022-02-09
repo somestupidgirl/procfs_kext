@@ -53,10 +53,9 @@ extern void _PROC_FDUNLOCK(proc_t p);
 
 // Structure used to hold the values needed to create a new vnode
 // corresponding to a procfsnode_t.
-STATIC typedef struct {
+typedef struct {
     // Parent vnode.
     vnode_t vca_parentvp;
-    
 } procfs_vnode_create_args;
 
 // Size of a buffer large enough to hold the string form of a pid_t
