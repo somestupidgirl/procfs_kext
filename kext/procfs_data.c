@@ -38,20 +38,20 @@ STATIC int procfs_copy_data(char *data, int data_len, uio_t uio);
 #pragma mark -
 #pragma mark External References
 
-extern void          PROC_LIST_LOCK(void);
-extern void          PROC_LIST_UNLOCK(void);
-extern void          PROC_FDLOCK_SPIN(proc_t p);
-extern void          PROC_FDUNLOCK(proc_t p);
-extern void          SESSION_LOCK(struct session * sess);
-extern void          SESSION_UNLOCK(struct session * sess);
-extern int           PROC_PIDBSDINFO(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
-extern int           PROC_PIDTASKINFO(proc_t p, struct proc_taskinfo * ptinfo);
-extern int           PROC_PIDTHREADINFO(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
-extern task_t        PROC_TASK(proc_t p);
-extern struct pgrp * PROC_PGRP(proc_t p);
-extern int           FILL_VNODEINFO(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
-extern void          FILL_FILEINFO(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
-extern errno_t       FILL_SOCKETINFO(struct socket *so, struct socket_info *si);
+extern void          _PROC_LIST_LOCK(void);
+extern void          _PROC_LIST_UNLOCK(void);
+extern void          _PROC_FDLOCK_SPIN(proc_t p);
+extern void          _PROC_FDUNLOCK(proc_t p);
+extern void          _SESSION_LOCK(struct session * sess);
+extern void          _SESSION_UNLOCK(struct session * sess);
+extern int           _PROC_PIDBSDINFO(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
+extern int           _PROC_PIDTASKINFO(proc_t p, struct proc_taskinfo * ptinfo);
+extern int           _PROC_PIDTHREADINFO(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
+extern task_t        _PROC_TASK(proc_t p);
+extern struct pgrp * _PROC_PGRP(proc_t p);
+extern int           _FILL_VNODEINFO(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
+extern void          _FILL_FILEINFO(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
+extern errno_t       _FILL_SOCKETINFO(struct socket *so, struct socket_info *si);
 
 #pragma mark -
 #pragma mark Process and Thread Node Data
@@ -116,15 +116,15 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         pid_t session_id = (pid_t)0;
-        PROC_LIST_LOCK();
-        proc_t pgrp = PROC_PGRP(p);
+        _PROC_LIST_LOCK();
+        proc_t pgrp = _PROC_PGRP(p);
         if (pgrp != NULL) {
             session_id = proc_sessionid(pgrp);
             if (session_id < 0) {
                 session_id = 0;
             }
         }
-        PROC_LIST_UNLOCK();
+        _PROC_LIST_UNLOCK();
 
         error = procfs_copy_data((char *)&session_id, sizeof(session_id), uio);
         proc_rele(p);
@@ -143,17 +143,17 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
-        PROC_LIST_LOCK();
-        struct pgrp *pgrp = PROC_PGRP(p);
+        _PROC_LIST_LOCK();
+        struct pgrp *pgrp = _PROC_PGRP(p);
         if (pgrp != NULL) {
             // Get the controlling terminal vnode from the process session,
             // if it has one.
             struct session *sp = pgrp->pg_session;
             if (sp != NULL) {
                 vnode_t cttyvp;
-                SESSION_LOCK(sp);
+                _SESSION_LOCK(sp);
                 cttyvp = sp->s_ttyvp;
-                SESSION_UNLOCK(sp);
+                _SESSION_UNLOCK(sp);
                 if (cttyvp != NULL) {
                     // Convert the vnode to a full path.
                     int name_len = MAXPATHLEN;
@@ -164,7 +164,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
                 }
             }
         }
-        PROC_LIST_UNLOCK();
+        _PROC_LIST_UNLOCK();
         proc_rele(p);
     } else {
         error = ESRCH;
@@ -186,7 +186,7 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
         struct proc_bsdinfo info;
         
         // Get the BSD-centric process info and copy it out.
-        error = PROC_PIDBSDINFO(p, &info, FALSE);
+        error = _PROC_PIDBSDINFO(p, &info, FALSE);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
@@ -210,7 +210,7 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
         struct proc_taskinfo info;
         
         // Get the task info and copy it out.
-        error = PROC_PIDTASKINFO(p, &info);
+        error = _PROC_PIDTASKINFO(p, &info);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
@@ -234,7 +234,7 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
         uint64_t threadid = pnp->node_id.nodeid_objectid;
         
         // Get the task info and copy it out.
-        error  = PROC_PIDTHREADINFO(p, threadid, TRUE, &info);
+        error  = _PROC_PIDTHREADINFO(p, threadid, TRUE, &info);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
@@ -277,8 +277,8 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
                 struct vnode_fdinfowithpath info;
                 bzero(&info, sizeof(info));
                 
-                FILL_FILEINFO(fp, p, fd, &info.pfi);
-                error = FILL_VNODEINFO(vp, &info.pvip.vip_vi);
+                _FILL_FILEINFO(fp, p, fd, &info.pfi);
+                error = _FILL_VNODEINFO(vp, &info.pvip.vip_vi, NULL);
                 
                 // If all is well, add in the file path and copy the data
                 // out to user space.
@@ -328,8 +328,8 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
             struct socket_fdinfo info;
             
             bzero(&info, sizeof(info));
-            FILL_FILEINFO(fp, p, fd, &info.pfi);
-            if ((error = FILL_SOCKETINFO(so, &info.psi)) == 0) {
+            _FILL_FILEINFO(fp, p, fd, &info.pfi);
+            if ((error = _FILL_SOCKETINFO(so, &info.psi)) == 0) {
                 error = procfs_copy_data((char *)&info, sizeof(info), uio);
             }
 
@@ -414,7 +414,7 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != NULL) {
-        task_t task = PROC_TASK(p);
+        task_t task = _PROC_TASK(p);
         if (task != NULL) {
             size += procfs_get_task_thread_count(task);
         }
@@ -435,14 +435,14 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
     if (p != NULL) {
         // Count the open files in this process.
         struct filedesc *fdp = p->p_fd;
-        PROC_FDLOCK_SPIN(p);
+        _PROC_FDLOCK_SPIN(p);
         for (int i = 0; i < fdp->fd_nfiles; i++) {
             struct fileproc *fp = fdp->fd_ofiles[i];
             if (fp != NULL && !(fdp->fd_ofileflags[i] & UF_RESERVED)) {
                 size++;
             }
         }
-        PROC_FDUNLOCK(p);
+        _PROC_FDUNLOCK(p);
         proc_rele(p);
     }
     return size;

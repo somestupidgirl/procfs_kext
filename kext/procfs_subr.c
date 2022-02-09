@@ -29,12 +29,17 @@
 #include "utils.h"
 
 #pragma mark -
+#pragma mark Local Definitions.
+
+#define PROC_ALLPROCLIST (1U << 0)
+
+#pragma mark -
 #pragma mark External References.
 
-extern kern_return_t PROC_ITERATE(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
-extern kern_return_t TASK_THREADS(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
-extern kern_return_t THREAD_INFO(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
-extern thread_t      CONVERT_PORT_TO_THREAD(ipc_port_t port);
+extern kern_return_t _PROC_ITERATE(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+extern kern_return_t _TASK_THREADS(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
+extern kern_return_t _THREAD_INFO(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
+extern thread_t      _CONVERT_PORT_TO_THREAD(ipc_port_t port);
 
 #pragma mark -
 #pragma mark Function Prototypes.
@@ -173,7 +178,7 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
     data.creds = creds;
     data.next_pid = pidp;
     
-    PROC_ITERATE(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
+    _PROC_ITERATE(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
     *pidpp = pidp;
     *sizep = size;
     *pid_count = (int)(data.next_pid - pidp);
@@ -218,7 +223,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     mach_msg_type_number_t count;
 
     // Get all of the threads in the task.
-    if (TASK_THREADS(task, &threads, &count) == KERN_SUCCESS && count > 0) {
+    if (_TASK_THREADS(task, &threads, &count) == KERN_SUCCESS && count > 0) {
         uint64_t thread_id_info[THREAD_IDENTIFIER_INFO_COUNT];
         uint64_t *threadid_ptr = (uint64_t *)OSMalloc(count * sizeof(uint64_t), procfs_osmalloc_tag);
         *thread_ids = threadid_ptr;
@@ -227,9 +232,9 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
         for (unsigned int i = 0; i < count && result == KERN_SUCCESS; i++) {
             unsigned int thread_info_count = THREAD_IDENTIFIER_INFO_COUNT;
             ipc_port_t thread_port = (ipc_port_t)threads[i];
-            thread_t thread = CONVERT_PORT_TO_THREAD(thread_port);
+            thread_t thread = _CONVERT_PORT_TO_THREAD(thread_port);
             if (thread != NULL) {
-                result = THREAD_INFO(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&thread_id_info, &thread_info_count);
+                result = _THREAD_INFO(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&thread_id_info, &thread_info_count);
                 if (result == KERN_SUCCESS) {
                     struct thread_identifier_info *idinfo = (struct thread_identifier_info *)thread_id_info;
                     *threadid_ptr++ = idinfo->thread_id;
