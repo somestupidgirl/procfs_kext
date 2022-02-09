@@ -22,6 +22,12 @@
 #include "procfs_subr.h"
 
 #pragma mark -
+#pragma mark External References
+
+extern void PROC_FDLOCK_SPIN(proc_t p);
+extern void PROC_FDUNLOCK(proc_t p);
+
+#pragma mark -
 #pragma mark Local Definitions
 
 // Read and execute permissions for all users.
@@ -281,12 +287,12 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
                         struct filedesc *fdp = target_proc->p_fd;
-                        proc_fdlock_spin(target_proc);
+                        PROC_FDLOCK_SPIN(target_proc);
                         if (id < fdp->fd_nfiles) {
                             struct fileproc *fp = fdp->fd_ofiles[id];
                             valid = fp!= NULL && !(fdp->fd_ofileflags[id] & UF_RESERVED);
                         }
-                        proc_fdunlock(target_proc);
+                        PROC_FDUNLOCK(target_proc);
                     }
                 }
                 
@@ -634,11 +640,11 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                     char fd_buffer[PROCESS_NAME_SIZE];
                     struct filedesc *fdp = p->p_fd;
                     for (int i = 0; i < fdp->fd_nfiles; i++) {
-                        proc_fdlock_spin(p);
+                        PROC_FDLOCK_SPIN(p);
                         struct fileproc *fp = fdp->fd_ofiles[i];
                         if (fp != NULL && !(fdp->fd_ofileflags[i] & UF_RESERVED)) {
                             // Need to unlock before copy out in case of fault and because it's a "long" operation.
-                            proc_fdunlock(p);
+                            PROC_FDUNLOCK(p);
                             snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
                             int size = procfs_calc_dirent_size(fd_buffer);
                             
@@ -651,9 +657,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                                 numentries++;
                             }
                             nextpos += size;
-                            proc_fdlock_spin(p);
+                            PROC_FDLOCK_SPIN(p);
                         }
-                        proc_fdunlock(p);
+                        PROC_FDUNLOCK(p);
                     }
                     proc_rele(p);
                     break;   // Exit from the outer loop.
