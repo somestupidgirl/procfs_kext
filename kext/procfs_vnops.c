@@ -21,6 +21,8 @@
 #include "procfs_node.h"
 #include "procfs_subr.h"
 
+#include "utils.h"
+
 #pragma mark -
 #pragma mark External References
 

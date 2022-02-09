@@ -14,6 +14,8 @@
 #include "procfs.h"
 #include "procfs_node.h"
 
+#include "utils.h"
+
 #pragma mark Local Definitions
 
 // The fixed mounted device name for this file system. The first

@@ -27,7 +27,7 @@
 #include "procfs_structure.h"
 #include "procfs_subr.h"
 
-#include "kernel_resolver.h"
+#include "utils.h"
 
 #pragma mark -
 #pragma mark Local Function Prototypes
