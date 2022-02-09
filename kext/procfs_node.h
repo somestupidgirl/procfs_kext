@@ -39,6 +39,9 @@ typedef struct {
  * There is one insance of this structure for each active node.
  */
 typedef struct procfsnode {
+    /* Bytes of data; 0 */
+    uint64_t                size;
+
     // Linkage for the node hash. Protected by the node hash lock.
     LIST_ENTRY(procfsnode)  node_hash;
     

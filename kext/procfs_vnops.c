@@ -826,14 +826,21 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
         VATTR_RETURN(vap, va_mode, ALL_ACCESS_ALL);   // All access - target will determine actual access.
         break;
     }
-    
+
+    uid_t   nuid;
+    gid_t   ngid;
+
     // ----- Generic attributes.
+    bzero(vap, sizeof(*vap));
     VATTR_RETURN(vap, va_type, vnode_type_for_structure_node_type(node_type)); // File type
     VATTR_RETURN(vap, va_fsid, pmp->pmnt_id);                           // File system id.
     VATTR_RETURN(vap, va_fileid, procfs_get_node_fileid(procfs_node));  // Unique file id.
-    VATTR_RETURN(vap, va_data_size,
-                 procfs_get_node_size_attr(procfs_node, vfs_context_ucred(ap->a_context))); // File size.
-    
+#if 0
+    VATTR_RETURN(vap, va_data_size, procfs_get_node_size_attr(procfs_node, vfs_context_ucred(ap->a_context))); // File size.
+#else
+    VATTR_RETURN(vap, va_data_size, procfs_node->size); // File size.
+#endif
+
     // Use the process start time as the create time if we have a process.
     // otherwise use the file system mount time. Set the other times to the
     // same value, since there is really no way to track them.
