@@ -25,7 +25,7 @@
 #include <unistd.h>
 
 #include "mntopts.h"
-#include "procfs.h"
+#include "mount_procfs.h"
 
 // Forward declarations of local functions.
 static void usage(char *name);
