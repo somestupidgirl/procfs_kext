@@ -30,6 +30,7 @@
 
 extern void _PROC_FDLOCK_SPIN(proc_t p);
 extern void _PROC_FDUNLOCK(proc_t p);
+extern task_t _PROC_TASK(proc_t p);
 
 #pragma mark -
 #pragma mark Local Definitions
@@ -347,7 +348,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                             uint64_t *thread_ids;
                             int thread_count;
                             
-                            task_t task = proc_task(target_proc);
+                            task_t task = _PROC_TASK(target_proc);
                             int result =  procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
                             if (result == KERN_SUCCESS) {
                                 boolean_t found = FALSE;
