@@ -1,0 +1,21 @@
+panic(cpu 6 caller 0xffffff80171e408b): "kauth_cred_getuid: bad credential 0"com.apple./System/Volumes/Data/SWE/macOS/BuildRoots/36806d33d2/Library/Caches/com.apple.xbs/Sources/xnu/xnu-7195.141.19/bsd/kern/kern_credential.c:1979
+Backtrace (CPU 6), Frame : Return Address
+0xffffffa0a15f3740 : 0xffffff8016c8c26d mach_kernel : _handle_debugger_trap + 0x3fd
+0xffffffa0a15f3790 : 0xffffff8016dd3993 mach_kernel : _kdp_i386_trap + 0x143
+0xffffffa0a15f37d0 : 0xffffff8016dc3f8a mach_kernel : _kernel_trap + 0x55a
+0xffffffa0a15f3820 : 0xffffff8016c30a2f mach_kernel : _return_from_trap + 0xff
+0xffffffa0a15f3840 : 0xffffff8016c8ba8d mach_kernel : _DebuggerTrapWithState + 0xad
+0xffffffa0a15f3960 : 0xffffff8016c8bd83 mach_kernel : _panic_trap_to_debugger + 0x273
+0xffffffa0a15f39d0 : 0xffffff801749c8da mach_kernel : _panic + 0x54
+0xffffffa0a15f3a40 : 0xffffff80171e408b mach_kernel : _kauth_cred_getuid + 0x2b
+0xffffffa0a15f3a50 : 0xffffff7fb3838ca2 com.stupid.filesystems.procfs : _procfs_get_process_count + 0x32
+0xffffffa0a15f3a90 : 0xffffff7fb3837189 com.stupid.filesystems.procfs : _procfs_process_node_size + 0x19
+0xffffffa0a15f3ab0 : 0xffffff7fb38370be com.stupid.filesystems.procfs : _procfs_get_node_size_attr + 0x10e
+0xffffffa0a15f3b10 : 0xffffff7fb383ab35 com.stupid.filesystems.procfs : _procfs_vnop_getattr + 0x345
+0xffffffa0a15f3bc0 : 0xffffff8016f518ae mach_kernel : _vnode_getattr + 0xae
+0xffffffa0a15f3c40 : 0xffffff8016ef32ff mach_kernel : _fgetattrlist + 0x69f
+0xffffffa0a15f3d20 : 0xffffff8016ef6160 mach_kernel : _getattrlist + 0x170
+0xffffffa0a15f3f40 : 0xffffff801733ed0e mach_kernel : _unix_syscall64 + 0x2ce
+0xffffffa0a15f3fa0 : 0xffffff8016c311f6 mach_kernel : _hndl_unix_scall64 + 0x16
+      Kernel Extensions in backtrace:
+         com.stupid.filesystems.procfs(1.0)[F2608116-65CA-3874-B34F-A77BDCC730B6]com.apple.0xffffff7fb3835000-com.apple.driver.0xffffff7fb383cfff
