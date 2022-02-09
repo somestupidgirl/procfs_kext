@@ -5,6 +5,8 @@
 #include <sys/proc.h>
 #include <sys/types.h>
 
+#include "kernel_resolver.h"
+
 #pragma mark -
 #pragma mark Local Definitions
 
