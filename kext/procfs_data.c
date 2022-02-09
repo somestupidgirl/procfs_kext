@@ -42,6 +42,8 @@ extern void          PROC_LIST_LOCK(void);
 extern void          PROC_LIST_UNLOCK(void);
 extern void          PROC_FDLOCK_SPIN(proc_t p);
 extern void          PROC_FDUNLOCK(proc_t p);
+extern void          SESSION_LOCK(struct session * sess);
+extern void          SESSION_UNLOCK(struct session * sess);
 extern int           PROC_PIDBSDINFO(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 extern int           PROC_PIDTASKINFO(proc_t p, struct proc_taskinfo * ptinfo);
 extern int           PROC_PIDTHREADINFO(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
@@ -149,9 +151,9 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
             struct session *sp = pgrp->pg_session;
             if (sp != NULL) {
                 vnode_t cttyvp;
-                session_lock(sp);
+                SESSION_LOCK(sp);
                 cttyvp = sp->s_ttyvp;
-                session_unlock(sp);
+                SESSION_UNLOCK(sp);
                 if (cttyvp != NULL) {
                     // Convert the vnode to a full path.
                     int name_len = MAXPATHLEN;

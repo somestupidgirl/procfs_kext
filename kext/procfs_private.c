@@ -20,6 +20,8 @@ void                PROC_LIST_LOCK(void);
 void                PROC_LIST_UNLOCK(void);
 void                PROC_FDLOCK_SPIN(proc_t p);
 void                PROC_FDUNLOCK(proc_t p);
+void                SESSION_LOCK(struct session * sess);
+void                SESSION_UNLOCK(struct session * sess);
 int                 PROC_PIDBSDINFO(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 int                 PROC_PIDTASKINFO(proc_t p, struct proc_taskinfo * ptinfo);
 int                 PROC_PIDTHREADINFO(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
@@ -41,6 +43,8 @@ void            (*_proc_list_lock)(void);
 void            (*_proc_list_unlock)(void);
 void            (*_proc_fdlock_spin)(proc_t p);
 void            (*_proc_fdunlock)(proc_t p);
+void            (*_session_lock)(struct session * sess);
+void            (*_session_lock)(struct session * sess);
 int             (*_proc_pidbsdinfo)(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 int             (*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo);
 int             (*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
@@ -88,6 +92,20 @@ PROC_FDUNLOCK(proc_t p)
     _proc_fdunlock = (void*)lookup_symbol("_proc_fdunlock");
 
     return _proc_fdunlock(p);
+}
+
+void SESSION_LOCK(struct session * sess)
+{
+    _session_lock = (void*)lookup_symbol("_session_lock");
+
+    return _session_lock(&sess);
+}
+
+void SESSION_UNLOCK(struct session * sess)
+{
+    _session_unlock = (void*)lookup_symbol("_session_unlock");
+
+    return _session_unlock(&sess);
 }
 
 int
