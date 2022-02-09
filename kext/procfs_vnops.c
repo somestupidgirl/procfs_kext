@@ -74,6 +74,7 @@ extern struct proclist allproc;
 #pragma mark -
 #pragma mark Function Prototypes
 
+STATIC int procfs_vnop_default(struct vnop_generic_args *arg);
 STATIC int procfs_vnop_lookup(struct vnop_lookup_args *ap);
 STATIC int procfs_vnop_getattr(struct vnop_getattr_args *ap);
 STATIC int procfs_vnop_reclaim(struct vnop_reclaim_args *ap);
@@ -157,6 +158,11 @@ int procfs_vnop_close(__unused struct vnop_close_args *ap) {
 STATIC
 int procfs_vnop_inactive(__unused struct vnop_inactive_args *ap) {
     // We do everything in procfs_vnop_reclaim.
+    return 0;
+}
+
+STATIC
+int procfs_vnop_default(struct vnop_generic_args *arg) {
     return 0;
 }
 
