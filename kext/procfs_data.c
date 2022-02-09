@@ -442,7 +442,7 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
                 size++;
             }
         }
-        proc_fdunlock(p);
+        PROC_FDUNLOCK(p);
         proc_rele(p);
     }
     return size;
