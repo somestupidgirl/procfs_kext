@@ -16,6 +16,7 @@
 #include <sys/proc_internal.h> // Temp
 #include <sys/stat.h>
 #include <sys/vnode.h>
+#include <sys/vm.h>
 
 #include "procfs.h"
 #include "procfs_data.h"
