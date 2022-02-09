@@ -5,9 +5,12 @@
 //  Created by Kim Topley on 12/3/15.
 //
 //
+#include <kern/locks.h>
+
 #include <libkern/libkern.h>
 #include <libkern/OSAtomic.h>
 #include <libkern/OSMalloc.h>
+
 #include <sys/mount.h>
 #include <sys/vnode.h>
 
