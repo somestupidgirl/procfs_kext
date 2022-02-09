@@ -34,6 +34,8 @@
 #define PROC_ALLPROCLIST (1U << 0)
 #define PROC_RETURNED    (0)
 
+typedef int (*proc_iterate_fn_t)(proc_t, void *);
+
 #pragma mark -
 #pragma mark External References.
 
