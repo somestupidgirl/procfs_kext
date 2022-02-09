@@ -45,7 +45,9 @@ extern int (**procfs_vnodeop_p)(void *);
 #pragma mark -
 #pragma mark Function Prototypes
 
-STATIC int procfs_init(struct vfsconf *vfsconf);
+int procfs_init(__unused struct vfsconf *vfsconf);
+void procfs_fini(void);
+
 STATIC int procfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t context);
 STATIC int procfs_unmount(struct mount *mp, int mntflags, vfs_context_t context);
 STATIC int procfs_root(struct mount *mp, struct vnode **vpp, vfs_context_t context);
@@ -103,7 +105,7 @@ STATIC int mounted_instance_count;
  * interlock anyway to ensure that we don't perform intialization
  * more than once. 
  */
-STATIC int
+int
 procfs_init(__unused struct vfsconf *vfsconf) {
     static int initialized;  // Protect against multiple calls.
     
@@ -120,6 +122,28 @@ procfs_init(__unused struct vfsconf *vfsconf) {
         procfsnode_start_init();
     }
     return 0;
+}
+
+void
+procfs_fini(void)
+{
+    lck_grp_t *procfs_lck_grp;
+    lck_mtx_t *procfs_hash_mutex;
+
+    procfs_osmalloc_tag = OSMalloc_Tagalloc(PROCFS_BUNDLEID, 0);
+    if (procfs_osmalloc_tag) {
+        OSMalloc_Tagfree(procfs_osmalloc_tag);
+        procfs_osmalloc_tag = NULL;
+    }
+    procfs_lck_grp = lck_grp_alloc_init(PROCFS_LCK_GRP_NAME, LCK_GRP_ATTR_NULL);
+    if (procfs_lck_grp) {
+        lck_grp_free(procfs_lck_grp);
+        return;
+    }
+    procfs_hash_mutex = lck_mtx_alloc_init(procfs_lck_grp, LCK_ATTR_NULL);
+    if (procfs_hash_mutex) {
+        lck_mtx_free(procfs_hash_mutex, procfs_lck_grp);
+    }
 }
 
 /*
