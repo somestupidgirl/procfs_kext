@@ -581,7 +581,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                 // until we fill up the space or run out of threads.
                 proc_t p = proc_find(pid);
                 if (p != NULL) {
-                    task_t task = proc_task(p);
+                    task_t task = _PROC_TASK(p);
                     int thread_count;
                     uint64_t *thread_ids;
                     error = procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
