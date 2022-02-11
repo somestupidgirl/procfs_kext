@@ -1,16 +1,8 @@
 #include <mach/kern_return.h>
 #include <mach/kmod.h>
 #include <mach/mach_types.h>
-
-#include <kern/lock_group.h>
-
 #include <libkern/libkern.h>
-#include <libkern/locks.h>
-#include <libkern/OSMalloc.h>
-
-#include <sys/filedesc.h>
 #include <sys/kernel_types.h>
-#include <sys/mount.h>
 #include <sys/types.h>
 
 #include "procfs.h"
