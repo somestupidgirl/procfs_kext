@@ -197,6 +197,14 @@ procfs_release_pids(pid_t *pidp, uint32_t size) {
     OSFree(pidp, size, procfs_osmalloc_tag);
 }
 
+int
+procfs_issuser(kauth_cred_t creds) {
+    if (kauth_cred_getuid(creds) == 0) {
+        return 0;
+    }
+    return EPERM;
+}
+
 /*
  * Gets the number of active processes that are visible to a
  * process with given credentials.
@@ -207,10 +215,11 @@ procfs_get_process_count(kauth_cred_t creds) {
     int process_count;
     uint32_t size;
 
-    boolean_t is_suser = kauth_cred_getuid(creds) == 0;
+    boolean_t is_suser = procfs_issuser(creds) == 0;
+
     procfs_get_pids(&pidp, &process_count, &size, is_suser ? NULL : creds);
     procfs_release_pids(pidp, size);
-    
+
     return process_count;
 }
 
