@@ -13,9 +13,9 @@
 #include <sys/queue.h>
 
 #include "procfs.h"
+#include "procfs_node.h"
 
 enum vtype;
-typedef struct procfsnode procfsnode_t;
 
 /*
  * Definitions for the data structures that determine the
@@ -47,7 +47,9 @@ typedef enum {
 } procfs_structure_node_type_t;
 
 // Returns whether a given node type represents a directory.
-static inline boolean_t procfs_is_directory_type(procfs_structure_node_type_t type) {
+static inline boolean_t
+procfs_is_directory_type(procfs_structure_node_type_t type)
+{
     return type != PROCFS_FILE && type != PROCFS_CURPROC;
 }
 
@@ -93,13 +95,12 @@ typedef struct procfs_structure_node {
     char                                psn_name[MAX_STRUCT_NODE_NAME_LEN];
     procfs_base_node_id_t               psn_base_node_id;   // Base node id - unique.
     uint16_t                            psn_flags;          // Flags - PSN_XXX (see below)
-    
+
     // Structure linkage. Immutable once set.
-    struct procfs_structure_node        *psn_parent;        // The parent node in the structure
-    TAILQ_ENTRY(procfs_structure_node)   psn_next;          // Next sibling node within structure parent.
-    TAILQ_HEAD(procfs_structure_children, procfs_structure_node) psn_children;
-                                                            // Children of this structure node.
-    
+    struct procfs_structure_node          *psn_parent;                          // The parent node in the structure
+    TAILQ_ENTRY(procfs_structure_node)     psn_next;                            // Next sibling node within structure parent.
+    TAILQ_HEAD(procfs_structure_children,  procfs_structure_node) psn_children; // Children of this structure node.
+
     // --- Function hooks. Set to null to use the defaults.
     // The node's size value. This is the size value for the node itself.
     // For directory nodes, the sum of the size values of all of its children is
@@ -110,7 +111,7 @@ typedef struct procfs_structure_node {
     // Gets the value for the node's size attribute. If NULL, psn_node_size
     // is used instead.
     procfs_node_size_fn                 psn_getsize_fn;
-    
+
     // Reads the file content.
     procfs_read_data_fn                 psn_read_data_fn;
 } procfs_structure_node_t;

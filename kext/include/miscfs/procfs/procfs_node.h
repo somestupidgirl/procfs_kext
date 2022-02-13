@@ -14,12 +14,6 @@
 #include "procfs_structure.h"
 
 #pragma mark -
-#pragma mark Local Definitions
-
-/* Additional malloc flags */
-#define M_CACHE 26 /* Dynamically allocated cache entries */
-
-#pragma mark -
 #pragma mark File System Dependent Node for procfs
 
 /*
@@ -41,13 +35,13 @@ typedef struct {
  * The filesystem-dependent vnode private data for procfs.
  * There is one insance of this structure for each active node.
  */
-typedef struct procfsnode {
+struct procfsnode {
     // Linkage for the node hash. Protected by the node hash lock.
     LIST_ENTRY(procfsnode)  node_hash;
-    
+
     // Pointer to the associated vnode. Protected by the node hash lock.
     vnode_t                 node_vnode;
-    
+
     // Records whether this node is currently being attached to a vnode.
     // Only one thread can be allowed to link the node to a vnode. If a
     // thread that wants to create a procfsnode and link it to a vnode
@@ -56,11 +50,11 @@ typedef struct procfsnode {
     // some or all of the work that it needed to do has been completed.
     // Protected by the node hash lock.
     boolean_t               node_attaching_vnode;
-    
+
     // Records whether a thread is awaiting the outcome of vnode attachment.
     // Protected by the node hash lock.
     boolean_t               node_thread_waiting_attach;
-    
+
     // node_mnt_id and node_id taken together uniquely identify a node. There
     // must only ever be one procnfsnode instance (and hence one vnode) for each
     // (node_mnt_id, node_id) combination. The node_mnt_id value can be obtained
@@ -70,16 +64,20 @@ typedef struct procfsnode {
 
     // Pointer to the procfs_structure_node_t for this node.
     procfs_structure_node_t *node_structure_node;   // Set when allocated, never changes.
-} procfsnode_t;
+};
 
 #pragma mark -
 #pragma mark Vnode to/from procfsnode Conversion
 
-static inline vnode_t procfsnode_to_vnode(procfsnode_t *pnp) {
+static inline vnode_t
+procfsnode_to_vnode(procfsnode_t *pnp)
+{
     return pnp->node_vnode;
 }
 
-static inline procfsnode_t *vnode_to_procfsnode(vnode_t vp) {
+static inline procfsnode_t *
+vnode_to_procfsnode(vnode_t vp)
+{
     return (procfsnode_t *)vnode_fsnode(vp);
 }
 
@@ -87,7 +85,9 @@ static inline procfsnode_t *vnode_to_procfsnode(vnode_t vp) {
 #pragma mark Inline Convenience Functions
 
 // Gets the pid_t for the process corresponding to a procfsnode_t
-static inline pid_t procfsnode_to_pid(procfsnode_t *procfsnode) {
+static inline pid_t
+procfsnode_to_pid(procfsnode_t *procfsnode)
+{
     return procfsnode->node_id.nodeid_pid;
 }
 

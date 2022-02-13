@@ -7,12 +7,13 @@
 
 #include <kern/assert.h>
 #include <libkern/OSMalloc.h>
+#include <sys/malloc.h>
 #include <sys/systm.h>
 #include <sys/types.h>
 #include <sys/vnode.h>
 
-#include "procfs.h"
-#include "procfs_node.h"
+#include <miscfs/procfs/procfs.h>
+#include <miscfs/procfs/procfs_node.h>
 
 #pragma mark -
 #pragma mark Global Definitions
@@ -63,7 +64,8 @@ STATIC void procfsnode_free_node(procfsnode_t *procfsnode);
  * mount occurs.
  */
 void
-procfsnode_start_init(void) {
+procfsnode_start_init(void)
+{
     // Allocate the lock group and the mutex lock for the hash table.
     procfsnode_lck_grp = lck_grp_alloc_init("com.kadmas.procfs.procfsnode_locks", LCK_GRP_ATTR_NULL);
     procfsnode_hash_mutex = lck_mtx_alloc_init(procfsnode_lck_grp, LCK_ATTR_NULL);
@@ -74,7 +76,8 @@ procfsnode_start_init(void) {
  * system has been mounted. This function is called exactly once per mount.
  */
 void
-procfsnode_complete_init(void) {
+procfsnode_complete_init(void)
+{
     lck_mtx_lock(procfsnode_hash_mutex);
     if (procfsnode_hash_buckets == NULL) {
         // Set up the hash buckets only on first mount. Rather than define a
@@ -107,26 +110,27 @@ int
 procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_node_t *snode,
                 procfsnode_t **pnpp, vnode_t *vnpp,
                 create_vnode_func create_vnode_func,
-                void *create_vnode_params) {
+                void *create_vnode_params)
+{
     int error = 0;
     boolean_t locked = TRUE;
     procfsnode_t *target_procfsnode = NULL;     // This is the node that we will return.
     procfsnode_t *new_procfsnode = NULL;        // Newly allocated node. Will be freed if not used.
     vnode_t target_vnode = NULL;                // Start by assuming we will not get a vnode.
     int32_t mount_id = pmp->pmnt_id;            // File system id.
-    
+
     // Lock the hash table. We'll keep this locked until we are done,
     // unless we need to allocate memory. In that case, we'll drop the
     // lock, but we'll have to revisit all of our assumptions when we
     // reacquire it, because another thread may have created the node
     // we are looking for.
     lck_mtx_lock(procfsnode_hash_mutex);
-    
+
     boolean_t done = FALSE;
     while (!done) {
         assert(locked);
         error = 0;
-        
+
         // Select the correct hash bucket and walk along it, looking for an existing
         // node with the correct attributes.
         int nodehash = HASH_FOR_MOUNT_AND_ID(mount_id, node_id);
@@ -150,7 +154,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
                 // the node hash, because the memory allocation may block.
                 lck_mtx_unlock(procfsnode_hash_mutex);
                 locked = FALSE;
-                
+
                 new_procfsnode = (procfsnode_t *)OSMalloc(sizeof(procfsnode_t), procfs_osmalloc_tag);
                 if (new_procfsnode == NULL) {
                     // Allocation failure - bail. Nothing to clean up and
@@ -158,7 +162,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
                     error = ENOMEM;
                     break;
                 }
-                
+
                 // We got a new procfsnode. Relock the node hash, then go around the
                 // loop again. This is necessary because someone else may have created
                 // the same node after we dropped the lock. If that's the case, we'll
@@ -172,26 +176,26 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
                 // allocated last time around the loop, so promote it to target_procfsnode
                 assert(locked);
                 assert(new_procfsnode != NULL);
-                
+
                 target_procfsnode = new_procfsnode;
-                
+
                 // Initialize the new node.
                 memset(target_procfsnode, 0, sizeof(procfsnode_t));
                 target_procfsnode->node_mnt_id = mount_id;
                 target_procfsnode->node_id = node_id;
                 target_procfsnode->node_structure_node = snode;
-                
+
                 // Add the node to the node hash. We already know which bucket
                 // it belongs to.
                 LIST_INSERT_HEAD(hash_bucket, target_procfsnode, node_hash);
             }
         }
-        
+
         // At this point, we have a procfsnode_t, which either already existed
         // or was just created. We also have the lock for the node hash table.
         assert(target_procfsnode != NULL);
         assert(locked);
-        
+
         // Check whether another thread is already in the process of creating a
         // vnode for this procfsnode_t. If it is, wait until it's done and go
         // around the loop again.
@@ -199,15 +203,15 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
             // Indicate that a wakeup is needed when the attaching thread
             // is done.
             target_procfsnode->node_thread_waiting_attach = TRUE;
-            
+
             // Sleeping will drop and relock the mutex.
             msleep(target_procfsnode, procfsnode_hash_mutex, PINOD, "procfsnode_find", NULL);
-            
+
             // Since anything can have changed while we were away, go around
             // the loop again.
             continue;
         }
-        
+
         target_vnode = target_procfsnode->node_vnode;
         if (target_vnode != NULL) {
             // We already have a vnode. We need to check if it has been reassigned.
@@ -215,7 +219,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
             uint32_t vid = vnode_vid(target_vnode);
             lck_mtx_unlock(procfsnode_hash_mutex);
             locked = FALSE;
-            
+
             error = vnode_getwithvid(target_vnode, vid);
             if (error != 0) {
                 // Vnode changed identity, so we need to redo everything. Relock
@@ -228,7 +232,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
                 locked = TRUE;
                 continue;
             }
-            
+
             // The vnode was still present and has not changed id. All we need to do
             // is terminate the loop. We don't hold the lock, "locked" is FALSE and
             // we don't need to relock (and indeed doing so would introduce yet more
@@ -237,7 +241,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
             assert(error == 0);
             break;
         }
-        
+
         // At this point, we have procfsnode_t in the node hash, but we don't have a
         // vnode. To create the vnode, we have to release the node hash lock and invoke
         // the caller's create_vnode_func callback. Before doing that, we need to set
@@ -246,23 +250,23 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
         target_procfsnode->node_attaching_vnode = TRUE;
         lck_mtx_unlock(procfsnode_hash_mutex);
         locked = FALSE;
-        
+
         error = (*create_vnode_func)(create_vnode_params, target_procfsnode, &target_vnode);
         assert(error != 0 || target_vnode != NULL);
-        
+
         // Relock the hash table and clear node_attaching_vnode now that we are
         // safely back from the caller's callback.
         lck_mtx_lock(procfsnode_hash_mutex);
         locked = TRUE;
         target_procfsnode->node_attaching_vnode = FALSE;
-        
+
         // If there are threads waiting for the vnode attach to complete,
         // wake them up.
         if (target_procfsnode->node_thread_waiting_attach) {
             target_procfsnode->node_thread_waiting_attach = FALSE;
             wakeup(target_procfsnode);
         }
-        
+
         // Now check whether we succeeded.
         if (error != 0) {
             // Failed to create the vnode -- this is fatal.
@@ -272,31 +276,31 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
             new_procfsnode = NULL; // To avoid double free.
             break;
         }
-        
+
         // We got the new vnode and it's already linked to the procfsnode_t.
         // Link the procfsnode_t to it. Also add a file system reference to
         // the vnode itself.
         target_procfsnode->node_vnode = target_vnode;
         vnode_addfsref(target_vnode);
-        
+
         break;
     }
-    
+
     // Unlock the hash table, if it is still locked.
     if (locked) {
         lck_mtx_unlock(procfsnode_hash_mutex);
     }
-    
+
     // Free the node we allocated, if we didn't use it. We do this
     // *after* releasing the hash lock just in case it might block.
     if (new_procfsnode != NULL && new_procfsnode != target_procfsnode) {
         OSFree(new_procfsnode, sizeof(procfsnode_t), procfs_osmalloc_tag);
     }
-    
+
     // Set the return value, or NULL if we failed.
     *pnpp = error == 0 ? target_procfsnode : NULL;
     *vnpp = error == 0 ? target_vnode : NULL;
-    
+
     return error;
 }
 
@@ -307,7 +311,8 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
  * link between the vnode and the procfsnode_t.
  */
 void
-procfsnode_reclaim(vnode_t vp) {
+procfsnode_reclaim(vnode_t vp)
+{
     procfsnode_t *pnp = vnode_to_procfsnode(vp);
     if (pnp != NULL) {
         // Lock to manipulate the hash table.
@@ -315,18 +320,18 @@ procfsnode_reclaim(vnode_t vp) {
 
         // Remove the node from the hash table and free it.
         procfsnode_free_node(pnp);
-        
+
         // CAUTION: pnp is now invalid. Null it out to cause a panic
         // if it gets referenced beyond this point.
         pnp = NULL;
         
         lck_mtx_unlock(procfsnode_hash_mutex);
     }
-    
+
     // Remove the file system reference that we added when
     // we created the vnode.
     vnode_removefsref(vp);
-   
+
     // Clear the link to the procfsnode_t since the
     // vnode will no longer be linked to it.
     vnode_clearfsnode(vp);
@@ -338,7 +343,8 @@ procfsnode_reclaim(vnode_t vp) {
   * hash table lock held.
   */
 STATIC void
-procfsnode_free_node(procfsnode_t *procfsnode) {
+procfsnode_free_node(procfsnode_t *procfsnode)
+{
     LIST_REMOVE(procfsnode, node_hash);
     OSFree(procfsnode, sizeof(procfsnode_t), procfs_osmalloc_tag);
 }
@@ -350,24 +356,23 @@ procfsnode_free_node(procfsnode_t *procfsnode) {
  * structure in which the node id is returned.
  */
 void
-procfs_get_parent_node_id(procfsnode_t *pnp, procfsnode_id_t *return_idp) {
+procfs_get_parent_node_id(procfsnode_t *pnp, procfsnode_id_t *return_idp)
+{
     procfs_structure_node_t *snode = pnp->node_structure_node;
     procfs_structure_node_t *parent_snode = snode == NULL ? NULL : snode->psn_parent;
     if (parent_snode == NULL) {
         // The root node is effectively its parent.
         parent_snode = snode;
     }
-    
+
     // Set the fields of the return node_id from the base id of
     // the parent structure node, plus the process and thread ids
     // of the original node if the parent node is process- or
     // thread-related.
     boolean_t pid_node = (parent_snode->psn_flags & PSN_FLAG_PROCESS) != 0;
     boolean_t thread_node = (parent_snode->psn_flags & PSN_FLAG_THREAD) != 0;
-    
+
     return_idp->nodeid_base_id = parent_snode->psn_base_node_id;
     return_idp->nodeid_pid = pid_node ? pnp->node_id.nodeid_pid : PRNODE_NO_PID;
     return_idp->nodeid_objectid = thread_node ? pnp->node_id.nodeid_objectid : PRNODE_NO_OBJECTID;
 }
-
-

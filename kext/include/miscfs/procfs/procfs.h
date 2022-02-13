@@ -30,7 +30,6 @@
         VFS_TBL64BITREADY | \
         VFS_TBLFSNODELOCK | \
         VFS_TBLNOTYPENUM  | \
-        VFS_TBLLOCALVOL   | \
         VFC_VFSNOMACLABEL | \
         0                   \
 )
@@ -46,6 +45,8 @@
 typedef struct procfs_mount_args {
     int mnt_options;      // The procfs mount options.
 } procfs_mount_args_t;
+
+typedef struct procfsnode procfsnode_t;
 
 #pragma mark -
 #pragma mark Internel Definitions - Kernel Only
@@ -79,17 +80,23 @@ typedef struct procfs_mount {
 } procfs_mount_t;
 
 // Convert from procfs mount pointer to VFS mount structure
-static inline struct mount *procfs_mp_to_vfs_mp(procfs_mount_t *pmp) {
+static inline struct mount *
+procfs_mp_to_vfs_mp(procfs_mount_t *pmp)
+{
     return pmp->pmnt_mp;
 }
 
 // Convert from VFS mount pointer to procfs mount pointer.
-static inline procfs_mount_t *vfs_mp_to_procfs_mp(struct mount *vmp) {
+static inline procfs_mount_t *
+vfs_mp_to_procfs_mp(struct mount *vmp)
+{
     return(procfs_mount_t *)vfs_fsprivate(vmp);
 }
 
 // Returns whether access checks should apply to the vnodes on a given mount point.
-static inline boolean_t procfs_should_access_check(procfs_mount_t *pmp) {
+static inline boolean_t
+procfs_should_access_check(procfs_mount_t *pmp)
+{
     return (pmp->pmnt_flags & PROCFS_MOPT_NOPROCPERMS) == 0;
 }
 

@@ -72,24 +72,24 @@ struct klist;
 struct kqwllist;
 
 struct filedesc {
-	struct fileproc    **fd_ofiles;   /* file structures for open files */
-	lck_mtx_t           *fd_kqhashlock;        /* lock for dynamic kqueue hash */
-	u_long               fd_kqhashmask;          /* size of dynamic kqueue hash */
-	struct               kqwllist *fd_kqhash;    /* hash table for dynamic kqueues */
-	struct               kqworkq *fd_wqkqueue;   /* the workq kqueue */
-	char                *fd_ofileflags;         /* per-process open file flags */
-	struct vnode        *fd_cdir;         /* current directory */
-	struct vnode        *fd_rdir;         /* root directory */
-	int                  fd_nfiles;              /* number of open files allocated */
-	int                  fd_lastfile;            /* high-water mark of fd_ofiles */
-	int                  fd_freefile;            /* approx. next free file */
-	mode_t               fd_cmask;               /* mask for file creation */
-	int                  fd_flags;
-	int                  fd_knlistsize;          /* size of knlist */
-	struct klist        *fd_knlist;       /* list of attached knotes */
-	u_long               fd_knhashmask;          /* size of knhash */
-	struct klist        *fd_knhash;       /* hash table for attached knotes */
-	lck_mtx_t           *fd_knhashlock;        /* lock for hash table for attached knotes */
+    struct fileproc    **fd_ofiles;              /* file structures for open files */
+    lck_mtx_t            fd_kqhashlock;          /* lock for dynamic kqueue hash */
+    u_long               fd_kqhashmask;          /* size of dynamic kqueue hash */
+    struct kqwllist     *fd_kqhash;              /* hash table for dynamic kqueues */
+    struct kqworkq      *fd_wqkqueue;            /* the workq kqueue */
+    char                *fd_ofileflags;          /* per-process open file flags */
+    struct vnode        *fd_cdir;                /* current directory */
+    struct vnode        *fd_rdir;                /* root directory */
+    int                  fd_nfiles;              /* number of open files allocated */
+    int                  fd_lastfile;            /* high-water mark of fd_ofiles */
+    int                  fd_freefile;            /* approx. next free file */
+    mode_t               fd_cmask;               /* mask for file creation */
+    int                  fd_flags;
+    int                  fd_knlistsize;          /* size of knlist */
+    struct klist        *fd_knlist;              /* list of attached knotes */
+    u_long               fd_knhashmask;          /* size of knhash */
+    struct klist        *fd_knhash;              /* hash table for attached knotes */
+    lck_mtx_t            fd_knhashlock;          /* lock for hash table for attached knotes */
 };
 
 /*
@@ -113,8 +113,8 @@ struct filedesc {
 #define UF_INHERIT      0x20            /* "inherit-on-exec" */
 
 #define UF_VALID_FLAGS  \
-	(UF_EXCLOSE | UF_FORKCLOSE | UF_RESERVED | UF_CLOSING |\
-	UF_RESVWAIT | UF_INHERIT)
+    (UF_EXCLOSE | UF_FORKCLOSE | UF_RESERVED | UF_CLOSING |\
+     UF_RESVWAIT | UF_INHERIT)
 
 /*
  * Storage required per open file descriptor.
@@ -128,8 +128,8 @@ struct filedesc {
  * Type used to iterate a file descriptor table.
  */
 struct fdt_iterator {
-	int              fdti_fd;
-	struct fileproc *fdti_fp;
+    int              fdti_fd;
+    struct fileproc *fdti_fp;
 };
 
 /*!
@@ -192,9 +192,9 @@ fdt_prev(proc_t p, int fd, bool only_settled);
  * The process for which the file descriptor table is being iterated.
  */
 #define fdt_foreach(fp, p) \
-	for (struct fdt_iterator __fdt_it = fdt_next(p, -1, true); \
-	    ((fp) = __fdt_it.fdti_fp); \
-	    __fdt_it = fdt_next(p, __fdt_it.fdti_fd, true))
+    for (struct fdt_iterator __fdt_it = fdt_next(p, -1, true); \
+        ((fp) = __fdt_it.fdti_fp); \
+        __fdt_it = fdt_next(p, __fdt_it.fdti_fd, true))
 
 /*!
  * @def fdt_foreach_fd
@@ -203,38 +203,33 @@ fdt_prev(proc_t p, int fd, bool only_settled);
  * When in an @c fdt_foreach() loop, return the current file descriptor
  * being inspected.
  */
-#define fdt_foreach_fd()  __fdt_it.fdti_fd
+#define fdt_foreach_fd() __fdt_it.fdti_fd
 
 /*
  * Kernel global variables and routines.
  */
-extern int      dupfdopen(struct filedesc *fdp,
-    int indx, int dfd, int mode, int error);
-extern int      fdalloc(proc_t p, int want, int *result);
-extern int      fdavail(proc_t p, int n);
-#define         fdfile(p, fd)                                   \
-	                (&(p)->p_fd->fd_ofiles[(fd)])
-#define         fdflags(p, fd)                                  \
-	                (&(p)->p_fd->fd_ofileflags[(fd)])
+extern int dupfdopen(struct filedesc *fdp, int indx, int dfd, int mode, int error);
+extern int fdalloc(proc_t p, int want, int *result);
+extern int fdavail(proc_t p, int n);
+
+#define fdfile(p, fd)   (&(p)->p_fd->fd_ofiles[(fd)])
+#define fdflags(p, fd)  (&(p)->p_fd->fd_ofileflags[(fd)])
 
 /*
  * Accesor macros for fd flags
  */
-#define FDFLAGS_GET(p, fd) (*fdflags(p, fd) & (UF_EXCLOSE|UF_FORKCLOSE))
-#define FDFLAGS_SET(p, fd, bits) \
-	   (*fdflags(p, fd) |= ((bits) & (UF_EXCLOSE|UF_FORKCLOSE)))
-#define FDFLAGS_CLR(p, fd, bits) \
-	   (*fdflags(p, fd) &= ~((bits) & (UF_EXCLOSE|UF_FORKCLOSE)))
+#define FDFLAGS_GET(p, fd)          (*fdflags(p, fd) & (UF_EXCLOSE|UF_FORKCLOSE))
+#define FDFLAGS_SET(p, fd, bits)    (*fdflags(p, fd) |= ((bits) & (UF_EXCLOSE|UF_FORKCLOSE)))
+#define FDFLAGS_CLR(p, fd, bits)    (*fdflags(p, fd) &= ~((bits) & (UF_EXCLOSE|UF_FORKCLOSE)))
 
-extern int      falloc(proc_t p, struct fileproc **resultfp, int *resultfd, vfs_context_t ctx);
+extern int falloc(proc_t p, struct fileproc **resultfp, int *resultfd, vfs_context_t ctx);
 
 typedef struct fileproc *(*fp_allocfn_t)(void *);
-extern int      falloc_withalloc(proc_t p, struct fileproc **resultfp,
-    int *resultfd, vfs_context_t ctx,
-    fp_allocfn_t fp_zalloc, void *crarg);
 
-extern struct   filedesc *fdcopy(proc_t p, struct vnode *uth_cdir);
-extern void     fdfree(proc_t p);
-extern void     fdexec(proc_t p, short flags, int self_exec);
+extern int falloc_withalloc(proc_t p, struct fileproc **resultfp, int *resultfd, vfs_context_t ctx, fp_allocfn_t fp_zalloc, void *crarg);
+
+extern struct filedesc *fdcopy(proc_t p, struct vnode *uth_cdir);
+extern void fdfree(proc_t p);
+extern void fdexec(proc_t p, short flags, int self_exec);
 
 #endif /* !_SYS_FILEDESC_H_ */

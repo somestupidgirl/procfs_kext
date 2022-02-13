@@ -47,7 +47,7 @@ CFLAGS+=	$(SDKFLAGS) \
 			-I$(DEVELOPER_DIR)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include
 
 # warnings
-CFLAGS+=	-Wall -Wextra
+CFLAGS+=	-Wall -Wextra -Wno-vla -Wno-nullability-completeness
 
 # linker flags
 ifdef MACOSX_VERSION_MIN

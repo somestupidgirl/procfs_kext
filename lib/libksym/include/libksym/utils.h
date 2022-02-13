@@ -21,6 +21,7 @@
 #define UNUSED(arg0, ...)   (void) ((void) arg0, ##__VA_ARGS__)
 
 #define ARRAY_SIZE(x)       (sizeof(x) / sizeof(*(x)))
+#define ARRAY_LAST(a)       (ARRAY_SIZE(a) - 1u)
 
 /*
  * literal-aware alias of extern modifier
@@ -97,10 +98,11 @@
 #define LOG_ERR(fmt, ...)       LOG("[ERR] " fmt, ##__VA_ARGS__)
 #define LOG_BUG(fmt, ...)       LOG("[BUG] " fmt, ##__VA_ARGS__)
 #define LOG_OFF(fmt, ...)       (void) ((void) 0, ##__VA_ARGS__)
-#ifdef DEBUG
-#define LOG_DBG(fmt, ...)       LOG("[DBG %s#L%d] " fmt, __func__, __LINE__, ##__VA_ARGS__)
+
+#if DEBUG
+#define LOG_DBG(fmt, ...)       LOG("[DEBUG] " fmt "\n", ## __VA_ARGS__)
 #else
-#define LOG_DBG(fmt, ...)       LOG_OFF(fmt, ##__VA_ARGS__)
+#define LOG_DBG(fmt, ...)       do {} while (0)
 #endif
 
 #ifdef DEBUG

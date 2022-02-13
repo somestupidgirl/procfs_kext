@@ -1,12 +1,25 @@
+#include <kern/clock.h>
+
 #include <mach/kern_return.h>
 #include <mach/kmod.h>
 #include <mach/mach_types.h>
+
+#include <mach-o/loader.h>
+#include <mach-o/nlist.h>
+
 #include <libkern/libkern.h>
+#include <libkern/version.h>
+
 #include <sys/kernel_types.h>
+#include <sys/systm.h>
 #include <sys/types.h>
 
-#include "procfs.h"
-#include "utils.h"
+#include <vm/vm_kern.h>
+
+#include <miscfs/procfs/procfs.h>
+
+#include <libksym/ksym.h>
+#include <libksym/utils.h>
 
 #pragma mark -
 #pragma mark External References
@@ -28,13 +41,53 @@ kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d);
 kern_return_t
 procfs_start(kmod_info_t *ki, __unused void *d)
 {
-    kern_return_t ret = KERN_SUCCESS;
+    uint64_t hib;
+    uint64_t kern;
+    uint32_t step;
     uuid_string_t uuid;
+    vm_offset_t vm_kern_ap_ext;
+    vm_offset_t vm_kern_slide;
+    vm_address_t hib_base;
+    vm_address_t kern_base;
+    struct mach_header_64 *mh;
     struct vfsconf *vfsc;
+    kern_return_t ret = KERN_SUCCESS;
+
+    LOG("%s", version);     /* Print darwin kernel version */
 
     ret = util_vma_uuid(ki->address, uuid);
     kassert(ret == KERN_SUCCESS);
     LOG("kext executable uuid %s", uuid);
+
+    vm_kern_ap_ext = get_vm_kernel_addrperm_ext();
+    if (vm_kern_ap_ext == 0) {
+        LOG_ERR("get_vm_kernel_addrperm_ext() failed");
+        goto out_error;
+    }
+    LOG_DBG("vm_kernel_addrperm_ext: %#018lx", vm_kern_ap_ext);
+
+    vm_kern_slide = get_vm_kernel_slide();
+    if (vm_kern_slide == 0) {
+        LOG_ERR("get_vm_kernel_slide() failed");
+        goto out_error;
+    }
+    LOG_DBG("vm_kernel_slide:        %#018lx", vm_kern_slide);
+
+    hib_base = KERN_HIB_BASE + vm_kern_slide;
+    kern_base = KERN_TEXT_BASE + vm_kern_slide;
+
+    LOG_DBG("HIB text base:          %#018lx", hib_base);
+    LOG_DBG("kernel text base:       %#018lx", kern_base);
+
+    mh = (struct mach_header_64 *) kern_base;
+    LOG_DBG("magic:                  %#010x", mh->magic);
+    LOG_DBG("cputype:                %#010x", mh->cputype);
+    LOG_DBG("cpusubtype:             %#010x", mh->cpusubtype);
+    LOG_DBG("filetype:               %#010x", mh->filetype);
+    LOG_DBG("ncmds:                  %#010x", mh->ncmds);
+    LOG_DBG("sizeofcmds:             %#010x", mh->sizeofcmds);
+    LOG_DBG("flags:                  %#010x", mh->flags);
+    LOG_DBG("reserved:               %#010x", mh->reserved);
 
     ret = procfs_init(vfsc);
     if (ret != KERN_SUCCESS) {
@@ -74,12 +127,19 @@ out_error:
 
 kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 {
+    uuid_string_t uuid;
     kern_return_t ret = KERN_SUCCESS;
 
+    ret = util_vma_uuid(ki->address, uuid);
+    if (ret != KERN_SUCCESS) {
+        LOG_ERR("util_vma_uuid() failed  errno: %d", ret);
+        goto out_error;
+    }
+
     ret = vfs_fsremove(procfs_vfs_table_ref);
-    if (ret) {
+    if (ret != KERN_SUCCESS) {
         LOG_ERR("vfs_fsremove() failure  errno: %d", ret);
-        goto out_vfs_rm;
+        goto out_error;
     }
 
     procfs_fini();
@@ -92,7 +152,7 @@ kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 out_exit:
     return ret;
 
-out_vfs_rm:
+out_error:
     ret = KERN_FAILURE;
     goto out_exit;
 }

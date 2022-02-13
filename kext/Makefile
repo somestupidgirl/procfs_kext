@@ -31,7 +31,7 @@ CC=		$(shell xcrun -find -sdk $(SDKROOT) cc)
 CODESIGN=	$(shell xcrun -find -sdk $(SDKROOT) codesign)
 
 # source, object files
-SRCS:=		$(wildcard *.c)
+SRCS:=		$(wildcard ../lib/**/*.c) $(wildcard *.c)
 OBJS:=		$(SRCS:.c=.o)
 
 #
@@ -63,11 +63,13 @@ CFLAGS+=	$(SDKFLAGS) \
 			-fno-builtin \
 			-fno-common \
 			-mkernel \
-			-I../include \
+			-I./include \
+			-I../lib/libkproc/include \
+			-I../lib/libksym/include \
 			-I../MacKernelSDK/Headers
 
 # warnings
-CFLAGS+=	-Wall -Wextra
+CFLAGS+=	-Wall -Wextra -Wno-vla -Wno-nullability-completeness
 
 # linker flags
 ifdef MACOSX_VERSION_MIN
@@ -75,20 +77,21 @@ LDFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
 else
 LDFLAGS+=	-mmacosx-version-min=11.3
 endif
-LDFLAGS+=	$(SDKFLAGS) \
-		$(ARCHFLAGS) \
-		-nostdlib \
-		-Xlinker -kext \
-		-Xlinker -object_path_lto kernel_resolver.o \
-		-Xlinker -object_path_lto procfs_data.o \
-		-Xlinker -object_path_lto procfs_init.o \
-		-Xlinker -object_path_lto procfs_node.o \
-		-Xlinker -object_path_lto procfs_structure.o \
-		-Xlinker -object_path_lto procfs_subr.o \
-		-Xlinker -object_path_lto procfs_vfsops.o \
-		-Xlinker -object_path_lto procfs_vnops.o \
-		-Xlinker -object_path_lto utils.o \
-		-Xlinker -export_dynamic
+LDFLAGS+= 	$(SDKFLAGS) \
+			$(ARCHFLAGS) \
+			-nostdlib \
+			-Xlinker -kext \
+			-Xlinker -object_path_lto ../lib/libkproc/kern_proc.o \
+			-Xlinker -object_path_lto ../lib/libksym/ksym.o \
+			-Xlinker -object_path_lto ../lib/libksym/utils.o \
+			-Xlinker -object_path_lto main.o \
+			-Xlinker -object_path_lto procfs_data.o \
+			-Xlinker -object_path_lto procfs_node.o \
+			-Xlinker -object_path_lto procfs_structure.o \
+			-Xlinker -object_path_lto procfs_subr.o \
+			-Xlinker -object_path_lto procfs_vfsops.o \
+			-Xlinker -object_path_lto procfs_vnops.o \
+			-Xlinker -export_dynamic
 
 # libraries
 LIBS+=		-L../MacKernelSDK/Library/x86_64

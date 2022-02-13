@@ -8,7 +8,7 @@
 #include <mach-o/loader.h>
 #include <sys/vnode.h>
 
-#include "utils.h"
+#include <libksym/utils.h>
 
 static void util_mstat(int opt)
 {
