@@ -1,6 +1,7 @@
 /*
  * Created 180909 lynnl
  */
+#include <stddef.h>
 #include <sys/systm.h>
 #include <kern/clock.h>
 #include <mach-o/loader.h>
@@ -154,7 +155,7 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
 
     text = find_seg64(mh, SEG_TEXT);
     if (text == NULL) {
-        panic("cannot find SEG_LINKEDIT  mh: %p", mh);
+        panic("cannot find SEG_TEXT  mh: %p", mh);
         goto out_done;
     }
 
@@ -164,12 +165,19 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
         goto out_done;
     }
 
-    symtab->cmd = LC_SYMTAB;
-    symtab->cmdsize = sizeof(struct symtab_command);
-    symtab->symoff;
-    symtab->nsyms;
-    symtab->stroff = linkedit->vmaddr - text->vmaddr - linkedit->fileoff;
-    symtab->strsize;
+    uint32_t command = LC_SYMTAB;
+    uint32_t command_size = sizeof(struct symtab_command);
+    uint32_t symbol_offset = offsetof(struct symtab_command, symoff);
+    uint32_t num_symbols;
+    uint32_t string_offset = linkedit->vmaddr - text->vmaddr - linkedit->fileoff;
+    uint32_t string_size = sizeof(name);
+
+    symtab->cmd = command;
+    symtab->cmdsize = command_size;
+    symtab->symoff = symbol_offset;
+    symtab->nsyms = num_symbols;
+    symtab->stroff = string_offset;
+    symtab->strsize = string_size;
 
     strtab = (char *) (linkedit_base + symtab->stroff);
     nl = (struct nlist_64 *) (linkedit_base + symtab->symoff);
