@@ -2,6 +2,7 @@
  * Created 180909 lynnl
  */
 #include <sys/systm.h>
+#include <kern/clock.h>
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach/machine.h>
@@ -10,8 +11,22 @@
 #include <vm/vm_kern.h>
 
 #include "ksym.h"
-#include "kinfo.h"
 #include "utils.h"
+
+#pragma mark -
+#pragma mark Static Arrays
+
+static char *kernel_paths[] = {
+    "/mach_kernel",
+    "/System/Library/Kernels/kernel",
+    "/System/Library/Kernels/kernel.development",
+    "/System/Library/Kernels/kernel.debug"
+    "/System/Library/Kernels/kernel.release.t8020"
+    "/System/Library/Kernels/Kernel.release.t8101"
+};
+
+#pragma mark -
+#pragma mark Functions
 
 /**
  * Get value of global variable vm_kernel_addrperm_ext(since 10.11)
@@ -40,9 +55,9 @@ out_exit:
 vm_offset_t
 get_vm_kernel_slide(void)
 {
-    static uint16_t i = MAX_SLIDE_STEP;
-    static vm_offset_t fake = VM_MIN_KERNEL_AND_KEXT_ADDRESS;
-    static vm_offset_t slide = 0L;
+    uint16_t i = MAX_SLIDE_STEP;
+    vm_offset_t fake = VM_MIN_KERNEL_AND_KEXT_ADDRESS;
+    vm_offset_t slide = 0L;
 
     if (get_vm_kernel_addrperm_ext() == 0L) goto out_exit;
     if (slide != 0L || i == 0) goto out_exit;
@@ -98,7 +113,6 @@ find_lc(struct mach_header_64 *mh, uint32_t cmd)
     return NULL;
 }
 
-
 /**
  * Find a symbol from symtab
  * keywords: kernel_nlist_t  struct nlist_64
@@ -107,7 +121,9 @@ find_lc(struct mach_header_64 *mh, uint32_t cmd)
 static void *
 resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
 {
-    struct segment_command_64 *linkedit;
+    struct segment_command_64 *linkedit, *text;
+    vm_address_t kern_base;
+    vm_offset_t vm_kern_slide;
     vm_address_t linkedit_base;
     struct symtab_command *symtab;
     char *strtab;
@@ -116,44 +132,48 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
     char *str;
     void *addr = NULL;
 
-    uint32_t magic = get_magic();
-    uint32_t filetype = get_filetype();
+    vm_kern_slide = get_vm_kernel_slide();
+    kern_base = KERN_TEXT_BASE + vm_kern_slide;
 
     kassert_nonnull(mh);
     kassert_nonnull(name);
 
-    if ((mh->magic != MH_MAGIC_64 && mh->magic != MH_CIGAM_64) || mh->filetype != MH_EXECUTE && mh->filetype != MH_FILESET) {
-        LOG_ERR("bad mach header  mh: %p mag: %#010x type: %#010x", mh, mh->magic, mh->filetype);
-        goto out_done;
+    mh = (struct mach_header_64 *) kern_base;
+    if ((mh->magic != MH_MAGIC_64 && mh->magic != MH_CIGAM_64) || (mh->filetype != MH_EXECUTE && mh->filetype != MH_FILESET))
+    {
+        panic("bad mach header  mh: %p mag: %#010x type: %#010x", mh, mh->magic, mh->filetype);
     }
 
     linkedit = find_seg64(mh, SEG_LINKEDIT);
     if (linkedit == NULL) {
-        LOG_ERR("cannot find SEG_LINKEDIT  mh: %p", mh);
+        panic("cannot find SEG_LINKEDIT  mh: %p", mh);
         goto out_done;
     }
 
     linkedit_base = linkedit->vmaddr - linkedit->fileoff;
 
+    text = find_seg64(mh, SEG_TEXT);
+    if (text == NULL) {
+        panic("cannot find SEG_LINKEDIT  mh: %p", mh);
+        goto out_done;
+    }
+
     symtab = (struct symtab_command *) find_lc(mh, LC_SYMTAB);
     if (symtab == NULL) {
-        LOG_ERR("cannot find LC_SYMTAB  mh: %p", mh);
+        panic("cannot find LC_SYMTAB  mh: %p", mh);
         goto out_done;
     }
 
-    if (symtab->nsyms == 0 || symtab->strsize == 0) {
-        LOG_ERR("SYMTAB symbol size invalid  nsyms: %u strsize: %u", symtab->nsyms, symtab->strsize);
-        goto out_done;
-    }
-
-    if (linkedit->fileoff > symtab->stroff || linkedit->fileoff > symtab->symoff) {
-        LOG_ERR("LINKEDIT fileoff(%#llx) out of range  stroff: %u symoff: %u",
-                linkedit->fileoff, symtab->stroff, symtab->symoff);
-        goto out_done;
-    }
+    symtab->cmd = LC_SYMTAB;
+    symtab->cmdsize = sizeof(struct symtab_command);
+    symtab->symoff;
+    symtab->nsyms;
+    symtab->stroff = linkedit->vmaddr - text->vmaddr - linkedit->fileoff;
+    symtab->strsize;
 
     strtab = (char *) (linkedit_base + symtab->stroff);
     nl = (struct nlist_64 *) (linkedit_base + symtab->symoff);
+
     for (i = 0; i < symtab->nsyms; i++) {
         /* Skip debugging symbols */
         if (nl[i].n_type & N_STAB) continue;
@@ -163,6 +183,17 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
             addr = (void *) nl[i].n_value;
             break;
         }
+    }
+
+    if (linkedit->fileoff > symtab->stroff || linkedit->fileoff > symtab->symoff) {
+        panic("LINKEDIT fileoff(%#llx) out of range  stroff: %u symoff: %u",
+                linkedit->fileoff, symtab->stroff, symtab->symoff);
+        goto out_done;
+    }
+
+    if (symtab->nsyms == 0 || symtab->strsize == 0) {
+        panic("SYMTAB symbol size invalid  nsyms: %u strsize: %u", symtab->nsyms, symtab->strsize);
+        goto out_done;
     }
 
 out_done:

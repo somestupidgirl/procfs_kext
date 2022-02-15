@@ -20,7 +20,6 @@
 
 #include <miscfs/procfs/procfs.h>
 
-#include "libksym/kinfo.h"
 #include "libksym/ksym.h"
 #include "libksym/utils.h"
 
@@ -44,16 +43,11 @@ kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d);
 kern_return_t
 procfs_start(kmod_info_t *ki, __unused void *d)
 {
-    uint64_t hib;
-    uint64_t kern;
-    uint32_t step;
     uuid_string_t uuid;
     vm_offset_t vm_kern_ap_ext;
     vm_offset_t vm_kern_slide;
     vm_address_t hib_base;
     vm_address_t kern_base;
-    vm_address_t hib_base2;
-    vm_address_t kern_base2; 
     struct mach_header_64 *mh;
     struct vfsconf *vfsc;
     kern_return_t ret = KERN_SUCCESS;
@@ -65,15 +59,17 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     LOG("kext executable uuid %s \n", uuid);
 
     vm_kern_ap_ext = get_vm_kernel_addrperm_ext();
+
     if (vm_kern_ap_ext == 0) {
-        LOG_ERR("get_vm_kernel_addrperm_ext() failed \n");
+        panic("get_vm_kernel_addrperm_ext() failed \n");
         goto out_error;
     }
     LOG("vm_kernel_addrperm_ext: %#018lx \n", vm_kern_ap_ext);
 
     vm_kern_slide = get_vm_kernel_slide();
+
     if (vm_kern_slide == 0) {
-        LOG_ERR("get_vm_kernel_slide() failed");
+        panic("get_vm_kernel_slide() failed");
         goto out_error;
     }
     LOG("vm_kernel_slide:        %#018lx \n", vm_kern_slide);
@@ -81,13 +77,16 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     hib_base = KERN_HIB_BASE + vm_kern_slide;
     kern_base = KERN_TEXT_BASE + vm_kern_slide;
 
-    hib_base2 = KERN_HIB_BASE2;
-    kern_base2 = KERN_TEXT_BASE2;
-
     LOG("HIB text base:          %#018lx \n", hib_base);
     LOG("kernel text base:       %#018lx \n", kern_base);
 
     mh = (struct mach_header_64 *) kern_base;
+    if ((mh->magic != MH_MAGIC_64 && mh->magic != MH_CIGAM_64) || (mh->filetype != MH_EXECUTE && mh->filetype != MH_FILESET))
+    {
+        panic("bad mach header  mh: %p mag: %#010x type: %#010x", mh, mh->magic, mh->filetype);
+        goto out_error;
+    }
+
     LOG("magic:                  %#010x \n", mh->magic);
     LOG("cputype:                %#010x \n", mh->cputype);
     LOG("cpusubtype:             %#010x \n", mh->cpusubtype);
@@ -114,11 +113,6 @@ procfs_start(kmod_info_t *ki, __unused void *d)
 
     LOG("loaded %s version %s build %s (%s) \n",
         PROCFS_BUNDLEID, PROCFS_VERSION, PROCFS_BUILDNUM, __TS__);
-
-    if ((hib_base == hib_base2 && kern_base == kern_base2) || (hib_base != hib_base2 && kern_base != kern_base2)) {
-        panic("hib1: %#018lx hib2: %#018lx kern1: %#018lx kern2: %#018lx", hib_base, hib_base2, kern_base, kern_base2);
-        goto out_error;
-    }
 
     if (ret == KERN_SUCCESS) {
         goto out_exit;
