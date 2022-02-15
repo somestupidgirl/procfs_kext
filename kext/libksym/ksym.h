@@ -21,9 +21,6 @@
 #define KERN_HIB_BASE                   ((vm_offset_t) 0xFFFFFF8000100000ULL)
 #define KERN_TEXT_BASE                  ((vm_offset_t) 0xFFFFFF8000200000ULL)
 
-//#define KERN_HIB_BASE                   ((vm_offset_t) get_hib_base())
-//#define KERN_TEXT_BASE                  ((vm_offset_t) get_kern_base())
-
 /**
  * Resolve a kernel symbol address
  * @param name          symbol name(should begin with _)

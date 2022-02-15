@@ -3,6 +3,7 @@
 
 #include <mach/mach_types.h>
 #include <mach-o/loader.h>
+#include <os/log.h>
 #include <kern/clock.h>
 #include <kern/debug.h>
 
@@ -41,7 +42,7 @@ get_filetype(void)
     return filetype == MH_EXECUTE && filetype == MH_FILESET;
 }
 
-int
+vm_offset_t
 get_kern_base(void)
 {
     uint32_t magic;
@@ -58,26 +59,24 @@ get_kern_base(void)
 
     if (kern != hib + KERN_ADDR_STEP) {
         /* Kernel layout changes, this kext won't work */
-        panic("bad text base step: %u __HIB: %#llx kernel: %#llx", step, hib, kern);
+        LOG_ERR("bad text base | step: %u __HIB: %#llx kernel: %#llx \n", step, hib, kern);
     }
 
     struct mach_header_64 *mh = (struct mach_header_64 *) kern;
 
-    magic = get_magic();
-    filetype = get_filetype();
-
     /* Only support non-fat 64-bit mach-o kernel */
     if ((mh->magic != MH_MAGIC_64 && mh->magic != MH_CIGAM_64) || (mh->filetype != MH_EXECUTE && mh->filetype != MH_FILESET))
     {
-        panic("bad Mach-O header step: %d magic: %#x filetype: %#x", step, mh->magic, mh->filetype);
+        LOG_ERR("bad Mach-O header | step: %d magic: %#x filetype: %#x \n", step, mh->magic, mh->filetype);
     }
 
-    (void) snprintf(kern_str, ARRAY_SIZE(hib_str), "%#018llx", kern);
+    //(void) snprintf(hib_str, ARRAY_SIZE(hib_str), "%#018llx \n", hib);
+    (void) snprintf(kern_str, ARRAY_SIZE(hib_str), "%#018llx \n", kern);
 
     return kern;
 }
 
-int
+vm_offset_t
 get_hib_base(void)
 {
     uint32_t magic;
@@ -94,7 +93,7 @@ get_hib_base(void)
 
     if (kern != hib + KERN_ADDR_STEP) {
         /* Kernel layout changes, this kext won't work */
-        panic("bad text base step: %u __HIB: %#llx kernel: %#llx", step, hib, kern);
+        LOG_ERR("bad text base | step: %u __HIB: %#llx kernel: %#llx \n", step, hib, kern);
     }
 
     struct mach_header_64 *mh = (struct mach_header_64 *) kern;
@@ -105,11 +104,11 @@ get_hib_base(void)
     /* Only support non-fat 64-bit mach-o kernel */
     if ((mh->magic != MH_MAGIC_64 && mh->magic != MH_CIGAM_64) || (mh->filetype != MH_EXECUTE && mh->filetype != MH_FILESET))
     {
-        panic("bad Mach-O header step: %d magic: %#x filetype: %#x", step, mh->magic, mh->filetype);
+        LOG_ERR("bad Mach-O header | step: %d magic: %#x filetype: %#x \n", step, mh->magic, mh->filetype);
     }
 
-    (void) snprintf(kern_str, ARRAY_SIZE(hib_str), "%#018llx", hib);
+    (void) snprintf(hib_str, ARRAY_SIZE(hib_str), "%#018llx \n", hib);
+    //(void) snprintf(kern_str, ARRAY_SIZE(hib_str), "%#018llx \n", kern);
 
     return hib;
 }
-

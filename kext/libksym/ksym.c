@@ -5,6 +5,7 @@
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach/machine.h>
+#include <os/log.h>
 #include <libkern/version.h>
 #include <vm/vm_kern.h>
 
@@ -122,13 +123,13 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
     kassert_nonnull(name);
 
     if ((mh->magic != MH_MAGIC_64 && mh->magic != MH_CIGAM_64) || mh->filetype != MH_EXECUTE && mh->filetype != MH_FILESET) {
-        panic("bad mach header  mh: %p mag: %#010x type: %#010x", mh, mh->magic, mh->filetype);
+        LOG_ERR("bad mach header  mh: %p mag: %#010x type: %#010x", mh, mh->magic, mh->filetype);
         goto out_done;
     }
 
     linkedit = find_seg64(mh, SEG_LINKEDIT);
     if (linkedit == NULL) {
-        panic("cannot find SEG_LINKEDIT  mh: %p", mh);
+        LOG_ERR("cannot find SEG_LINKEDIT  mh: %p", mh);
         goto out_done;
     }
 
@@ -136,17 +137,17 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
 
     symtab = (struct symtab_command *) find_lc(mh, LC_SYMTAB);
     if (symtab == NULL) {
-        panic("cannot find LC_SYMTAB  mh: %p", mh);
+        LOG_ERR("cannot find LC_SYMTAB  mh: %p", mh);
         goto out_done;
     }
 
     if (symtab->nsyms == 0 || symtab->strsize == 0) {
-        panic("SYMTAB symbol size invalid  nsyms: %u strsize: %u", symtab->nsyms, symtab->strsize);
+        LOG_ERR("SYMTAB symbol size invalid  nsyms: %u strsize: %u", symtab->nsyms, symtab->strsize);
         goto out_done;
     }
 
     if (linkedit->fileoff > symtab->stroff || linkedit->fileoff > symtab->symoff) {
-        panic("LINKEDIT fileoff(%#llx) out of range  stroff: %u symoff: %u",
+        LOG_ERR("LINKEDIT fileoff(%#llx) out of range  stroff: %u symoff: %u",
                 linkedit->fileoff, symtab->stroff, symtab->symoff);
         goto out_done;
     }

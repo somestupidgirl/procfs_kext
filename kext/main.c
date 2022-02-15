@@ -7,6 +7,8 @@
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 
+#include <os/log.h>
+
 #include <libkern/libkern.h>
 #include <libkern/version.h>
 
@@ -18,6 +20,7 @@
 
 #include <miscfs/procfs/procfs.h>
 
+#include "libksym/kinfo.h"
 #include "libksym/ksym.h"
 #include "libksym/utils.h"
 
@@ -49,63 +52,73 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     vm_offset_t vm_kern_slide;
     vm_address_t hib_base;
     vm_address_t kern_base;
+    vm_address_t hib_base2;
+    vm_address_t kern_base2; 
     struct mach_header_64 *mh;
     struct vfsconf *vfsc;
     kern_return_t ret = KERN_SUCCESS;
 
-    LOG("%s", version);     /* Print darwin kernel version */
+    LOG("%s \n", version);     /* Print darwin kernel version */
 
     ret = util_vma_uuid(ki->address, uuid);
     kassert(ret == KERN_SUCCESS);
-    LOG("kext executable uuid %s", uuid);
+    LOG("kext executable uuid %s \n", uuid);
 
     vm_kern_ap_ext = get_vm_kernel_addrperm_ext();
     if (vm_kern_ap_ext == 0) {
-        LOG_ERR("get_vm_kernel_addrperm_ext() failed");
+        LOG_ERR("get_vm_kernel_addrperm_ext() failed \n");
         goto out_error;
     }
-    LOG_DBG("vm_kernel_addrperm_ext: %#018lx", vm_kern_ap_ext);
+    LOG("vm_kernel_addrperm_ext: %#018lx \n", vm_kern_ap_ext);
 
     vm_kern_slide = get_vm_kernel_slide();
     if (vm_kern_slide == 0) {
         LOG_ERR("get_vm_kernel_slide() failed");
         goto out_error;
     }
-    LOG_DBG("vm_kernel_slide:        %#018lx", vm_kern_slide);
+    LOG("vm_kernel_slide:        %#018lx \n", vm_kern_slide);
 
     hib_base = KERN_HIB_BASE + vm_kern_slide;
     kern_base = KERN_TEXT_BASE + vm_kern_slide;
 
-    LOG_DBG("HIB text base:          %#018lx", hib_base);
-    LOG_DBG("kernel text base:       %#018lx", kern_base);
+    hib_base2 = KERN_HIB_BASE2;
+    kern_base2 = KERN_TEXT_BASE2;
+
+    LOG("HIB text base:          %#018lx \n", hib_base);
+    LOG("kernel text base:       %#018lx \n", kern_base);
 
     mh = (struct mach_header_64 *) kern_base;
-    LOG_DBG("magic:                  %#010x", mh->magic);
-    LOG_DBG("cputype:                %#010x", mh->cputype);
-    LOG_DBG("cpusubtype:             %#010x", mh->cpusubtype);
-    LOG_DBG("filetype:               %#010x", mh->filetype);
-    LOG_DBG("ncmds:                  %#010x", mh->ncmds);
-    LOG_DBG("sizeofcmds:             %#010x", mh->sizeofcmds);
-    LOG_DBG("flags:                  %#010x", mh->flags);
-    LOG_DBG("reserved:               %#010x", mh->reserved);
+    LOG("magic:                  %#010x \n", mh->magic);
+    LOG("cputype:                %#010x \n", mh->cputype);
+    LOG("cpusubtype:             %#010x \n", mh->cpusubtype);
+    LOG("filetype:               %#010x \n", mh->filetype);
+    LOG("ncmds:                  %#010x \n", mh->ncmds);
+    LOG("sizeofcmds:             %#010x \n", mh->sizeofcmds);
+    LOG("flags:                  %#010x \n", mh->flags);
+    LOG("reserved:               %#010x \n", mh->reserved);
 
     ret = procfs_init(vfsc);
     if (ret != KERN_SUCCESS) {
         LOG_ERR("procfs_init() fail");
         goto out_error;
     }
-    LOG_DBG("lock group(%s) allocated", PROCFS_LCK_GRP_NAME);
+    LOG("lock group(%s) allocated \n", PROCFS_LCK_GRP_NAME);
 
     ret = vfs_fsadd(&procfs_vfsentry, &procfs_vfs_table_ref);
     if (ret != KERN_SUCCESS) {
-        LOG_ERR("vfs_fsadd() failure  errno: %d", ret);
+        LOG_ERR("vfs_fsadd() failure  errno: %d \n", ret);
         procfs_vfs_table_ref = NULL;
         goto out_vfsadd;
     }
-    LOG_DBG("%s file system registered", procfs_vfsentry.vfe_fsname);
+    LOG("%s file system registered", procfs_vfsentry.vfe_fsname);
 
-    LOG("loaded %s version %s build %s (%s)",
+    LOG("loaded %s version %s build %s (%s) \n",
         PROCFS_BUNDLEID, PROCFS_VERSION, PROCFS_BUILDNUM, __TS__);
+
+    if ((hib_base == hib_base2 && kern_base == kern_base2) || (hib_base != hib_base2 && kern_base != kern_base2)) {
+        panic("hib1: %#018lx hib2: %#018lx kern1: %#018lx kern2: %#018lx", hib_base, hib_base2, kern_base, kern_base2);
+        goto out_error;
+    }
 
     if (ret == KERN_SUCCESS) {
         goto out_exit;
@@ -132,13 +145,13 @@ kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 
     ret = util_vma_uuid(ki->address, uuid);
     if (ret != KERN_SUCCESS) {
-        LOG_ERR("util_vma_uuid() failed  errno: %d", ret);
+        LOG_ERR("util_vma_uuid() failed  errno: %d \n", ret);
         goto out_error;
     }
 
     ret = vfs_fsremove(procfs_vfs_table_ref);
     if (ret != KERN_SUCCESS) {
-        LOG_ERR("vfs_fsremove() failure  errno: %d", ret);
+        LOG_ERR("vfs_fsremove() failure  errno: %d \n", ret);
         goto out_error;
     }
 
@@ -146,7 +159,7 @@ kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 
     util_massert();
 
-    LOG("unloaded %s version %s build %s (%s)",
+    LOG("unloaded %s version %s build %s (%s) \n",
         BUNDLEID_S, KEXTVERSION_S, KEXTBUILD_S, __TS__);
 
 out_exit:
