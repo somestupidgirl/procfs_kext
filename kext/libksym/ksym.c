@@ -169,7 +169,7 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
     uint32_t command_size = sizeof(struct symtab_command);
     uint32_t symbol_offset = offsetof(struct symtab_command, symoff);
     uint32_t num_symbols;
-    uint32_t string_offset = linkedit->vmaddr - text->vmaddr - linkedit->fileoff;
+    uint32_t string_offset = offsetof(struct symtab_command, stroff);
     uint32_t string_size = sizeof(name);
 
     symtab->cmd = command;
