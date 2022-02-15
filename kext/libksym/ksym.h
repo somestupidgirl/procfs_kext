@@ -5,6 +5,7 @@
 #define KSYMRESOLVER_H
 
 #include <mach-o/loader.h>
+#include "kinfo.h"
 #include "utils.h"
 
 #define MAX_SLIDE_STEP                  4096
@@ -20,22 +21,8 @@
 #define KERN_HIB_BASE                   ((vm_offset_t) 0xFFFFFF8000100000ULL)
 #define KERN_TEXT_BASE                  ((vm_offset_t) 0xFFFFFF8000200000ULL)
 
-#define LINKEDIT_ADDR                   ((vm_address_t) 0xFFFFFF8000FA5000ULL)
-
-#ifndef MH_FILESET
-#define MH_FILESET                      0xc
-#endif
-
-// cmd LC_SYMTAB
-#define LC_SYMTAB_CMDSIZE                  24
-#define LC_SYMTAB_SYMOFF                   16506824
-#define LC_SYMTAB_NSYMS                    21652
-#define LC_SYMTAB_STROFF                   16853256
-#define LC_SYMTAB_STRSIZE                  566528
-
-// cmd LC_SEGMENT
-#define LC_SEGMENT_SEGNAME                SEG_LINKEDIT // "__LINKEDIT"
-#define LC_SEGMENT_FILEOFF                15470592
+//#define KERN_HIB_BASE                   ((vm_offset_t) get_hib_base())
+//#define KERN_TEXT_BASE                  ((vm_offset_t) get_kern_base())
 
 /**
  * Resolve a kernel symbol address

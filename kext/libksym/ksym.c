@@ -9,6 +9,7 @@
 #include <vm/vm_kern.h>
 
 #include "ksym.h"
+#include "kinfo.h"
 #include "utils.h"
 
 /**
@@ -96,18 +97,6 @@ find_lc(struct mach_header_64 *mh, uint32_t cmd)
     return NULL;
 }
 
-static int
-fill_magic(uint32_t magic)
-{
-    return magic == MH_MAGIC_64 && MH_CIGAM_64;
-}
-
-static int
-fill_filetype(uint32_t filetype)
-{
-    return filetype == MH_EXECUTE && filetype == MH_FILESET;
-}
-
 
 /**
  * Find a symbol from symtab
@@ -123,13 +112,11 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
     char *strtab;
     struct nlist_64 *nl;
     uint32_t i;
-    uint32_t mg;
-    uint32_t ft;
     char *str;
     void *addr = NULL;
 
-    uint32_t magic = fill_magic(mg);
-    uint32_t filetype = fill_filetype(ft);
+    uint32_t magic = get_magic();
+    uint32_t filetype = get_filetype();
 
     kassert_nonnull(mh);
     kassert_nonnull(name);
@@ -152,20 +139,6 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
         panic("cannot find LC_SYMTAB  mh: %p", mh);
         goto out_done;
     }
-
-    // Temporary Solution - we need functions that will
-    // automatically fetch these values from the kernel
-    // binary
-    uint32_t nsyms;
-    uint32_t strsize;
-    uint64_t fileoff;
-    uint32_t stroff;
-    uint32_t symoff;
-    symtab->nsyms = LC_SYMTAB_NSYMS;
-    symtab->strsize = LC_SYMTAB_STRSIZE;
-    linkedit->fileoff = LC_SEGMENT_FILEOFF;
-    symtab->stroff = LC_SYMTAB_STROFF;
-    symtab->symoff = LC_SYMTAB_SYMOFF;
 
     if (symtab->nsyms == 0 || symtab->strsize == 0) {
         panic("SYMTAB symbol size invalid  nsyms: %u strsize: %u", symtab->nsyms, symtab->strsize);
