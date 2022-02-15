@@ -5,7 +5,7 @@
 #define KSYMRESOLVER_H
 
 #include <mach-o/loader.h>
-#include <libksym/utils.h>
+#include "utils.h"
 
 #define MAX_SLIDE_STEP                  4096
 
@@ -20,9 +20,22 @@
 #define KERN_HIB_BASE                   ((vm_offset_t) 0xFFFFFF8000100000ULL)
 #define KERN_TEXT_BASE                  ((vm_offset_t) 0xFFFFFF8000200000ULL)
 
-#define MAGIC                           (MH_MAGIC_64 || MH_CIGAM_64)
-#define FILETYPE                         MH_EXECUTE
-#define LE_ADDR                         ((vm_address_t) 0xFFFFFF8000FA5000ULL)
+#define LINKEDIT_ADDR                   ((vm_address_t) 0xFFFFFF8000FA5000ULL)
+
+#ifndef MH_FILESET
+#define MH_FILESET                      0xc
+#endif
+
+// cmd LC_SYMTAB
+#define LC_SYMTAB_CMDSIZE                  24
+#define LC_SYMTAB_SYMOFF                   16506824
+#define LC_SYMTAB_NSYMS                    21652
+#define LC_SYMTAB_STROFF                   16853256
+#define LC_SYMTAB_STRSIZE                  566528
+
+// cmd LC_SEGMENT
+#define LC_SEGMENT_SEGNAME                SEG_LINKEDIT // "__LINKEDIT"
+#define LC_SEGMENT_FILEOFF                15470592
 
 /**
  * Resolve a kernel symbol address
@@ -33,7 +46,7 @@ vm_offset_t get_vm_kernel_addrperm_ext(void);
 vm_offset_t get_vm_kernel_slide(void);
 struct segment_command_64 *find_seg64(struct mach_header_64 *mh, const char *name);
 struct load_command *find_lc(struct mach_header_64 *mh, uint32_t cmd);
-void * __nullable resolve_ksymbol(const char * __nonnull);
+extern void * __nullable resolve_ksymbol(const char * __nonnull);
 
 #endif  /* KSYMRESOLVER_H */
 

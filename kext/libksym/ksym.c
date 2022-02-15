@@ -4,11 +4,12 @@
 #include <sys/systm.h>
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
+#include <mach/machine.h>
 #include <libkern/version.h>
 #include <vm/vm_kern.h>
 
-#include <libksym/ksym.h>
-#include <libksym/utils.h>
+#include "ksym.h"
+#include "utils.h"
 
 /**
  * Get value of global variable vm_kernel_addrperm_ext(since 10.11)
@@ -95,6 +96,19 @@ find_lc(struct mach_header_64 *mh, uint32_t cmd)
     return NULL;
 }
 
+static int
+fill_magic(uint32_t magic)
+{
+    return magic == MH_MAGIC_64 && MH_CIGAM_64;
+}
+
+static int
+fill_filetype(uint32_t filetype)
+{
+    return filetype == MH_EXECUTE && filetype == MH_FILESET;
+}
+
+
 /**
  * Find a symbol from symtab
  * keywords: kernel_nlist_t  struct nlist_64
@@ -109,16 +123,18 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
     char *strtab;
     struct nlist_64 *nl;
     uint32_t i;
+    uint32_t mg;
+    uint32_t ft;
     char *str;
     void *addr = NULL;
 
-    mh->magic = MAGIC;
-    mh->filetype = FILETYPE;
+    uint32_t magic = fill_magic(mg);
+    uint32_t filetype = fill_filetype(ft);
 
     kassert_nonnull(mh);
     kassert_nonnull(name);
 
-    if ((mh->magic != MH_MAGIC_64 && mh->magic != MH_CIGAM_64) || mh->filetype != MH_EXECUTE) {
+    if ((mh->magic != MH_MAGIC_64 && mh->magic != MH_CIGAM_64) || mh->filetype != MH_EXECUTE && mh->filetype != MH_FILESET) {
         panic("bad mach header  mh: %p mag: %#010x type: %#010x", mh, mh->magic, mh->filetype);
         goto out_done;
     }
@@ -129,14 +145,6 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
         goto out_done;
     }
 
-    if(!linkedit->vmaddr) {
-        linkedit->vmaddr = LE_ADDR;
-    }
-
-//    if(!linkedit->fileoff) {
-//        linkedit->fileoff = LE_FOFF;
-//    }
-
     linkedit_base = linkedit->vmaddr - linkedit->fileoff;
 
     symtab = (struct symtab_command *) find_lc(mh, LC_SYMTAB);
@@ -144,6 +152,20 @@ resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
         panic("cannot find LC_SYMTAB  mh: %p", mh);
         goto out_done;
     }
+
+    // Temporary Solution - we need functions that will
+    // automatically fetch these values from the kernel
+    // binary
+    uint32_t nsyms;
+    uint32_t strsize;
+    uint64_t fileoff;
+    uint32_t stroff;
+    uint32_t symoff;
+    symtab->nsyms = LC_SYMTAB_NSYMS;
+    symtab->strsize = LC_SYMTAB_STRSIZE;
+    linkedit->fileoff = LC_SEGMENT_FILEOFF;
+    symtab->stroff = LC_SYMTAB_STROFF;
+    symtab->symoff = LC_SYMTAB_SYMOFF;
 
     if (symtab->nsyms == 0 || symtab->strsize == 0) {
         panic("SYMTAB symbol size invalid  nsyms: %u strsize: %u", symtab->nsyms, symtab->strsize);

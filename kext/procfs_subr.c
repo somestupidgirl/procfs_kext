@@ -26,14 +26,18 @@
 #include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_subr.h>
 
-#include <libkproc/kern_proc.h>
+#include "libksym/ksym.h"
+#include "libksym/utils.h"
 
-#include <libksym/ksym.h>
-#include <libksym/utils.h>
+#pragma mark -
+#pragma mark Local Variables
+
+int nprocs = 0;
 
 #pragma mark -
 #pragma mark Symbol Resolver
 
+static void (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 static kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 static kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
 static thread_t (*_convert_port_to_thread)(ipc_port_t port);
@@ -176,6 +180,11 @@ procfs_get_pid(proc_t p, struct procfs_pidlist_data *data)
 void
 procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds)
 {
+    _proc_iterate = resolve_ksymbol("_proc_iterate");
+    if (!_proc_iterate) {
+        panic("procfs_get_pids: Could not resolve symbol _proc_iterate");
+    }
+
     uint32_t size = nprocs * sizeof(pid_t);
     pid_t *pidp = (pid_t *)OSMalloc(size, procfs_osmalloc_tag);
 
@@ -253,7 +262,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     int result = KERN_SUCCESS;
     thread_act_array_t threads;
     mach_msg_type_number_t count;
-#if 0
+
     // Get all of the threads in the task.
     if (_task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
         uint64_t thread_id_info[THREAD_IDENTIFIER_INFO_COUNT];
@@ -297,7 +306,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
         }
     }
     *thread_count = result == KERN_SUCCESS ? count : 0;
-#endif
+
     return result;
 }
 

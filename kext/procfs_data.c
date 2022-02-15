@@ -28,15 +28,20 @@
 #include <miscfs/procfs/procfs_structure.h>
 #include <miscfs/procfs/procfs_subr.h>
 
-#include <libkproc/kern_proc.h>
-#include <libkproc/proc_locks.h>
-
-#include <libksym/ksym.h>
-#include <libksym/utils.h>
+#include "libksym/ksym.h"
+#include "libksym/utils.h"
 
 #pragma mark -
 #pragma mark Symbol Resolver
 
+static void (*_proc_list_lock)(void);
+static void (*_proc_list_unlock)(void);
+static void (*_proc_fdlock_spin)(proc_t p);
+static void (*_proc_fdunlock)(proc_t p);
+static void (*_session_lock)(struct session * sess);
+static void (*_session_unlock)(struct session * sess);
+static struct pgrp *(*_proc_pgrp)(proc_t p);
+static task_t (*_proc_task)(proc_t proc);
 static int (*_proc_pidbsdinfo)(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
 static int (*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo);
 static int (*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
@@ -111,6 +116,15 @@ procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
+    _proc_list_lock = resolve_ksymbol("_proc_list_lock");
+    if (!_proc_list_lock) {
+        panic("procfs_read_sid_data: Could not resolve symbol _proc_list_lock");
+    }
+    _proc_list_unlock = resolve_ksymbol("_proc_list_unlock");
+    if (!_proc_list_unlock) {
+        panic("procfs_read_sid_data: Could not resolve symbol _proc_list_unlock");
+    }
+
     int error;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
@@ -141,6 +155,27 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
+    _proc_list_lock = resolve_ksymbol("_proc_list_lock");
+    if (!_proc_list_lock) {
+        panic("procfs_read_tty_data: Could not resolve symbol _proc_list_lock");
+    }
+    _proc_list_unlock = resolve_ksymbol("_proc_list_unlock");
+    if (!_proc_list_unlock) {
+        panic("procfs_read_tty_data: Could not resolve symbol _proc_list_unlock");
+    }
+    _session_lock = resolve_ksymbol("_session_lock");
+    if (!_session_lock) {
+        panic("procfs_read_tty_data: Could not resolve symbol _session_lock");
+    }
+    _session_unlock = resolve_ksymbol("_session_unlock");
+    if (!_session_unlock) {
+        panic("procfs_read_tty_data: Could not resolve symbol _session_unlock");
+    }
+    _proc_pgrp = resolve_ksymbol("_proc_pgrp");
+    if (!_session_unlock) {
+        panic("procfs_read_tty_data: Could not resolve symbol _proc_pgrp");
+    }
+
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
@@ -440,6 +475,11 @@ procfs_process_node_size(__unused procfsnode_t *pnp, kauth_cred_t creds)
 size_t
 procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 {
+    _proc_task = resolve_ksymbol("_proc_task");
+    if (!_fill_socketinfo) {
+        panic("procfs_thread_node_size: Could not resolve symbol _proc_task");
+    }
+
     // Nodes of this type contribute a size of 1 for each thread
     // in the owning process. Because of the way the file system is
     // structured, the pid of the owning process is available in the
@@ -464,6 +504,15 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 size_t
 procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 {
+    _proc_fdlock_spin = resolve_ksymbol("_proc_fdlock_spin");
+    if (!_proc_list_lock) {
+        panic("procfs_fd_node_size: Could not resolve symbol _proc_fdlock_spin");
+    }
+    _proc_fdunlock = resolve_ksymbol("_proc_fdunlock");
+    if (!_proc_fdunlock) {
+        panic("procfs_fd_node_size: Could not resolve symbol _proc_fdunlock");
+    }
+
     int size = 0;
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);

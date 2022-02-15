@@ -117,7 +117,7 @@ struct lctx {
     LIST_HEAD(, proc)       lc_members; /* Pointer to lc members. */
     int                     lc_mc;      /* Member Count. */
     pid_t                   lc_id;      /* Login context ID. */
-    lck_mtx_t               lc_mtx;     /* Mutex to protect members */
+    lck_mtx_t              *lc_mtx;     /* Mutex to protect members */
     struct label           *lc_label;   /* Login context MAC label. */
 };
 
@@ -718,12 +718,6 @@ extern u_long sesshash;
 LIST_HEAD(proclist, proc);
 extern struct proclist allproc;         /* List of all processes. */
 extern struct proclist zombproc;        /* List of zombie processes. */
-
-#if 0
-struct proclist {
-    struct proc *lh_first;
-};
-#endif
 
 /* process iteration */
 

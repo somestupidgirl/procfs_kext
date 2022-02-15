@@ -18,8 +18,8 @@
 
 #include <miscfs/procfs/procfs.h>
 
-#include <libksym/ksym.h>
-#include <libksym/utils.h>
+#include "libksym/ksym.h"
+#include "libksym/utils.h"
 
 #pragma mark -
 #pragma mark External References
