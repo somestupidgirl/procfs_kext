@@ -32,8 +32,8 @@
  */
 int get_magic(void);
 int get_filetype(void);
-vm_offset_t get_kernel_base(void);
-vm_offset_t get_hib_base(void);
+vm_address_t get_text_base(struct mach_header_64 *mh);
+vm_address_t get_linkedit_base(struct mach_header_64 *mh);
 vm_offset_t get_vm_kernel_addrperm_ext(void);
 vm_offset_t get_vm_kernel_slide(void);
 struct segment_command_64 *find_seg64(struct mach_header_64 *mh, const char *name);

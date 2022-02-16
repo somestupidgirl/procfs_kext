@@ -81,6 +81,7 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     LOG("kernel text base:       %#018lx \n", kern_base);
 
     mh = (struct mach_header_64 *) kern_base;
+
     if ((mh->magic != MH_MAGIC_64 && mh->magic != MH_CIGAM_64) || (mh->filetype != MH_EXECUTE && mh->filetype != MH_FILESET))
     {
         panic("bad mach header  mh: %p mag: %#010x type: %#010x", mh, mh->magic, mh->filetype);
