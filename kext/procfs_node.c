@@ -41,8 +41,8 @@ typedef struct procfs_hash_head procfs_hash_head;
 STATIC u_long procfsnode_hash_to_bucket_mask;
 
 // Lock used to protect the hash table.
-STATIC lck_grp_t *procfsnode_lck_grp;
-STATIC lck_mtx_t *procfsnode_hash_mutex;
+lck_grp_t *procfsnode_lck_grp;
+lck_mtx_t *procfsnode_hash_mutex;
 
 // Macro that gets the header of the bucket that corresponds to a given
 // hash value.
@@ -67,7 +67,7 @@ void
 procfsnode_start_init(void)
 {
     // Allocate the lock group and the mutex lock for the hash table.
-    procfsnode_lck_grp = lck_grp_alloc_init("com.kadmas.procfs.procfsnode_locks", LCK_GRP_ATTR_NULL);
+    procfsnode_lck_grp = lck_grp_alloc_init(PROCFS_BUNDLEID ".procfsnode_locks", LCK_GRP_ATTR_NULL);
     procfsnode_hash_mutex = lck_mtx_alloc_init(procfsnode_lck_grp, LCK_ATTR_NULL);
 }
 
@@ -155,7 +155,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
                 lck_mtx_unlock(procfsnode_hash_mutex);
                 locked = FALSE;
 
-                new_procfsnode = (procfsnode_t *)OSMalloc(sizeof(procfsnode_t), procfs_osmalloc_tag);
+                new_procfsnode = (procfsnode_t *)OSMalloc(sizeof(procfsnode_t), g_tag);
                 if (new_procfsnode == NULL) {
                     // Allocation failure - bail. Nothing to clean up and
                     // we don't hold the lock.
@@ -294,7 +294,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
     // Free the node we allocated, if we didn't use it. We do this
     // *after* releasing the hash lock just in case it might block.
     if (new_procfsnode != NULL && new_procfsnode != target_procfsnode) {
-        OSFree(new_procfsnode, sizeof(procfsnode_t), procfs_osmalloc_tag);
+        OSFree(new_procfsnode, sizeof(procfsnode_t), g_tag);
     }
 
     // Set the return value, or NULL if we failed.
@@ -346,7 +346,7 @@ STATIC void
 procfsnode_free_node(procfsnode_t *procfsnode)
 {
     LIST_REMOVE(procfsnode, node_hash);
-    OSFree(procfsnode, sizeof(procfsnode_t), procfs_osmalloc_tag);
+    OSFree(procfsnode, sizeof(procfsnode_t), g_tag);
 }
 
 /*

@@ -212,7 +212,7 @@ add_node(procfs_structure_node_t *parent,
          procfs_node_size_fn node_size_fn,
          procfs_read_data_fn node_read_data_fn)
 {
-    procfs_structure_node_t *node = (procfs_structure_node_t *)OSMalloc(sizeof(procfs_structure_node_t), procfs_osmalloc_tag);
+    procfs_structure_node_t *node = (procfs_structure_node_t *)OSMalloc(sizeof(procfs_structure_node_t), g_tag);
     if (node == NULL) {
         panic("Unable to allocate memory for procfs_structure_node_t");
     }
@@ -307,5 +307,5 @@ release_node(procfs_structure_node_t *snode)
     }
 
     // Free this node's memory.
-    OSFree(snode, sizeof(procfs_structure_node_t), procfs_osmalloc_tag);
+    OSFree(snode, sizeof(procfs_structure_node_t), g_tag);
 }

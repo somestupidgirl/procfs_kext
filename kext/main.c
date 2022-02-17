@@ -7,8 +7,6 @@
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 
-#include <os/log.h>
-
 #include <libkern/libkern.h>
 #include <libkern/version.h>
 
@@ -26,6 +24,7 @@
 #pragma mark -
 #pragma mark External References
 
+extern OSMallocTag g_tag;
 extern int procfs_init(__unused struct vfsconf *vfsconf);
 extern void procfs_fini(void);
 extern struct vfs_fsentry procfs_vfsentry;
@@ -44,58 +43,15 @@ kern_return_t
 procfs_start(kmod_info_t *ki, __unused void *d)
 {
     uuid_string_t uuid;
-    vm_offset_t vm_kern_ap_ext;
-    vm_offset_t vm_kern_slide;
-    vm_address_t hib_base;
-    vm_address_t kern_base;
-    struct mach_header_64 *mh;
     struct vfsconf *vfsc;
     kern_return_t ret = KERN_SUCCESS;
+    struct mach_header_64 *mh; 
 
     LOG("%s \n", version);     /* Print darwin kernel version */
 
     ret = util_vma_uuid(ki->address, uuid);
     kassert(ret == KERN_SUCCESS);
     LOG("kext executable uuid %s \n", uuid);
-
-    vm_kern_ap_ext = get_vm_kernel_addrperm_ext();
-
-    if (vm_kern_ap_ext == 0) {
-        panic("get_vm_kernel_addrperm_ext() failed \n");
-        goto out_error;
-    }
-    LOG("vm_kernel_addrperm_ext: %#018lx \n", vm_kern_ap_ext);
-
-    vm_kern_slide = get_vm_kernel_slide();
-
-    if (vm_kern_slide == 0) {
-        panic("get_vm_kernel_slide() failed");
-        goto out_error;
-    }
-    LOG("vm_kernel_slide:        %#018lx \n", vm_kern_slide);
-
-    hib_base = KERN_HIB_BASE + vm_kern_slide;
-    kern_base = KERN_TEXT_BASE + vm_kern_slide;
-
-    LOG("HIB text base:          %#018lx \n", hib_base);
-    LOG("kernel text base:       %#018lx \n", kern_base);
-
-    mh = (struct mach_header_64 *) kern_base;
-
-    if ((mh->magic != MH_MAGIC_64 && mh->magic != MH_CIGAM_64) || (mh->filetype != MH_EXECUTE && mh->filetype != MH_FILESET))
-    {
-        panic("bad mach header  mh: %p mag: %#010x type: %#010x", mh, mh->magic, mh->filetype);
-        goto out_error;
-    }
-
-    LOG("magic:                  %#010x \n", mh->magic);
-    LOG("cputype:                %#010x \n", mh->cputype);
-    LOG("cpusubtype:             %#010x \n", mh->cpusubtype);
-    LOG("filetype:               %#010x \n", mh->filetype);
-    LOG("ncmds:                  %#010x \n", mh->ncmds);
-    LOG("sizeofcmds:             %#010x \n", mh->sizeofcmds);
-    LOG("flags:                  %#010x \n", mh->flags);
-    LOG("reserved:               %#010x \n", mh->reserved);
 
     ret = procfs_init(vfsc);
     if (ret != KERN_SUCCESS) {

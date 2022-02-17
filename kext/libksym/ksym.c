@@ -1,98 +1,62 @@
 /*
- * Created 180909 lynnl
+ * Based on:
+ *      https://github.com/Ch4nc3n/HookSysCall
+ *      https://github.com/leiless/ksymresolver
+ *      https://github.com/wrfsh/sysent_hook
+ *      https://github.com/squiffy/Masochist
+ *      https://github.com/phdphuc/mac-a-mal
  */
 #include <stddef.h>
-#include <sys/systm.h>
-#include <kern/clock.h>
+#include <stdint.h>
+
+#include <IOKit/IOLib.h>
+
+#include <libkern/OSMalloc.h>
+
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
+
 #include <mach/machine.h>
-#include <os/log.h>
-#include <libkern/version.h>
+#include <mach/vm_types.h>
+
+#include <sys/cdefs.h>
+#include <sys/systm.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <sys/vnode.h>
+#include <sys/vnode_if.h>
+
 #include <vm/vm_kern.h>
 
 #include "ksym.h"
 #include "utils.h"
 
-#pragma mark -
-#pragma mark Static Arrays
+extern OSMallocTag g_tag;
 
-static char *kernel_paths[] = {
-    "/mach_kernel",
-    "/System/Library/Kernels/kernel",
-    "/System/Library/Kernels/kernel.development",
-    "/System/Library/Kernels/kernel.debug"
-    "/System/Library/Kernels/kernel.release.t8020"
-    "/System/Library/Kernels/Kernel.release.t8101"
+struct descriptor_idt
+{
+    uint16_t    offset_low;
+    uint16_t    seg_selector;
+    uint8_t     reserved;
+    uint8_t     flag;
+    uint16_t    offset_middle;
+    uint32_t    offset_high;
+    uint32_t    eserved2;
 };
 
 #pragma mark -
-#pragma mark Functions
-
-/*
- * Find __TEXT - we need it for fixed kernel base
- *
- * Note: Returns the same output as KERN_TEXT_BASE + vm_kern_slide:
- *    vm_address_t kern_base;
- *    vm_kern_slide = get_vm_kernel_slide();
- *    kern_base = KERN_TEXT_BASE + vm_kern_slide;
- *    text_base = get_text_base;
- *    printf("text base: %#018lx kern_base: %#018lx", text_base, kern_base);
- *
- *    text_base: 0xffffff800dc00000 kern_base: 0xffffff800dc00000
- */
-vm_address_t
-get_text_base(struct mach_header_64 *mh)
-{
-    struct segment_command_64 *text;
-    vm_address_t text_base;
-
-    text = find_seg64(mh, SEG_TEXT);
-    if (!text) {
-        panic("cannot find SEG_TEXT  mh: %p", mh);
-    }
-
-    text_base = text->vmaddr;
-
-    return text_base;
-}
-
-/*
- *  vm_address_t linkedit_base;
- *  linkedit_base = get_linkedit_base(mh);
- *  printf("linkedit_base: %#018lx", linkedit_base);
- *
- * Returns: 
- *  linkedit_base: 0xffffff800f160000
- */
-vm_address_t
-get_linkedit_base(struct mach_header_64 *mh)
-{
-    struct segment_command_64 *linkedit;
-    vm_address_t linkedit_base;
-
-    linkedit = find_seg64(mh, SEG_LINKEDIT);
-    if (!linkedit) {
-        panic("cannot find SEG_LINKEDIT  mh: %p", mh);
-    }
-
-    linkedit_base = linkedit->vmaddr - linkedit->fileoff;
-
-    return linkedit_base;
-}
+#pragma mark Static Functions
 
 /**
  * Get value of global variable vm_kernel_addrperm_ext(since 10.11)
  * @return      0 if failed to get
  * see: xnu/osfmk/vm/vm_kern.c#vm_kernel_addrperm_external
  */
-vm_offset_t
+static vm_offset_t
 get_vm_kernel_addrperm_ext(void)
 {
     static vm_offset_t addrperm_ext = 0L;
-    if (addrperm_ext != 0L) {
-        goto out_exit;
-    }
+    if (addrperm_ext != 0L) goto out_exit;
     vm_kernel_addrperm_external(VM_MIN_KERNEL_AND_KEXT_ADDRESS, &addrperm_ext);
     addrperm_ext -= VM_MIN_KERNEL_AND_KEXT_ADDRESS;
 
@@ -105,12 +69,12 @@ out_exit:
  * @return      0 if failed to get
  * see: xnu/osfmk/vm/vm_kern.c#vm_kernel_unslide_or_perm_external
  */
-vm_offset_t
+static vm_offset_t
 get_vm_kernel_slide(void)
 {
-    uint16_t i = MAX_SLIDE_STEP;
-    vm_offset_t fake = VM_MIN_KERNEL_AND_KEXT_ADDRESS;
-    vm_offset_t slide = 0L;
+    static uint16_t i = MAX_SLIDE_STEP;
+    static vm_offset_t fake = VM_MIN_KERNEL_AND_KEXT_ADDRESS;
+    static vm_offset_t slide = 0L;
 
     if (get_vm_kernel_addrperm_ext() == 0L) goto out_exit;
     if (slide != 0L || i == 0) goto out_exit;
@@ -130,7 +94,7 @@ out_exit:
     return slide;
 }
 
-struct segment_command_64 *
+static struct segment_command_64 *
 find_seg64(struct mach_header_64 *mh, const char *name)
 {
     uint32_t i;
@@ -150,7 +114,7 @@ find_seg64(struct mach_header_64 *mh, const char *name)
     return NULL;
 }
 
-struct load_command *
+static struct load_command *
 find_lc(struct mach_header_64 *mh, uint32_t cmd)
 {
     uint32_t i;
@@ -166,102 +130,181 @@ find_lc(struct mach_header_64 *mh, uint32_t cmd)
     return NULL;
 }
 
-/**
- * Find a symbol from symtab
- * keywords: kernel_nlist_t  struct nlist_64
- * see: xnu/libkern/c++/OSKext.cpp#slidePrelinkedExecutable
- */
 static void *
-resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
+find_symbol(struct mach_header_64 *mh, const char *name, uint64_t loaded_base)
 {
-    struct segment_command_64 *linkedit;
-    struct symtab_command *symtab;
+    vm_address_t kern_base, fixed_base, linkedit_base;
+    vm_offset_t vm_kern_slide;
+    struct segment_command_64 *seg_linkedit, *seg_text;
+    struct symtab_command *sc, *lc_symtab;
     struct nlist_64 *nl;
-    vm_address_t kern_base;
-    vm_address_t linkedit_base;
-    vm_address_t fixed_base;
-    char *str, *strtab;
-    void *addr = NULL;
+    const char *str;
+    void *addr;
     uint32_t i;
 
-    fixed_base = get_text_base(mh);
-    linkedit_base = get_linkedit_base(mh);
+    kassert_nonnull(mh);
+    kassert_nonnull(name);
 
-    /*
-     * Check header
-     */
-    mh = (struct mach_header_64 *) fixed_base;
+    vm_kern_slide = get_vm_kernel_slide();
+    if (vm_kern_slide == 0) {
+        panic("get_vm_kernel_slide() failed");
+        return NULL;
+    }
+
+    kern_base = KERN_TEXT_BASE + vm_kern_slide;
+
+    mh = (struct mach_header_64 *) kern_base;
+
     if ((mh->magic != MH_MAGIC_64 && mh->magic != MH_CIGAM_64) || (mh->filetype != MH_EXECUTE && mh->filetype != MH_FILESET))
     {
         panic("bad mach header  mh: %p mag: %#010x type: %#010x", mh, mh->magic, mh->filetype);
-        goto out_done;
+        return NULL;
+    }
+    
+    /*
+     * Find __TEXT - we need it for fixed kernel base
+     */
+    seg_text = find_seg64(mh, SEG_TEXT);
+    if (seg_text == NULL) {
+        panic("couldn't find __TEXT\n");
+        return NULL;
     }
 
+    fixed_base = seg_text->vmaddr;
+
+    if (fixed_base != kern_base) {
+        panic("kern_base and fixed_base do not return the same value");
+        return NULL;
+    }
+    
     /*
-     * Find the SYMTAB section
+     * Find the LINKEDIT and SYMTAB sections
      */
-    symtab = (struct symtab_command *) find_lc(mh, LC_SYMTAB);
-    if (!symtab) {
+    seg_linkedit = find_seg64(mh, SEG_LINKEDIT);
+    if (seg_linkedit == NULL) {
+        panic("cannot find SEG_LINKEDIT  mh: %p", mh);
+        return NULL;
+    }
+
+    lc_symtab = (struct symtab_command *) find_lc(mh, LC_SYMTAB);
+    if (lc_symtab == NULL) {
         panic("cannot find LC_SYMTAB  mh: %p", mh);
-        goto out_done;
+        return NULL;
     }
 
-    uint32_t symbol_offset = offsetof(struct symtab_command, symoff);
-    uint32_t num_symbols;
-    uint32_t string_offset = offsetof(struct symtab_command, stroff);
-    uint32_t string_size = sizeof(name);
+    sc = lc_symtab;
 
-    symtab->symoff = symbol_offset;
-    symtab->nsyms = num_symbols;
-    symtab->stroff = string_offset;
-    symtab->strsize = string_size;
+    if (seg_linkedit->fileoff > sc->stroff || seg_linkedit->fileoff > sc->symoff) {
+        panic("LINKEDIT fileoff(%#llx) out of range  stroff: %u symoff: %u", seg_linkedit->fileoff, sc->stroff, sc->symoff);
+        return NULL;
+    }
 
-    strtab = (char *) (linkedit_base + symtab->stroff);
-    symtab = (char *) (linkedit_base + symtab->symoff);
-    nl = (struct nlist_64 *) (linkedit_base + symtab->symoff);
+    if (sc->nsyms == 0 || sc->strsize == 0) {
+        panic("SYMTAB symbol size invalid  nsyms: %u strsize: %u", sc->nsyms, sc->strsize);
+        return NULL;
+    }
 
-    /*
-     * Enumerate symbols until we find the one we're after
-     */
-    for (i = 0; i < symtab->nsyms; i++) {
-        /* Skip debugging symbols */
-        if (nl[i].n_type & N_STAB) continue;
+    /* Calculate the address to the symbol table and the string table */
+    
+    uint64_t symtab = (seg_linkedit->vmaddr + (lc_symtab->symoff) - seg_linkedit->fileoff);
+    uint64_t strtab = (seg_linkedit->vmaddr + (lc_symtab->stroff - seg_linkedit->fileoff));
 
-        str = (char *) strtab + nl[i].n_un.n_strx;
-        if (!strcmp(str, name)) {
-            addr = (void *) nl[i].n_value;
-            break;
+    nl = (struct nlist_64 *)symtab;
+    
+    /* Iterate through the symbol table until we find what we're lookig for */
+    for(i = 0; i < lc_symtab->nsyms; i++) {
+        if(!strcmp(name, (char *)(nl->n_un.n_strx + strtab))) {
+            /* Found it! Return a pointer to the symbol */
+            return (void *)nl->n_value;
         }
+        /* next nlist please */
+        nl = (struct nlist_64 *)(symtab + (i * sizeof(struct nlist_64)));
     }
 
-    if (symtab->nsyms == 0 || symtab->strsize == 0) {
-        panic("SYMTAB symbol size invalid  nsyms: %u strsize: %u", symtab->nsyms, symtab->strsize);
-        goto out_done;
-    }
-
-    if (linkedit->fileoff > symtab->stroff || linkedit->fileoff > symtab->symoff) {
-        panic("LINKEDIT fileoff(%#llx) out of range  stroff: %u symoff: %u",
-                linkedit->fileoff, symtab->stroff, symtab->symoff);
-        goto out_done;
-    }
-
-out_done:
-    return addr;
+    /* Return the address (NULL if we didn't find it) */
+    return NULL;
 }
 
-/**
- * Resolve a kernel symbol address
- * @param name          symbol name(should begin with _)
- * @return              NULL if not found
- */
-void * __nullable
-resolve_ksymbol(const char * __nonnull name)
-{
-    static volatile struct mach_header_64 *mh = NULL;
+#pragma mark -
+#pragma mark Global Functions
 
-    if (mh == NULL) {
-        mh = (struct mach_header_64 *) (KERN_TEXT_BASE + get_vm_kernel_slide());
+void*
+resolve_kernel_symbol(const char* name)
+{
+    struct mach_header_64 *mh, *data;
+    void* addr = NULL;
+    errno_t err = 0;
+    
+    if (!name) {
+        return NULL;
+    }
+    
+    const char* image_path = "/System/Library/Kernels/kernel";
+    
+    vfs_context_t context = vfs_context_create(NULL);
+    if(!context) {
+        panic("vfs_context_create failed: %d\n", err);
+        return NULL;
     }
 
-    return resolve_ksymbol2((struct mach_header_64 *) mh, name);
+    uio_t uio = NULL;
+    vnode_t vnode = NULL;
+    err = vnode_lookup(image_path, 0, &vnode, context);
+    if (err) {
+        panic("vnode_lookup(%s) failed: %d\n", image_path, err);
+        goto done;
+    }
+    
+    // Read whole kernel file into memory.
+    // It is not very efficient but it is the easiest way to adapt existing parsing code
+    // For production builds we need to use less memory
+    
+    struct vnode_attr attr;
+    err = vnode_getattr(vnode, &attr, context);
+    if (err) {
+        panic("can't get vnode attr: %d\n", err);
+        goto done;
+    }
+    
+    uint32_t data_size = (uint32_t)attr.va_data_size;
+    data = OSMalloc(data_size, g_tag);
+    if (!data) {
+        panic("Could not allocate kernel buffer\n");
+        goto done;
+    }
+    
+    uio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
+    if (!uio) {
+        panic("uio_create failed: %d\n", err);
+        goto done;
+    }
+    
+    err = uio_addiov(uio, CAST_USER_ADDR_T(data), data_size);
+    if (err) {
+        panic("uio_addiov failed: %d\n", err);
+        goto done;
+    }
+    
+    err = VNOP_READ(vnode, uio, 0, context);
+    if (err) {
+        panic("VNOP_READ failed: %d\n", err);
+        goto done;
+    }
+
+    vm_offset_t kernel_base = KERN_TEXT_BASE;
+    
+    addr = find_symbol(data, name, kernel_base);
+    
+    if (addr == NULL) {
+        panic("Could not resolve kernel symbol: %s", name);
+        goto done;
+    }
+    
+done:
+    uio_free(uio);
+    OSFree(data, data_size, g_tag);
+    vnode_put(vnode);
+    vfs_context_rele(context);
+    
+    return addr;
 }

@@ -39,7 +39,7 @@
 			<key>IOClass</key>
 			<string>procfs</string>
 			<key>IOMatchCategory</key>
-			<string>procfs</string>
+			<string>IODefaultMatchCategory</string>
 			<key>IOProviderClass</key>
 			<string>IOResources</string>
 			<key>IOResourceMatch</key>

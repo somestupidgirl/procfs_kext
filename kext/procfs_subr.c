@@ -37,10 +37,10 @@ int nprocs = 0;
 #pragma mark -
 #pragma mark Symbol Resolver
 
-static void (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
-static kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
-static kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
-static thread_t (*_convert_port_to_thread)(ipc_port_t port);
+static void(*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg) = NULL;
+static kern_return_t(*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count) = NULL;
+static kern_return_t(*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count) = NULL;
+static thread_t(*_convert_port_to_thread)(ipc_port_t port) = NULL;
 
 #pragma mark -
 #pragma mark Function Prototypes.
@@ -180,13 +180,10 @@ procfs_get_pid(proc_t p, struct procfs_pidlist_data *data)
 void
 procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds)
 {
-    _proc_iterate = resolve_ksymbol("_proc_iterate");
-    if (!_proc_iterate) {
-        panic("procfs_get_pids: Could not resolve symbol _proc_iterate");
-    }
+    _proc_iterate = resolve_kernel_symbol("_proc_iterate");
 
     uint32_t size = nprocs * sizeof(pid_t);
-    pid_t *pidp = (pid_t *)OSMalloc(size, procfs_osmalloc_tag);
+    pid_t *pidp = (pid_t *)OSMalloc(size, g_tag);
 
     struct procfs_pidlist_data data;
     data.creds = creds;
@@ -206,7 +203,7 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
 void
 procfs_release_pids(pid_t *pidp, uint32_t size)
 {
-    OSFree(pidp, size, procfs_osmalloc_tag);
+    OSFree(pidp, size, g_tag);
 }
 
 int
@@ -246,18 +243,9 @@ procfs_get_process_count(kauth_cred_t creds)
 int
 procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_count)
 {
-    _task_threads = resolve_ksymbol("_task_threads");
-    if (!_task_threads) {
-        panic("procfs_get_thread_ids_for_task: Could not resolve symbol _task_threads");
-    }
-    _convert_port_to_thread = resolve_ksymbol("_convert_port_to_thread");
-    if (!_convert_port_to_thread) {
-        panic("procfs_get_thread_ids_for_task: Could not resolve symbol _convert_port_to_thread");
-    }
-    _thread_info = resolve_ksymbol("_thread_info");
-    if (!_thread_info) {
-        panic("procfs_get_thread_ids_for_task: Could not resolve symbol _thread_info");
-    }
+    _task_threads = resolve_kernel_symbol("_task_threads");
+    _convert_port_to_thread = resolve_kernel_symbol("_convert_port_to_thread");
+    _thread_info = resolve_kernel_symbol("_thread_info");
 
     int result = KERN_SUCCESS;
     thread_act_array_t threads;
@@ -266,7 +254,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     // Get all of the threads in the task.
     if (_task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
         uint64_t thread_id_info[THREAD_IDENTIFIER_INFO_COUNT];
-        uint64_t *threadid_ptr = (uint64_t *)OSMalloc(count * sizeof(uint64_t), procfs_osmalloc_tag);
+        uint64_t *threadid_ptr = (uint64_t *)OSMalloc(count * sizeof(uint64_t), g_tag);
         *thread_ids = threadid_ptr;
 
         // For each thread, get identifier info and extract the thread id.
@@ -291,10 +279,10 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
             if (actual_count < count) {
                 if (actual_count > 0) {
                     int size = actual_count * sizeof(uint64_t);
-                    threadid_ptr = (uint64_t *)OSMalloc(size, procfs_osmalloc_tag);
+                    threadid_ptr = (uint64_t *)OSMalloc(size, g_tag);
                     bcopy(*thread_ids, threadid_ptr, size);
                 }
-                OSFree(*thread_ids, count * sizeof(uint64_t), procfs_osmalloc_tag);
+                OSFree(*thread_ids, count * sizeof(uint64_t), g_tag);
                 count = actual_count;
                 *thread_ids = count > 0 ? threadid_ptr : NULL;
             }
@@ -317,7 +305,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
 void
 procfs_release_thread_ids(uint64_t *thread_ids, int thread_count)
 {
-    OSFree(thread_ids, thread_count * sizeof(uint64_t), procfs_osmalloc_tag);
+    OSFree(thread_ids, thread_count * sizeof(uint64_t), g_tag);
 }
 
 /*

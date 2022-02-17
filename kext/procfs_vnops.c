@@ -30,11 +30,11 @@
 #pragma mark -
 #pragma mark Symbol Resolver
 
-static void (*_proc_list_lock)(void);
-static void (*_proc_list_unlock)(void);
-static void (*_proc_fdlock_spin)(proc_t p);
-static void (*_proc_fdunlock)(proc_t p);
-static task_t (*_proc_task)(proc_t proc);
+static void(*_proc_list_lock)(void) = NULL;
+static void(*_proc_list_unlock)(void) = NULL;
+static void(*_proc_fdlock_spin)(proc_t p) = NULL;
+static void(*_proc_fdunlock)(proc_t p) = NULL;
+static task_t(*_proc_task)(proc_t proc) = NULL;
 
 #pragma mark -
 #pragma mark Local Definitions
@@ -198,18 +198,9 @@ int procfs_vnop_default(struct vnop_generic_args *arg)
 STATIC int
 procfs_vnop_lookup(struct vnop_lookup_args *ap)
 {
-    _proc_fdlock_spin = resolve_ksymbol("_proc_fdlock_spin");
-    if (!_proc_fdlock_spin) {
-        panic("procfs_vnop_lookup: Could not resolve symbol _proc_fdlock_spin");
-    }
-    _proc_fdunlock = resolve_ksymbol("_proc_fdunlock");
-    if (!_proc_fdunlock) {
-        panic("procfs_vnop_lookup: Could not resolve symbol _proc_fdunlock");
-    }
-    _proc_task = resolve_ksymbol("_proc_task");
-    if (!_proc_task) {
-        panic("procfs_vnop_lookup: Could not resolve symbol _proc_task");
-    }
+    _proc_fdlock_spin = resolve_kernel_symbol("_proc_fdlock_spin");
+    _proc_fdunlock = resolve_kernel_symbol("_proc_fdunlock");
+    _proc_task = resolve_kernel_symbol("_proc_task");
 
     char name[NAME_MAX + 1];
     int error = 0;
@@ -457,18 +448,9 @@ out:
 STATIC int
 procfs_vnop_readdir(struct vnop_readdir_args *ap)
 {
-    _proc_fdlock_spin = resolve_ksymbol("_proc_fdlock_spin");
-    if (!_proc_fdlock_spin) {
-        panic("procfs_vnop_readdir: Could not resolve symbol _proc_fdlock_spin");
-    }
-    _proc_fdunlock = resolve_ksymbol("_proc_fdunlock");
-    if (!_proc_fdunlock) {
-        panic("procfs_vnop_readdir: Could not resolve symbol _proc_fdunlock");
-    }
-    _proc_task = resolve_ksymbol("_proc_task");
-    if (!_proc_task) {
-        panic("procfs_vnop_readdir: Could not resolve symbol _proc_task");
-    }
+    _proc_fdlock_spin = resolve_kernel_symbol("_proc_fdlock_spin");
+    _proc_fdunlock = resolve_kernel_symbol("_proc_fdunlock");
+    _proc_task = resolve_kernel_symbol("_proc_task");
 
     vnode_t vp = ap->a_vp;
     if (vnode_vtype(vp) != VDIR) {

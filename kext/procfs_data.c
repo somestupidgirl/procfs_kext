@@ -34,20 +34,20 @@
 #pragma mark -
 #pragma mark Symbol Resolver
 
-static void (*_proc_list_lock)(void);
-static void (*_proc_list_unlock)(void);
-static void (*_proc_fdlock_spin)(proc_t p);
-static void (*_proc_fdunlock)(proc_t p);
-static void (*_session_lock)(struct session * sess);
-static void (*_session_unlock)(struct session * sess);
-static struct pgrp *(*_proc_pgrp)(proc_t p);
-static task_t (*_proc_task)(proc_t proc);
-static int (*_proc_pidbsdinfo)(proc_t p, struct proc_bsdinfo * pbsd, int zombie);
-static int (*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo);
-static int (*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo);
-static int (*_fill_vnodeinfo)(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fsgetpath);
-static void (*_fill_fileinfo)(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
-static errno_t (*_fill_socketinfo)(socket_t so, struct socket_info *si);
+static void(*_proc_list_lock)(void) = NULL;
+static void(*_proc_list_unlock)(void) = NULL;
+static void(*_proc_fdlock_spin)(proc_t p) = NULL;
+static void(*_proc_fdunlock)(proc_t p) = NULL;
+static void(*_session_lock)(struct session * sess) = NULL;
+static void(*_session_unlock)(struct session * sess) = NULL;
+static struct pgrp *(*_proc_pgrp)(proc_t p) = NULL;
+static task_t(*_proc_task)(proc_t proc) = NULL;
+static int(*_proc_pidbsdinfo)(proc_t p, struct proc_bsdinfo * pbsd, int zombie) = NULL;
+static int(*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo) = NULL;
+static int(*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo) = NULL;
+static int(*_fill_vnodeinfo)(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fsgetpath) = NULL;
+static void(*_fill_fileinfo)(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo) = NULL;
+static errno_t(*_fill_socketinfo)(socket_t so, struct socket_info *si) = NULL;
 
 #pragma mark -
 #pragma mark Local Function Prototypes
@@ -116,14 +116,8 @@ procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_list_lock = resolve_ksymbol("_proc_list_lock");
-    if (!_proc_list_lock) {
-        panic("procfs_read_sid_data: Could not resolve symbol _proc_list_lock");
-    }
-    _proc_list_unlock = resolve_ksymbol("_proc_list_unlock");
-    if (!_proc_list_unlock) {
-        panic("procfs_read_sid_data: Could not resolve symbol _proc_list_unlock");
-    }
+    _proc_list_lock = resolve_kernel_symbol("_proc_list_lock");
+    _proc_list_unlock = resolve_kernel_symbol("_proc_list_unlock");
 
     int error;
 
@@ -155,26 +149,11 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_list_lock = resolve_ksymbol("_proc_list_lock");
-    if (!_proc_list_lock) {
-        panic("procfs_read_tty_data: Could not resolve symbol _proc_list_lock");
-    }
-    _proc_list_unlock = resolve_ksymbol("_proc_list_unlock");
-    if (!_proc_list_unlock) {
-        panic("procfs_read_tty_data: Could not resolve symbol _proc_list_unlock");
-    }
-    _session_lock = resolve_ksymbol("_session_lock");
-    if (!_session_lock) {
-        panic("procfs_read_tty_data: Could not resolve symbol _session_lock");
-    }
-    _session_unlock = resolve_ksymbol("_session_unlock");
-    if (!_session_unlock) {
-        panic("procfs_read_tty_data: Could not resolve symbol _session_unlock");
-    }
-    _proc_pgrp = resolve_ksymbol("_proc_pgrp");
-    if (!_session_unlock) {
-        panic("procfs_read_tty_data: Could not resolve symbol _proc_pgrp");
-    }
+    _proc_list_lock = resolve_kernel_symbol("_proc_list_lock");
+    _proc_list_unlock = resolve_kernel_symbol("_proc_list_unlock");
+    _session_lock = resolve_kernel_symbol("_session_lock");
+    _session_unlock = resolve_kernel_symbol("_session_unlock");
+    _proc_pgrp = resolve_kernel_symbol("_proc_pgrp");
 
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
@@ -215,10 +194,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_pidbsdinfo = resolve_ksymbol("_proc_pidbsdinfo");
-    if (!_proc_pidbsdinfo) {
-        panic("procfs_read_proc_info: Could not resolve symbol _proc_pidbsdinfo");
-    }
+    _proc_pidbsdinfo = resolve_kernel_symbol("_proc_pidbsdinfo");
 
     // Get the process id from the node id in the procfsnode and locate
     // the process.
@@ -245,10 +221,7 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_pidtaskinfo = resolve_ksymbol("_proc_pidtaskinfo");
-    if (!_proc_pidtaskinfo) {
-        panic("procfs_read_task_info: Could not resolve symbol _proc_pidtaskinfo");
-    }
+    _proc_pidtaskinfo = resolve_kernel_symbol("_proc_pidtaskinfo");
 
     // Get the process id from the node id in the procfsnode and locate
     // the process.
@@ -274,10 +247,7 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_pidthreadinfo = resolve_ksymbol("_proc_pidthreadinfo");
-    if (!_proc_pidthreadinfo) {
-        panic("procfs_read_thread_info: Could not resolve symbol _proc_pidthreadinfo");
-    }
+    _proc_pidthreadinfo = resolve_kernel_symbol("_proc_pidthreadinfo");
 
     // Get the process id and thread from the node id in the procfsnode and locate
     // the process.
@@ -308,14 +278,8 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
 int
 procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _fill_fileinfo = resolve_ksymbol("_fill_fileinfo");
-    if (!_fill_fileinfo) {
-        panic("procfs_read_fd_data: Could not resolve symbol _fill_fileinfo");
-    }
-    _fill_vnodeinfo = resolve_ksymbol("_fill_vnodeinfo");
-    if (!_fill_vnodeinfo) {
-        panic("procfs_read_fd_data: Could not resolve symbol _fill_vnodeinfo");
-    }
+    _fill_fileinfo = resolve_kernel_symbol("_fill_fileinfo");
+    _fill_vnodeinfo = resolve_kernel_symbol("_fill_vnodeinfo");
 
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
@@ -369,14 +333,8 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _fill_fileinfo = resolve_ksymbol("_fill_fileinfo");
-    if (!_fill_fileinfo) {
-        panic("procfs_read_socket_data: Could not resolve symbol _fill_fileinfo");
-    }
-    _fill_socketinfo = resolve_ksymbol("_fill_socketinfo");
-    if (!_fill_socketinfo) {
-        panic("procfs_read_socket_data: Could not resolve symbol _fill_socketinfo");
-    }
+    _fill_fileinfo = resolve_kernel_symbol("_fill_fileinfo");
+    _fill_socketinfo = resolve_kernel_symbol("_fill_socketinfo");
 
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
@@ -475,10 +433,7 @@ procfs_process_node_size(__unused procfsnode_t *pnp, kauth_cred_t creds)
 size_t
 procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 {
-    _proc_task = resolve_ksymbol("_proc_task");
-    if (!_fill_socketinfo) {
-        panic("procfs_thread_node_size: Could not resolve symbol _proc_task");
-    }
+    _proc_task = resolve_kernel_symbol("_proc_task");
 
     // Nodes of this type contribute a size of 1 for each thread
     // in the owning process. Because of the way the file system is
@@ -504,14 +459,8 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 size_t
 procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 {
-    _proc_fdlock_spin = resolve_ksymbol("_proc_fdlock_spin");
-    if (!_proc_list_lock) {
-        panic("procfs_fd_node_size: Could not resolve symbol _proc_fdlock_spin");
-    }
-    _proc_fdunlock = resolve_ksymbol("_proc_fdunlock");
-    if (!_proc_fdunlock) {
-        panic("procfs_fd_node_size: Could not resolve symbol _proc_fdunlock");
-    }
+    _proc_fdlock_spin = resolve_kernel_symbol("_proc_fdlock_spin");
+    _proc_fdunlock = resolve_kernel_symbol("_proc_fdunlock");
 
     int size = 0;
     pid_t pid = pnp->node_id.nodeid_pid;
