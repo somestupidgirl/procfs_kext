@@ -26,20 +26,15 @@
 #include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_subr.h>
 
-#include "klookup.h"
+#include <libbsdklog/log_kctl.h>
+#include <libklookup/klookup.h>
+
+#include "symbols.h"
 
 #pragma mark -
 #pragma mark Local Variables
 
 int nprocs = 0;
-
-#pragma mark -
-#pragma mark Symbol Resolver
-
-static void(*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg) = NULL;
-static kern_return_t(*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count) = NULL;
-static kern_return_t(*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count) = NULL;
-static thread_t(*_convert_port_to_thread)(ipc_port_t port) = NULL;
 
 #pragma mark -
 #pragma mark Function Prototypes.

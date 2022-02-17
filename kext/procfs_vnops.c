@@ -24,16 +24,10 @@
 #include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_subr.h>
 
-#include "klookup.h"
+#include <libbsdklog/log_kctl.h>
+#include <libklookup/klookup.h>
 
-#pragma mark -
-#pragma mark Symbol Resolver
-
-static void(*_proc_list_lock)(void) = NULL;
-static void(*_proc_list_unlock)(void) = NULL;
-static void(*_proc_fdlock_spin)(proc_t p) = NULL;
-static void(*_proc_fdunlock)(proc_t p) = NULL;
-static task_t(*_proc_task)(proc_t proc) = NULL;
+#include "symbols.h"
 
 #pragma mark -
 #pragma mark Local Definitions

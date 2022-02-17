@@ -28,25 +28,10 @@
 #include <miscfs/procfs/procfs_structure.h>
 #include <miscfs/procfs/procfs_subr.h>
 
-#include "klookup.h"
+#include <libbsdklog/log_kctl.h>
+#include <libklookup/klookup.h>
 
-#pragma mark -
-#pragma mark Symbol Resolver
-
-static void(*_proc_list_lock)(void) = NULL;
-static void(*_proc_list_unlock)(void) = NULL;
-static void(*_proc_fdlock_spin)(proc_t p) = NULL;
-static void(*_proc_fdunlock)(proc_t p) = NULL;
-static void(*_session_lock)(struct session * sess) = NULL;
-static void(*_session_unlock)(struct session * sess) = NULL;
-static struct pgrp *(*_proc_pgrp)(proc_t p) = NULL;
-static task_t(*_proc_task)(proc_t proc) = NULL;
-static int(*_proc_pidbsdinfo)(proc_t p, struct proc_bsdinfo * pbsd, int zombie) = NULL;
-static int(*_proc_pidtaskinfo)(proc_t p, struct proc_taskinfo * ptinfo) = NULL;
-static int(*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo) = NULL;
-static int(*_fill_vnodeinfo)(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fsgetpath) = NULL;
-static void(*_fill_fileinfo)(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo) = NULL;
-static errno_t(*_fill_socketinfo)(socket_t so, struct socket_info *si) = NULL;
+#include "symbols.h"
 
 #pragma mark -
 #pragma mark Local Function Prototypes
@@ -124,7 +109,7 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p != NULL) {
         pid_t session_id = (pid_t)0;
         _proc_list_lock();
-        proc_t pgrp = _proc_pgrp(p);
+        proc_t pgrp = p->p_pgrp;
         if (pgrp != NULL) {
             session_id = proc_sessionid(pgrp);
             if (session_id < 0) {
@@ -152,13 +137,12 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     _proc_list_unlock = SymbolLookup("_proc_list_unlock");
     _session_lock = SymbolLookup("_session_lock");
     _session_unlock = SymbolLookup("_session_unlock");
-    _proc_pgrp = SymbolLookup("_proc_pgrp");
 
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         _proc_list_lock();
-        struct pgrp *pgrp = _proc_pgrp(p);
+        struct pgrp *pgrp = p->p_pgrp;
         if (pgrp != NULL) {
             // Get the controlling terminal vnode from the process session,
             // if it has one.

@@ -127,18 +127,15 @@ endif
 # Those two flags must present at the same time  o.w. debug symbol cannot be generated
 debug: CFLAGS += -O0 -g
 debug: $(FSBUNDLE)
-	sudo chown -R root:wheel $<
-	sudo chmod -R 755 $<
 
 # see: https://stackoverflow.com/questions/15548023/clang-optimization-levels
 release: CFLAGS += -O2
 release: $(FSBUNDLE)
-	sudo chown -R root:wheel $<
-	sudo chmod -R 755 $<
 
 install: $(FSBUNDLE) uninstall
 	test -d "$(PREFIX)"
 	sudo cp -r $< "$(PREFIX)/$<"
+	sudo chmod -R 755 "$(PREFIX)/$<"
 	sudo chown -R root:wheel "$(PREFIX)/$<"
 
 uninstall:
@@ -147,7 +144,7 @@ uninstall:
 	sudo rm -rf "$(PREFIX)/$(FSBUNDLE)" || true
 
 clean:
-	sudo rm -rf $(FSBUNDLE) $(FSBUNDLE).dSYM Info.plist~ $(OBJS) $(FSMACHO)
+	rm -rf $(FSBUNDLE) $(FSBUNDLE).dSYM Info.plist~ $(OBJS) $(FSMACHO)
 
 .PHONY: all debug release clean
 

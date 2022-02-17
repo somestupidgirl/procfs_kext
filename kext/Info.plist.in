@@ -40,6 +40,8 @@
 			<string>procfs</string>
 			<key>IOMatchCategory</key>
 			<string>IODefaultMatchCategory</string>
+			<key>IOKitDebug</key>
+			<integer>1</integer>
 			<key>IOProviderClass</key>
 			<string>IOResources</string>
 			<key>IOResourceMatch</key>

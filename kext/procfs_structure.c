@@ -16,6 +16,8 @@
 #include <miscfs/procfs/procfs_data.h>
 #include <miscfs/procfs/procfs_structure.h>
 
+#include <libbsdklog/log_kctl.h>
+
 /*
  * Definition and management of the file system layout. The
  * layout is defined by a tree of procfs_structure_node_t

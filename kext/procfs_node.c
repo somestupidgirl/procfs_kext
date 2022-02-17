@@ -15,6 +15,8 @@
 #include <miscfs/procfs/procfs.h>
 #include <miscfs/procfs/procfs_node.h>
 
+#include <libbsdklog/log_kctl.h>
+
 #pragma mark -
 #pragma mark Global Definitions
 

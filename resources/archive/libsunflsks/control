@@ -1,0 +1,9 @@
+Package: us.sudhip.libsunflsks
+Name: libsunflsks
+Version: 1.0.2
+Architecture: iphoneos-arm
+Description: Shared code between projects
+Maintainer: Sudhip
+Author: Sudhip
+Section: System
+Tag: role::developer

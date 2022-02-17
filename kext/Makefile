@@ -31,7 +31,7 @@ CC=		$(shell xcrun -find -sdk $(SDKROOT) cc)
 CODESIGN=	$(shell xcrun -find -sdk $(SDKROOT) codesign)
 
 # source, object files
-SRCS:=		$(wildcard *.c) $(wildcard **/*.c)
+SRCS:=		$(wildcard *.c)
 OBJS:=		$(SRCS:.c=.o)
 
 #
@@ -63,7 +63,8 @@ CFLAGS+=	$(SDKFLAGS) \
 			-fno-builtin \
 			-fno-common \
 			-mkernel \
-			-Iinclude \
+			-I../include \
+			-I../lib \
 			-I../MacKernelSDK/Headers
 
 # warnings
@@ -79,7 +80,6 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			$(ARCHFLAGS) \
 			-nostdlib \
 			-Xlinker -kext \
-			-Xlinker -object_path_lto klookup.o \
 			-Xlinker -object_path_lto main.o \
 			-Xlinker -object_path_lto procfs_data.o \
 			-Xlinker -object_path_lto procfs_node.o \
@@ -87,12 +87,17 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			-Xlinker -object_path_lto procfs_subr.o \
 			-Xlinker -object_path_lto procfs_vfsops.o \
 			-Xlinker -object_path_lto procfs_vnops.o \
-			-Xlinker -object_path_lto utils.o \
 			-Xlinker -export_dynamic
 
 # libraries
-LIBS+=		-L../MacKernelSDK/Library/x86_64
-LIBS+=		-lcc_kext -lkmod
+LIBS+=		-L../MacKernelSDK/Library/x86_64 \
+			-L../lib/libbsdkextlog \
+			-L../lib/libkext \
+			-L../lib/libklookup
+#			-L../lib/libksym
+
+LIBS+=		-lcc_kext -lkmod -lkext -lbsdkextlog -lklookup
+# -lksym
 
 # kextlibs flags
 KLFLAGS+=	-xml -c -undef-symbols -unsupported
@@ -158,14 +163,10 @@ endif
 # Those two flags must present at the same time  o.w. debug symbol cannot be generated
 debug: CFLAGS += -O0 -g
 debug: $(KEXTBUNDLE)
-	sudo chown -R root:wheel $<
-	sudo chmod -R 755 $<
 
 # see: https://stackoverflow.com/questions/15548023/clang-optimization-levels
 release: CFLAGS += -O2
 release: $(KEXTBUNDLE)
-	sudo chown -R root:wheel $<
-	sudo chmod -R 755 $<
 
 load: $(KEXTBUNDLE)
 	sudo chown -R root:wheel $<
@@ -185,6 +186,7 @@ unload:
 install: $(KEXTBUNDLE) uninstall
 	test -d "$(PREFIX)"
 	sudo cp -r $< "$(PREFIX)/$<"
+	sudo chmod -R  755 "$(PREFIX)/$<"
 	sudo chown -R root:wheel "$(PREFIX)/$<"
 
 uninstall:
@@ -193,7 +195,7 @@ uninstall:
 	sudo rm -rf "$(PREFIX)/$(KEXTBUNDLE)" || true
 
 clean:
-	sudo rm -rf $(KEXTBUNDLE) $(KEXTBUNDLE).dSYM Info.plist~ $(OBJS) $(KEXTMACHO)
+	rm -rf $(KEXTBUNDLE) $(KEXTBUNDLE).dSYM Info.plist~ $(OBJS) $(KEXTMACHO)
 
 .PHONY: all debug release load stat unload intall uninstall clean
 
