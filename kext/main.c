@@ -1,3 +1,5 @@
+#include <IOKit/IOLib.h>
+
 #include <kern/clock.h>
 
 #include <mach/kern_return.h>
@@ -18,13 +20,11 @@
 
 #include <miscfs/procfs/procfs.h>
 
-#include "libksym/ksym.h"
-#include "libksym/utils.h"
+#include "utils.h"
 
 #pragma mark -
 #pragma mark External References
 
-extern OSMallocTag g_tag;
 extern int procfs_init(__unused struct vfsconf *vfsconf);
 extern void procfs_fini(void);
 extern struct vfs_fsentry procfs_vfsentry;
@@ -47,28 +47,28 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     kern_return_t ret = KERN_SUCCESS;
     struct mach_header_64 *mh; 
 
-    LOG("%s \n", version);     /* Print darwin kernel version */
+    IOLog("%s \n", version);     /* Print darwin kernel version */
 
     ret = util_vma_uuid(ki->address, uuid);
     kassert(ret == KERN_SUCCESS);
-    LOG("kext executable uuid %s \n", uuid);
+    IOLog("kext executable uuid %s \n", uuid);
 
     ret = procfs_init(vfsc);
     if (ret != KERN_SUCCESS) {
-        LOG_ERR("procfs_init() fail");
+        IOLog("procfs_init() fail");
         goto out_error;
     }
-    LOG("lock group(%s) allocated \n", PROCFS_LCK_GRP_NAME);
+    IOLog("lock group(%s) allocated \n", PROCFS_LCK_GRP_NAME);
 
     ret = vfs_fsadd(&procfs_vfsentry, &procfs_vfs_table_ref);
     if (ret != KERN_SUCCESS) {
-        LOG_ERR("vfs_fsadd() failure  errno: %d \n", ret);
+        IOLog("vfs_fsadd() failure  errno: %d \n", ret);
         procfs_vfs_table_ref = NULL;
         goto out_vfsadd;
     }
-    LOG("%s file system registered", procfs_vfsentry.vfe_fsname);
+    IOLog("%s file system registered", procfs_vfsentry.vfe_fsname);
 
-    LOG("loaded %s version %s build %s (%s) \n",
+    IOLog("loaded %s version %s build %s (%s) \n",
         PROCFS_BUNDLEID, PROCFS_VERSION, PROCFS_BUILDNUM, __TS__);
 
     if (ret == KERN_SUCCESS) {
@@ -96,13 +96,13 @@ kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 
     ret = util_vma_uuid(ki->address, uuid);
     if (ret != KERN_SUCCESS) {
-        LOG_ERR("util_vma_uuid() failed  errno: %d \n", ret);
+        IOLog("util_vma_uuid() failed  errno: %d \n", ret);
         goto out_error;
     }
 
     ret = vfs_fsremove(procfs_vfs_table_ref);
     if (ret != KERN_SUCCESS) {
-        LOG_ERR("vfs_fsremove() failure  errno: %d \n", ret);
+        IOLog("vfs_fsremove() failure  errno: %d \n", ret);
         goto out_error;
     }
 
@@ -110,7 +110,7 @@ kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 
     util_massert();
 
-    LOG("unloaded %s version %s build %s (%s) \n",
+    IOLog("unloaded %s version %s build %s (%s) \n",
         BUNDLEID_S, KEXTVERSION_S, KEXTBUILD_S, __TS__);
 
 out_exit:

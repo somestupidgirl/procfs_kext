@@ -31,7 +31,7 @@ CC=		$(shell xcrun -find -sdk $(SDKROOT) cc)
 CODESIGN=	$(shell xcrun -find -sdk $(SDKROOT) codesign)
 
 # source, object files
-SRCS:=		$(wildcard **/*.c) $(wildcard *.c)
+SRCS:=		$(wildcard *.c) $(wildcard **/*.c)
 OBJS:=		$(SRCS:.c=.o)
 
 #
@@ -64,7 +64,6 @@ CFLAGS+=	$(SDKFLAGS) \
 			-fno-common \
 			-mkernel \
 			-Iinclude \
-			-Ilibksym \
 			-I../MacKernelSDK/Headers
 
 # warnings
@@ -80,8 +79,7 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			$(ARCHFLAGS) \
 			-nostdlib \
 			-Xlinker -kext \
-			-Xlinker -object_path_lto libksym/ksym.o \
-			-Xlinker -object_path_lto libksym/utils.o \
+			-Xlinker -object_path_lto klookup.o \
 			-Xlinker -object_path_lto main.o \
 			-Xlinker -object_path_lto procfs_data.o \
 			-Xlinker -object_path_lto procfs_node.o \
@@ -89,6 +87,7 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			-Xlinker -object_path_lto procfs_subr.o \
 			-Xlinker -object_path_lto procfs_vfsops.o \
 			-Xlinker -object_path_lto procfs_vnops.o \
+			-Xlinker -object_path_lto utils.o \
 			-Xlinker -export_dynamic
 
 # libraries

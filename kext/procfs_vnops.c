@@ -24,8 +24,7 @@
 #include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_subr.h>
 
-#include "libksym/ksym.h"
-#include "libksym/utils.h"
+#include "klookup.h"
 
 #pragma mark -
 #pragma mark Symbol Resolver
@@ -198,9 +197,9 @@ int procfs_vnop_default(struct vnop_generic_args *arg)
 STATIC int
 procfs_vnop_lookup(struct vnop_lookup_args *ap)
 {
-    _proc_fdlock_spin = resolve_kernel_symbol("_proc_fdlock_spin");
-    _proc_fdunlock = resolve_kernel_symbol("_proc_fdunlock");
-    _proc_task = resolve_kernel_symbol("_proc_task");
+    _proc_fdlock_spin = SymbolLookup("_proc_fdlock_spin");
+    _proc_fdunlock = SymbolLookup("_proc_fdunlock");
+    _proc_task = SymbolLookup("_proc_task");
 
     char name[NAME_MAX + 1];
     int error = 0;
@@ -448,9 +447,9 @@ out:
 STATIC int
 procfs_vnop_readdir(struct vnop_readdir_args *ap)
 {
-    _proc_fdlock_spin = resolve_kernel_symbol("_proc_fdlock_spin");
-    _proc_fdunlock = resolve_kernel_symbol("_proc_fdunlock");
-    _proc_task = resolve_kernel_symbol("_proc_task");
+    _proc_fdlock_spin = SymbolLookup("_proc_fdlock_spin");
+    _proc_fdunlock = SymbolLookup("_proc_fdunlock");
+    _proc_task = SymbolLookup("_proc_task");
 
     vnode_t vp = ap->a_vp;
     if (vnode_vtype(vp) != VDIR) {

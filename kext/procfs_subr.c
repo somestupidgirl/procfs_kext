@@ -26,8 +26,7 @@
 #include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_subr.h>
 
-#include "libksym/ksym.h"
-#include "libksym/utils.h"
+#include "klookup.h"
 
 #pragma mark -
 #pragma mark Local Variables
@@ -180,7 +179,7 @@ procfs_get_pid(proc_t p, struct procfs_pidlist_data *data)
 void
 procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds)
 {
-    _proc_iterate = resolve_kernel_symbol("_proc_iterate");
+    _proc_iterate = SymbolLookup("_proc_iterate");
 
     uint32_t size = nprocs * sizeof(pid_t);
     pid_t *pidp = (pid_t *)OSMalloc(size, g_tag);
@@ -243,9 +242,9 @@ procfs_get_process_count(kauth_cred_t creds)
 int
 procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_count)
 {
-    _task_threads = resolve_kernel_symbol("_task_threads");
-    _convert_port_to_thread = resolve_kernel_symbol("_convert_port_to_thread");
-    _thread_info = resolve_kernel_symbol("_thread_info");
+    _task_threads = SymbolLookup("_task_threads");
+    _convert_port_to_thread = SymbolLookup("_convert_port_to_thread");
+    _thread_info = SymbolLookup("_thread_info");
 
     int result = KERN_SUCCESS;
     thread_act_array_t threads;

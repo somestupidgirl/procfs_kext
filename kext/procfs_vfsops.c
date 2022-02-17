@@ -17,7 +17,7 @@
 #include <miscfs/procfs/procfs.h>
 #include <miscfs/procfs/procfs_node.h>
 
-#include "libksym/utils.h"
+#include "utils.h"
 
 #pragma mark Local Definitions
 

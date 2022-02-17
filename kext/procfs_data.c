@@ -28,8 +28,7 @@
 #include <miscfs/procfs/procfs_structure.h>
 #include <miscfs/procfs/procfs_subr.h>
 
-#include "libksym/ksym.h"
-#include "libksym/utils.h"
+#include "klookup.h"
 
 #pragma mark -
 #pragma mark Symbol Resolver
@@ -116,8 +115,8 @@ procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_list_lock = resolve_kernel_symbol("_proc_list_lock");
-    _proc_list_unlock = resolve_kernel_symbol("_proc_list_unlock");
+    _proc_list_lock = SymbolLookup("_proc_list_lock");
+    _proc_list_unlock = SymbolLookup("_proc_list_unlock");
 
     int error;
 
@@ -149,11 +148,11 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_list_lock = resolve_kernel_symbol("_proc_list_lock");
-    _proc_list_unlock = resolve_kernel_symbol("_proc_list_unlock");
-    _session_lock = resolve_kernel_symbol("_session_lock");
-    _session_unlock = resolve_kernel_symbol("_session_unlock");
-    _proc_pgrp = resolve_kernel_symbol("_proc_pgrp");
+    _proc_list_lock = SymbolLookup("_proc_list_lock");
+    _proc_list_unlock = SymbolLookup("_proc_list_unlock");
+    _session_lock = SymbolLookup("_session_lock");
+    _session_unlock = SymbolLookup("_session_unlock");
+    _proc_pgrp = SymbolLookup("_proc_pgrp");
 
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
@@ -194,7 +193,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_pidbsdinfo = resolve_kernel_symbol("_proc_pidbsdinfo");
+    _proc_pidbsdinfo = SymbolLookup("_proc_pidbsdinfo");
 
     // Get the process id from the node id in the procfsnode and locate
     // the process.
@@ -221,7 +220,7 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_pidtaskinfo = resolve_kernel_symbol("_proc_pidtaskinfo");
+    _proc_pidtaskinfo = SymbolLookup("_proc_pidtaskinfo");
 
     // Get the process id from the node id in the procfsnode and locate
     // the process.
@@ -247,7 +246,7 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_pidthreadinfo = resolve_kernel_symbol("_proc_pidthreadinfo");
+    _proc_pidthreadinfo = SymbolLookup("_proc_pidthreadinfo");
 
     // Get the process id and thread from the node id in the procfsnode and locate
     // the process.
@@ -278,8 +277,8 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
 int
 procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _fill_fileinfo = resolve_kernel_symbol("_fill_fileinfo");
-    _fill_vnodeinfo = resolve_kernel_symbol("_fill_vnodeinfo");
+    _fill_fileinfo = SymbolLookup("_fill_fileinfo");
+    _fill_vnodeinfo = SymbolLookup("_fill_vnodeinfo");
 
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
@@ -333,8 +332,8 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _fill_fileinfo = resolve_kernel_symbol("_fill_fileinfo");
-    _fill_socketinfo = resolve_kernel_symbol("_fill_socketinfo");
+    _fill_fileinfo = SymbolLookup("_fill_fileinfo");
+    _fill_socketinfo = SymbolLookup("_fill_socketinfo");
 
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
@@ -433,7 +432,7 @@ procfs_process_node_size(__unused procfsnode_t *pnp, kauth_cred_t creds)
 size_t
 procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 {
-    _proc_task = resolve_kernel_symbol("_proc_task");
+    _proc_task = SymbolLookup("_proc_task");
 
     // Nodes of this type contribute a size of 1 for each thread
     // in the owning process. Because of the way the file system is
@@ -459,8 +458,8 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 size_t
 procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 {
-    _proc_fdlock_spin = resolve_kernel_symbol("_proc_fdlock_spin");
-    _proc_fdunlock = resolve_kernel_symbol("_proc_fdunlock");
+    _proc_fdlock_spin = SymbolLookup("_proc_fdlock_spin");
+    _proc_fdunlock = SymbolLookup("_proc_fdunlock");
 
     int size = 0;
     pid_t pid = pnp->node_id.nodeid_pid;
