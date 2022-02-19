@@ -197,6 +197,7 @@ void
 procfs_release_pids(pid_t *pidp, uint32_t size)
 {
     OSFree(pidp, size, g_tag);
+    *pidp = NULL;
 }
 
 int
