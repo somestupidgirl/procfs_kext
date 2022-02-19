@@ -9,7 +9,7 @@
 
 #include <sys/systm.h>
 
-#include "kextlog.h"
+#include <libbsdkextlog/kextlog.h>
 
 kern_return_t log_kctl_register(void);
 kern_return_t log_kctl_deregister(void);

@@ -24,7 +24,7 @@
 #include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_subr.h>
 
-#include <libbsdklog/log_kctl.h>
+#include <libbsdkextlog/log_kctl.h>
 #include <libklookup/klookup.h>
 
 #include "symbols.h"

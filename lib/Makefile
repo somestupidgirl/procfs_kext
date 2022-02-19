@@ -10,6 +10,7 @@ debug:
 	$(MAKE) -C libkext
 	$(MAKE) -C libbsdkextlog
 	$(MAKE) -C libklookup
+	$(MAKE) -C libksymresolver
 
 
 release: TARGET=release
@@ -19,5 +20,6 @@ clean:
 	$(MAKE) -C libkext clean
 	$(MAKE) -C libbsdkextlog clean
 	$(MAKE) -C libklookup clean
+	$(MAKE) -C libksymresolver clean
 
 .PHONY: all debug release clean

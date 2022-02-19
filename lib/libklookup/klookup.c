@@ -21,9 +21,10 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "klookup.h"
 #include <IOKit/IOLib.h>
 #include <mach-o/nlist.h>
+
+#include <libklookup/klookup.h>
 
 #define KERNEL_BASE           0xffffff8000200000   // Base address of the kernel, per the Mach-O file on disk
 #define LB_SEG_PRELINK_TEXT   "__PRELINK_TEXT"     // Segment name for PRELINK_TEXT (used by Big Sur and later)

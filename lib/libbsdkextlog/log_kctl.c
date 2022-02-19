@@ -10,10 +10,10 @@
 #include <mach/mach_time.h>
 #include <sys/vm.h>
 
-#include "log_kctl.h"
-#include "utils.h"
-#include "kextlog.h"
-#include "log_sysctl.h"
+#include <libkext/libkext.h>
+#include <libbsdkextlog/log_kctl.h>
+#include <libbsdkextlog/kextlog.h>
+#include <libbsdkextlog/log_sysctl.h>
 
 static errno_t log_kctl_connect( kern_ctl_ref, struct sockaddr_ctl *, void **);
 static errno_t log_kctl_disconnect(kern_ctl_ref, u_int32_t, void *);
@@ -51,10 +51,8 @@ static volatile u_int32_t kctlunit = 0;     /* Active unit is positive */
  * You may happen to take further logic to
  *  prevent client from connecting in such case
  */
-static errno_t log_kctl_connect(
-        kern_ctl_ref ref,
-        struct sockaddr_ctl *sac,
-        void **unitinfo)
+static errno_t
+log_kctl_connect(kern_ctl_ref ref, struct sockaddr_ctl *sac, void **unitinfo)
 {
     errno_t e = 0;
 
@@ -74,10 +72,8 @@ static errno_t log_kctl_connect(
     return e;
 }
 
-static errno_t log_kctl_disconnect(
-        kern_ctl_ref ref,
-        u_int32_t unit,
-        void *unitinfo)
+static errno_t
+log_kctl_disconnect(kern_ctl_ref ref, u_int32_t unit, void *unitinfo)
 {
     UNUSED(ref);
     if (OSCompareAndSwap(unit, 0, &kctlunit)) {
@@ -89,7 +85,8 @@ static errno_t log_kctl_disconnect(
     return 0;
 }
 
-kern_return_t log_kctl_register(void)
+kern_return_t
+log_kctl_register(void)
 {
     errno_t e = ctl_register(&kctlreg, &kctlref);
     if (e == 0) {
@@ -100,7 +97,8 @@ kern_return_t log_kctl_register(void)
     return e ? KERN_FAILURE : KERN_SUCCESS;
 }
 
-kern_return_t log_kctl_deregister(void)
+kern_return_t
+log_kctl_deregister(void)
 {
     errno_t e = 0;
     /* ctl_deregister(NULL) returns EINVAL */
@@ -119,7 +117,8 @@ kern_return_t log_kctl_deregister(void)
  * Print message to system message buffer(last resort)
  * The message may truncated if it's far too large
  */
-static inline void log_syslog(uint32_t level, const char *fmt, va_list ap)
+static inline void
+log_syslog(uint32_t level, const char *fmt, va_list ap)
 {
     static char buf[MSG_BUFSZ];
     static volatile uint32_t spin_lock = 0;
@@ -155,7 +154,8 @@ static inline void log_syslog(uint32_t level, const char *fmt, va_list ap)
     kassertf(ok, "OSCompareAndSwap() 1 to 0 fail  val: %#x", spin_lock);
 }
 
-static int enqueue_log(struct kextlog_msghdr *msg, size_t len)
+static int
+enqueue_log(struct kextlog_msghdr *msg, size_t len)
 {
     static uint8_t last_dropped = 0;
     static volatile uint32_t spin_lock = 0;
@@ -203,7 +203,8 @@ struct kextlog_stackmsg {
     char buffer[KEXTLOG_STACKMSG_SIZE];
 };
 
-void log_printf(uint32_t level, const char *fmt, ...)
+void
+log_printf(uint32_t level, const char *fmt, ...)
 {
     struct kextlog_stackmsg msg;
     struct kextlog_msghdr *msgp;
@@ -242,7 +243,7 @@ void log_printf(uint32_t level, const char *fmt, ...)
     }
 
     if (len >= (int) sizeof(msg.buffer)) {
-        msgp = (struct kextlog_msghdr *) util_malloc0(msgsz, M_WAITOK | M_NULL);
+        msgp = (struct kextlog_msghdr *) libkext_malloc(msgsz, M_WAITOK | M_NULL);
         if (msgp != NULL) {
             va_start(ap, fmt);
             len2 = vsnprintf(msgp->buffer, len + 1, fmt, ap);
@@ -284,7 +285,7 @@ out_sysmbuf:
 
     if (msgp != (struct kextlog_msghdr *) &msg) {
         /* util_mfree(NULL, type) do nop */
-        util_mfree(msgp);
+        libkext_mfree(msgp);
     }
 }
 

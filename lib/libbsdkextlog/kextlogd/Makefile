@@ -3,7 +3,7 @@
 #
 
 CC?=gcc
-CFLAGS+=-std=c99 -xc -Wall -Wextra -Werror
+CFLAGS+=-std=c99 -xc -Wall -Wextra -Werror -I../../lib
 
 all: debug
 

@@ -14,7 +14,7 @@
 #include <sys/kern_control.h>
 #include <sys/ioctl.h>
 
-#include "../kextlog.h"
+#include <libbsdkextlog/kextlog.h>
 
 /*
  * Used to indicate unused function parameters
@@ -40,7 +40,8 @@
  * @socktype    either SOCK_DGRAM or SOCK_STREAM
  * @return      -1 if failed(errno will be set)  fd otherwise
  */
-static int connect_to_kctl(const char *name, int socktype)
+static int
+connect_to_kctl(const char *name, int socktype)
 {
     int fd = -1;
     int e;
@@ -114,7 +115,8 @@ out_close:
 
 static char buffer[BUFFER_SIZE];
 
-static void read_log_from_kctl(int fd)
+static void
+read_log_from_kctl(int fd)
 {
     struct kextlog_msghdr *m;
     ssize_t n;
@@ -155,7 +157,8 @@ static void read_log_from_kctl(int fd)
     }
 }
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     UNUSED(argc, argv);
 

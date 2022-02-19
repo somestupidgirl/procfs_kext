@@ -4,8 +4,8 @@
 
 #include <sys/sysctl.h>
 
-#include "log_sysctl.h"
-#include "utils.h"
+#include <libkext/libkext.h>
+#include <libbsdkextlog/log_sysctl.h>
 
 static SYSCTL_NODE(
     /* No parent */,
@@ -72,7 +72,8 @@ static SYSCTL_QUAD(
     "" /* sysctl nub: kextlog.statistics.enqueue_failure */
 );
 
-static struct sysctl_oid *sysctl_entries[] = {
+static struct
+sysctl_oid *sysctl_entries[] = {
     /* sysctl nodes */
     &sysctl__kextlog,
     &sysctl__kextlog_statistics,
@@ -85,7 +86,8 @@ static struct sysctl_oid *sysctl_entries[] = {
     &sysctl__kextlog_statistics_enqueue_failure,
 };
 
-void log_sysctl_register(void)
+void
+log_sysctl_register(void)
 {
     size_t i;
     for (i = 0; i < ARRAY_SIZE(sysctl_entries); i++) {
@@ -95,7 +97,8 @@ void log_sysctl_register(void)
     LOG_DBG("%zu sysctl entries registered", ARRAY_SIZE(sysctl_entries));
 }
 
-void log_sysctl_deregister(void)
+void
+log_sysctl_deregister(void)
 {
     size_t i;
     for (i = 0; i < ARRAY_SIZE(sysctl_entries); i++) {

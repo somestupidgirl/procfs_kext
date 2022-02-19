@@ -7,6 +7,7 @@
 #ifndef LIBKEXT_H
 #define LIBKEXT_H
 
+#include <libkern/libkern.h>    /* printf() */
 #include <sys/types.h>
 #include <uuid/uuid.h>
 
@@ -57,8 +58,10 @@
 #define LOG(fmt, ...)        printf(KEXTNAME_S ": " fmt "\n", ##__VA_ARGS__)
 
 #define LOG_INF(fmt, ...)    LOG("INF " fmt, ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...)   LOG("[WARN] " fmt, ##__VA_ARGS__)
 #define LOG_ERR(fmt, ...)    LOG("ERR " fmt, ##__VA_ARGS__)
 #define LOG_BUG(fmt, ...)    LOG("BUG " fmt, ##__VA_ARGS__)
+#define LOG_TRACE(fmt, ...)  LOG("[TRACE] " fmt, ##__VA_ARGS__)
 #define LOG_OFF(fmt, ...)    (void) (0, ##__VA_ARGS__)
 #ifdef DEBUG
 #define LOG_DBG(fmt, ...)    LOG("DBG " fmt, ##__VA_ARGS__)
@@ -94,6 +97,17 @@
 #endif
 
 #define kassert_nonnull(ptr) kassert(((void *) ptr) != NULL)
+#define kassert_null(ptr)       kassert(ptr == NULL)
+
+#define __kassert_cmp(v1, v2, f1, f2, op)   \
+    kassertf((v1) op (v2), "left: " f1 " right: " f2, (v1), (v2))
+
+#define kassert_eq(v1, v2, f1, f2)  __kassert_cmp(v1, v2, f1, f2, ==)
+#define kassert_ne(v1, v2, f1, f2)  __kassert_cmp(v1, v2, f1, f2, !=)
+#define kassert_le(v1, v2, f1, f2)  __kassert_cmp(v1, v2, f1, f2, <=)
+#define kassert_ge(v1, v2, f1, f2)  __kassert_cmp(v1, v2, f1, f2, >=)
+#define kassert_lt(v1, v2, f1, f2)  __kassert_cmp(v1, v2, f1, f2, <)
+#define kassert_gt(v1, v2, f1, f2)  __kassert_cmp(v1, v2, f1, f2, >)
 
 /**
  * Branch predictions
@@ -111,6 +125,14 @@
 #else
 #define BUILD_BUG_ON(cond)      UNUSED(cond)
 #endif
+
+/* XXX: ONLY quote those deprecated functions */
+#define SUPPRESS_WARN_DEPRECATED_DECL_BEGIN     \
+    _Pragma("clang diagnostic push")            \
+    _Pragma("clang diagnostic ignored \"-Wdeprecated-declarations\"")
+
+#define SUPPRESS_WARN_DEPRECATED_DECL_END       \
+    _Pragma("clang diagnostic pop")
 
 /**
  * Capital Q stands for quick

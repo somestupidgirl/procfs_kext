@@ -7,8 +7,8 @@
 #include <libkern/version.h>
 #include <vm/vm_kern.h>
 
-#include "ksymresolver.h"
-#include "utils.h"
+#include <libkext/libkext.h>
+#include <libksymresolver/ksymresolver.h>
 
 #ifndef __TS__
 #define __TS__      "????/??/?? ??:??:??+????"
@@ -19,7 +19,8 @@
  * @return      0 if failed to get
  * see: xnu/osfmk/vm/vm_kern.c#vm_kernel_addrperm_external
  */
-static vm_offset_t get_vm_kernel_addrperm_ext(void)
+static vm_offset_t
+get_vm_kernel_addrperm_ext(void)
 {
     static vm_offset_t addrperm_ext = 0L;
     if (addrperm_ext != 0L) goto out_exit;
@@ -36,7 +37,8 @@ out_exit:
  * @return      0 if failed to get
  * see: xnu/osfmk/vm/vm_kern.c#vm_kernel_unslide_or_perm_external
  */
-static vm_offset_t get_vm_kernel_slide(void)
+static vm_offset_t
+get_vm_kernel_slide(void)
 {
     static uint16_t i = MAX_SLIDE_STEP;
     static vm_offset_t fake = VM_MIN_KERNEL_AND_KEXT_ADDRESS;
@@ -60,9 +62,8 @@ out_exit:
     return slide;
 }
 
-static struct segment_command_64 *find_seg64(
-                struct mach_header_64 *mh,
-                const char *name)
+static struct segment_command_64 *
+find_seg64(struct mach_header_64 *mh, const char *name)
 {
     uint32_t i;
     struct load_command *lc;
@@ -81,9 +82,8 @@ static struct segment_command_64 *find_seg64(
     return NULL;
 }
 
-static struct load_command *find_lc(
-        struct mach_header_64 *mh,
-        uint32_t cmd)
+static struct load_command *
+find_lc(struct mach_header_64 *mh, uint32_t cmd)
 {
     uint32_t i;
     struct load_command *lc;
@@ -103,7 +103,8 @@ static struct load_command *find_lc(
  * keywords: kernel_nlist_t  struct nlist_64
  * see: xnu/libkern/c++/OSKext.cpp#slidePrelinkedExecutable
  */
-static void *resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
+static void *
+resolve_ksymbol2(struct mach_header_64 *mh, const char *name)
 {
     struct segment_command_64 *linkedit;
     vm_address_t linkedit_base;
@@ -171,7 +172,8 @@ out_done:
  * @param name          symbol name(should begin with _)
  * @return              NULL if not found
  */
-void * __nullable resolve_ksymbol(const char * __nonnull name)
+void * __nullable
+resolve_ksymbol(const char * __nonnull name)
 {
     static volatile struct mach_header_64 *mh = NULL;
 
@@ -182,7 +184,9 @@ void * __nullable resolve_ksymbol(const char * __nonnull name)
     return resolve_ksymbol2((struct mach_header_64 *) mh, name);
 }
 
-kern_return_t ksymresolver_start(kmod_info_t *ki, void *d __unused)
+#if 0
+kern_return_t
+ksymresolver_start(kmod_info_t *ki, void *d __unused)
 {
     vm_offset_t vm_kern_ap_ext;
     vm_offset_t vm_kern_slide;
@@ -194,7 +198,7 @@ kern_return_t ksymresolver_start(kmod_info_t *ki, void *d __unused)
 
     LOG("%s", version);     /* Print darwin kernel version */
 
-    e = util_vma_uuid(ki->address, uuid);
+    e = libkext_vma_uuid(ki->address, uuid);
     if (e) {
         LOG_ERR("util_vma_uuid() failed  errno: %d", e);
         goto out_fail;
@@ -238,12 +242,13 @@ out_fail:
     return KERN_FAILURE;
 }
 
-kern_return_t ksymresolver_stop(kmod_info_t *ki, void *d __unused)
+kern_return_t
+ksymresolver_stop(kmod_info_t *ki, void *d __unused)
 {
     int e;
     uuid_string_t uuid;
 
-    e = util_vma_uuid(ki->address, uuid);
+    e = libkext_vma_uuid(ki->address, uuid);
     if (e) LOG_ERR("util_vma_uuid() failed  errno: %d", e);
 
     LOG("unloaded  (version: %s build: %s ts: %s uuid: %s)",
@@ -268,4 +273,4 @@ __private_extern__ kmod_stop_func_t *_antimain = ksymresolver_stop;
 
 __private_extern__ int _kext_apple_cc = __APPLE_CC__;
 #endif
-
+#endif

@@ -1,6 +1,7 @@
 CC ?= clang
 AR ?= ar -frs
 RM ?= rm -f
+
 CFLAGS?=	-std=c99 \
 			-ffunction-sections \
 			-fdata-sections \

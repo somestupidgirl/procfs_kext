@@ -9,7 +9,8 @@
 
 #include "libkext.h"
 
-static void libkext_mstat(int opt)
+static void
+libkext_mstat(int opt)
 {
     static volatile SInt64 cnt = 0;
     switch (opt) {
@@ -31,7 +32,9 @@ static void libkext_mstat(int opt)
 #endif
 }
 
-void *libkext_malloc(size_t size, int flags)
+/* Zero size allocation will return a NULL */
+void *
+libkext_malloc(size_t size, int flags)
 {
     /* _MALLOC `type' parameter is a joke */
     void *addr = _MALLOC(size, M_TEMP, flags);
@@ -60,7 +63,8 @@ void *libkext_malloc(size_t size, int flags)
  *  xnu/bsd/kern/kern_malloc.c@_REALLOC
  *  wiki.sei.cmu.edu/confluence/display/c/MEM04-C.+Beware+of+zero-length+allocations
  */
-static void *libkext_realloc2(void *addr0, size_t sz0, size_t sz1, int flags)
+static void *
+libkext_realloc2(void *addr0, size_t sz0, size_t sz1, int flags)
 {
     void *addr1;
 
@@ -90,7 +94,8 @@ out_exit:
     return addr1;
 }
 
-void *libkext_realloc(void *addr0, size_t sz0, size_t sz1, int flags)
+void *
+libkext_realloc(void *addr0, size_t sz0, size_t sz1, int flags)
 {
     void *addr1 = libkext_realloc2(addr0, sz0, sz1, flags);
     /*
@@ -101,14 +106,16 @@ void *libkext_realloc(void *addr0, size_t sz0, size_t sz1, int flags)
     return addr1;
 }
 
-void libkext_mfree(void *addr)
+void
+libkext_mfree(void *addr)
 {
     if (addr != NULL) libkext_mstat(0);
     _FREE(addr, M_TEMP);
 }
 
 /* XXX: call when all memory freed */
-void libkext_massert(void)
+void
+libkext_massert(void)
 {
     libkext_mstat(2);
 }
@@ -122,7 +129,8 @@ void libkext_massert(void)
  * kcb stands for kernel callbacks  a global refcnt used in kext
  * @return      -1(actually negative value) if kcb invalidated
  */
-static inline int kcb(int opt)
+static inline int
+kcb(int opt)
 {
     static volatile SInt i = 0;
     static struct timespec ts = {0, 1e+6};  /* 100ms */
@@ -167,7 +175,8 @@ static inline int kcb(int opt)
  * @return      -1 if failed to get
  *              refcnt before get o.w.
  */
-int libkext_get_kcb(void)
+int
+libkext_get_kcb(void)
 {
     return kcb(KCB_OPT_GET);
 }
@@ -176,7 +185,8 @@ int libkext_get_kcb(void)
  * Decrease refcnt of activated kext callbacks
  * @return      refcnt before put o.w.
  */
-int libkext_put_kcb(void)
+int
+libkext_put_kcb(void)
 {
     return kcb(KCB_OPT_PUT);
 }
@@ -185,7 +195,8 @@ int libkext_put_kcb(void)
  * Read refcnt of activated kext callbacks(rarely used)
  * @return      a snapshot of refcnt
  */
-int libkext_read_kcb(void)
+int
+libkext_read_kcb(void)
 {
     return kcb(KCB_OPT_READ);
 }
@@ -195,7 +206,8 @@ int libkext_read_kcb(void)
  * You should call this function only once after all spawn threads unattached
  * Will block until all threads stopped and counter invalidated
  */
-void libkext_invalidate_kcb(void)
+void
+libkext_invalidate_kcb(void)
 {
     (void) kcb(KCB_OPT_INVALIDATE);
 }
@@ -209,7 +221,8 @@ void libkext_invalidate_kcb(void)
  * @output  UUID string output
  * @return  0 if success  errno o.w.
  */
-int libkext_vma_uuid(vm_address_t addr, uuid_string_t output)
+int
+libkext_vma_uuid(vm_address_t addr, uuid_string_t output)
 {
     kassert_nonnull(addr);
     kassert_nonnull(output);
@@ -257,7 +270,8 @@ out_bad:
  * @u       UUID data
  * @output  UUID string output
  */
-void libkext_format_uuid_string(const uuid_t u, uuid_string_t output)
+void
+libkext_format_uuid_string(const uuid_t u, uuid_string_t output)
 {
     kassert_nonnull(u);
     kassert_nonnull(output);
@@ -277,7 +291,8 @@ void libkext_format_uuid_string(const uuid_t u, uuid_string_t output)
  * @read        (OUT) bytes read(set if success)
  * @return      0 if success  errno o.w.
  */
-int libkext_file_read(const char *path, unsigned char *buff,
+int
+libkext_file_read(const char *path, unsigned char *buff,
                     size_t len, off_t off, size_t * __nullable read)
 {
     errno_t e;

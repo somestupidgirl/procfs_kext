@@ -10,9 +10,9 @@
 #include <sys/kauth.h>
 #include <sys/vnode.h>
 
-#include "kauth.h"
-#include "utils.h"
-#include "log_kctl.h"
+#include <libkext/libkext.h>
+#include <libbsdkextlog/kauth.h>
+#include <libbsdkextlog/log_kctl.h>
 
 static inline const char *vtype_string(enum vtype vt)
 {
@@ -36,7 +36,8 @@ typedef struct {
  *              XXX: must check vnode_path_t.e before use
  *              you're responsible to free vnode_path_t.path after use
  */
-static vnode_path_t make_vnode_path(vnode_t vp)
+static vnode_path_t
+make_vnode_path(vnode_t vp)
 {
     int e;
     int len = PATH_MAX;     /* Don't touch */
@@ -52,7 +53,7 @@ static vnode_path_t make_vnode_path(vnode_t vp)
      * References:
      *  developer.apple.com/legacy/library/technotes/tn/tn1150.html#Symlinks
      */
-    path = (char *) util_malloc0(PATH_MAX, M_WAITOK | M_NULL);
+    path = (char *) libkext_malloc(PATH_MAX, M_WAITOK | M_NULL);
     if (path == NULL) {
         e = ENOMEM;
         goto out_exit;
@@ -71,7 +72,7 @@ static vnode_path_t make_vnode_path(vnode_t vp)
         kassertf(len > 0, "non-positive len %d", len);
         len--;      /* Don't count trailing '\0' */
     } else {
-        util_mfree(path);
+        libkext_mfree(path);
         path = NULL;
     }
 
@@ -79,7 +80,8 @@ out_exit:
     return (vnode_path_t) {e, len, path};
 }
 
-static inline const char *generic_action_str(kauth_action_t act)
+static inline const char *
+generic_action_str(kauth_action_t act)
 {
     switch (act) {
     case KAUTH_GENERIC_ISSUSER:
@@ -88,20 +90,15 @@ static inline const char *generic_action_str(kauth_action_t act)
     return "(?)";
 }
 
-static int generic_scope_cb(
-        kauth_cred_t cred,
-        void *idata,
-        kauth_action_t act,
-        uintptr_t arg0,
-        uintptr_t arg1,
-        uintptr_t arg2,
-        uintptr_t arg3)
+static int
+generic_scope_cb(kauth_cred_t cred, void *idata, kauth_action_t act,
+    uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3)
 {
     uid_t uid;
     int pid;
     char pcomm[MAXCOMLEN + 1];
 
-    if (kcb_get() < 0) goto out_put;
+    if (libkext_get_kcb() < 0) goto out_put;
 
     UNUSED(idata, arg0, arg1, arg2, arg3);
 
@@ -113,11 +110,12 @@ static int generic_scope_cb(
              act, generic_action_str(act), uid, pid, pcomm);
 
 out_put:
-    (void) kcb_put();
+    (void) libkext_put_kcb();
     return KAUTH_RESULT_DEFER;
 }
 
-static inline const char *process_action_str(kauth_action_t act)
+static inline const char *
+process_action_str(kauth_action_t act)
 {
     switch (act) {
     case KAUTH_PROCESS_CANSIGNAL:
@@ -128,14 +126,9 @@ static inline const char *process_action_str(kauth_action_t act)
     return "(?)";
 }
 
-static int process_scope_cb(
-        kauth_cred_t cred,
-        void *idata,
-        kauth_action_t act,
-        uintptr_t arg0,
-        uintptr_t arg1,
-        uintptr_t arg2,
-        uintptr_t arg3)
+static int
+process_scope_cb(kauth_cred_t cred, void *idata, kauth_action_t act,
+    uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3)
 {
     uid_t uid;
     int pid;
@@ -146,7 +139,7 @@ static int process_scope_cb(
     char pcomm2[MAXCOMLEN + 1];
     int signal;
 
-    if (kcb_get() < 0) goto out_put;
+    if (libkext_get_kcb() < 0) goto out_put;
 
     UNUSED(idata, arg2, arg3);
 
@@ -180,17 +173,15 @@ static int process_scope_cb(
     }
 
 out_put:
-    (void) kcb_put();
+    (void) libkext_put_kcb();
     return KAUTH_RESULT_DEFER;
 }
 
 #define GET_TYPE_STR     0
 #define GET_TYPE_LEN     1
 
-static inline void *vn_act_str_one(
-        int type,
-        kauth_action_t a,
-        bool isdir)
+static inline void *
+vn_act_str_one(int type, kauth_action_t a, bool isdir)
 {
     char *p;
 
@@ -270,7 +261,8 @@ static inline void *vn_act_str_one(
     return type == GET_TYPE_STR ? p : (void *) strlen(p);
 }
 
-static inline int ffs_zero(int x)
+static inline int
+ffs_zero(int x)
 {
     kassert_ne(x, 0, "%d", "%d");
     return __builtin_ffs(x) - 1;
@@ -281,9 +273,10 @@ static inline int ffs_zero(int x)
  * @action      The vnode action
  * @return      String to describe all bits in action
  *              NULL if OOM
- *              You're responsible to free the space via util_mfree()
+ *              You're responsible to free the space via libkext_mfree()
  */
-static inline char * __nullable vn_act_str(kauth_action_t act, vnode_t vp)
+static inline char * __nullable
+vn_act_str(kauth_action_t act, vnode_t vp)
 {
     kauth_action_t a;
     bool isdir;
@@ -302,7 +295,7 @@ static inline char * __nullable vn_act_str(kauth_action_t act, vnode_t vp)
         if (a != 0) size++;    /* Add a pipe separator */
     }
 
-    str = util_malloc0(size, M_WAITOK | M_NULL);
+    str = libkext_malloc(size, M_WAITOK | M_NULL);
     if (str == NULL) goto out_exit;
 
     a = act;
@@ -323,14 +316,9 @@ static inline char * __nullable vn_act_str(kauth_action_t act, vnode_t vp)
     return str;
 }
 
-static int vnode_scope_cb(
-        kauth_cred_t cred,
-        void *idata,
-        kauth_action_t act,
-        uintptr_t arg0,
-        uintptr_t arg1,
-        uintptr_t arg2,
-        uintptr_t arg3)
+static int
+vnode_scope_cb(kauth_cred_t cred, void *idata, kauth_action_t act,
+    uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3)
 {
     vfs_context_t ctx;
     vnode_t vp;
@@ -344,7 +332,7 @@ static int vnode_scope_cb(
 
     vnode_path_t vpath;
 
-    if (kcb_get() < 0) goto out_put;
+    if (libkext_get_kcb() < 0) goto out_put;
 
     UNUSED(idata, arg3);   /* XXX: TODO? */
 
@@ -368,15 +356,16 @@ static int vnode_scope_cb(
     str = vn_act_str(act, vp);
     log_info("vnode  act: %#x(%s) vp: %p %d %s %s dvp: %p uid: %u pid: %d %s",
           act, str, vp, vt, vtype_string(vt), vpath.path, dvp, uid, pid, pcomm);
-    util_mfree(str);
-    util_mfree(vpath.path);
+    libkext_mfree(str);
+    libkext_mfree(vpath.path);
 
 out_put:
-    (void) kcb_put();
+    (void) libkext_put_kcb();
     return KAUTH_RESULT_DEFER;
 }
 
-static inline const char *fileop_action_str(kauth_action_t act)
+static inline const char *
+fileop_action_str(kauth_action_t act)
 {
     switch (act) {
     case KAUTH_FILEOP_OPEN:
@@ -419,14 +408,9 @@ static inline const char *fileop_action_str(kauth_action_t act)
  *
  * If you access such a pointer as a string, you will kernel panic.
  */
-static int fileop_scope_cb(
-        kauth_cred_t cred,
-        void *idata,
-        kauth_action_t act,
-        uintptr_t arg0,
-        uintptr_t arg1,
-        uintptr_t arg2,
-        uintptr_t arg3)
+static int
+fileop_scope_cb(kauth_cred_t cred, void *idata, kauth_action_t act,
+    uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3)
 {
     uid_t uid;
     int pid;
@@ -437,7 +421,7 @@ static int fileop_scope_cb(
     const char *path2;
     int flags;
 
-    if (kcb_get() < 0) goto out_put;
+    if (libkext_get_kcb() < 0) goto out_put;
 
     UNUSED(idata, arg3);
 
@@ -521,7 +505,7 @@ static int fileop_scope_cb(
     }
 
 out_put:
-    (void) kcb_put();
+    (void) libkext_put_kcb();
     return KAUTH_RESULT_DEFER;
 }
 
@@ -543,7 +527,8 @@ static kauth_listener_t scope_ref[] = {
     NULL, NULL, NULL, NULL,
 };
 
-kern_return_t kauth_register(void)
+kern_return_t
+kauth_register(void)
 {
     kern_return_t r = KERN_SUCCESS;
     int i;
@@ -567,7 +552,8 @@ kern_return_t kauth_register(void)
     return r;
 }
 
-void kauth_deregister(void)
+void
+kauth_deregister(void)
 {
     int i;
 
@@ -581,6 +567,6 @@ void kauth_deregister(void)
         }
     }
 
-    kcb_invalidate();
+    libkext_invalidate_kcb();
 }
 

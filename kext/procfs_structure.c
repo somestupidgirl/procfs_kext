@@ -16,7 +16,7 @@
 #include <miscfs/procfs/procfs_data.h>
 #include <miscfs/procfs/procfs_structure.h>
 
-#include <libbsdklog/log_kctl.h>
+#include <libbsdkextlog/log_kctl.h>
 
 /*
  * Definition and management of the file system layout. The

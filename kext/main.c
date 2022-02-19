@@ -20,10 +20,10 @@
 
 #include <miscfs/procfs/procfs.h>
 
-#include <libbsdklog/kauth.h>
-#include <libbsdklog/kextlog.h>
-#include <libbsdklog/log_kctl.h>
-#include <libbsdklog/log_sysctl.h>
+#include <libbsdkextlog/kauth.h>
+#include <libbsdkextlog/kextlog.h>
+#include <libbsdkextlog/log_kctl.h>
+#include <libbsdkextlog/log_sysctl.h>
 
 #include <libkext/libkext.h>
 
