@@ -28,7 +28,6 @@
 #include <miscfs/procfs/procfs_structure.h>
 #include <miscfs/procfs/procfs_subr.h>
 
-#include <libbsdkextlog/log_kctl.h>
 #include <libklookup/klookup.h>
 
 #include "symbols.h"
@@ -187,7 +186,7 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         struct proc_bsdinfo info;
 
         // Get the BSD-centric process info and copy it out.
-        error = _proc_pidbsdinfo(p, &info, FALSE);
+        //error = _proc_pidbsdinfo(p, &info, FALSE);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }

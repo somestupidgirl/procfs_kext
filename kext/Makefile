@@ -94,10 +94,8 @@ LIBS+=		-L../MacKernelSDK/Library/x86_64 \
 			-L../lib/libbsdkextlog \
 			-L../lib/libkext \
 			-L../lib/libklookup
-#			-L../lib/libksym
 
-LIBS+=		-lcc_kext -lkmod -lkext -lbsdkextlog -lklookup
-# -lksym
+LIBS+=		-lcc_kext -lkmod -lkext -lklookup
 
 # kextlibs flags
 KLFLAGS+=	-xml -c -undef-symbols -unsupported

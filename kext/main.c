@@ -18,14 +18,8 @@
 
 #include <vm/vm_kern.h>
 
-#include <miscfs/procfs/procfs.h>
-
-#include <libbsdkextlog/kauth.h>
-#include <libbsdkextlog/kextlog.h>
-#include <libbsdkextlog/log_kctl.h>
-#include <libbsdkextlog/log_sysctl.h>
-
 #include <libkext/libkext.h>
+#include <miscfs/procfs/procfs.h>
 
 #pragma mark -
 #pragma mark External References
@@ -52,8 +46,8 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     kern_return_t ret = KERN_SUCCESS;
     struct mach_header_64 *mh; 
 
-    log_debug("%s \n", version);     /* Print darwin kernel version */
-
+    LOG_DBG("%s \n", version);     /* Print darwin kernel version */
+#if  0
     log_sysctl_register();
 
     ret = kauth_register();
@@ -66,27 +60,27 @@ procfs_start(kmod_info_t *ki, __unused void *d)
         kauth_deregister();
         goto out_error;
     }
-
+#endif
     ret = libkext_vma_uuid(ki->address, uuid);
     kassert(ret == KERN_SUCCESS);
-    log_debug("kext executable uuid %s \n", uuid);
+    LOG_DBG("kext executable uuid %s \n", uuid);
 
     ret = procfs_init(vfsc); // vfsc here??? :s
     if (ret != KERN_SUCCESS) {
-        log_error("procfs_init() failed errno:  %d \n", ret);
+        LOG_ERR("procfs_init() failed errno:  %d \n", ret);
         goto out_error;
     }
-    log_debug("lock group(%s) allocated \n", PROCFS_LCK_GRP_NAME);
+    LOG_DBG("lock group(%s) allocated \n", PROCFS_LCK_GRP_NAME);
 
     ret = vfs_fsadd(&procfs_vfsentry, &procfs_vfs_table_ref);
     if (ret != KERN_SUCCESS) {
-        log_error("vfs_fsadd() failure  errno: %d \n", ret);
+        LOG_ERR("vfs_fsadd() failure  errno: %d \n", ret);
         procfs_vfs_table_ref = NULL;
         goto out_vfsadd;
     }
-    log_debug("%s file system registered", procfs_vfsentry.vfe_fsname);
+    LOG_DBG("%s file system registered", procfs_vfsentry.vfe_fsname);
 
-    log_debug("loaded %s version %s build %s (%s) \n",
+    LOG_DBG("loaded %s version %s build %s (%s) \n",
         PROCFS_BUNDLEID, PROCFS_VERSION, PROCFS_BUILDNUM, __TS__);
 
     if (ret == KERN_SUCCESS) {
@@ -107,35 +101,38 @@ out_error:
     goto out_exit;
 }
 
-kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d)
+kern_return_t
+procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 {
     uuid_string_t uuid;
     kern_return_t ret = KERN_SUCCESS;
 
     ret = libkext_vma_uuid(ki->address, uuid);
     if (ret != KERN_SUCCESS) {
-        log_error("util_vma_uuid() failed  errno: %d \n", ret);
+        LOG_ERR("util_vma_uuid() failed  errno: %d \n", ret);
         goto out_error;
     }
-
+#if 0
     ret = log_kctl_deregister();
     if (ret != KERN_SUCCESS) {
-        log_error("log_kctl_deregister() failed  errno: %d \n", ret);
+        LOG_ERR("log_kctl_deregister() failed  errno: %d \n", ret);
         goto out_error;
     }
-
+#endif
     ret = vfs_fsremove(procfs_vfs_table_ref);
     if (ret != KERN_SUCCESS) {
-        log_error("vfs_fsremove() failure  errno: %d \n", ret);
+        LOG_ERR("vfs_fsremove() failure  errno: %d \n", ret);
         goto out_error;
     }
 
     procfs_fini();
+#if 0
     kauth_deregister();
     log_sysctl_deregister();
+#endif
     libkext_massert();
 
-    log_debug("unloaded %s version %s build %s (%s) \n",
+    LOG_DBG("unloaded %s version %s build %s (%s) \n",
         BUNDLEID_S, KEXTVERSION_S, KEXTBUILD_S, __TS__);
 
     if (ret == KERN_SUCCESS) {

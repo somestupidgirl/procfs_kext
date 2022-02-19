@@ -17,7 +17,6 @@
 #include <miscfs/procfs/procfs.h>
 #include <miscfs/procfs/procfs_node.h>
 
-#include <libbsdkextlog/log_kctl.h>
 #include <libkext/libkext.h>
 
 #pragma mark Local Definitions
