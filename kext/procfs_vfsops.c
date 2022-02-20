@@ -230,6 +230,8 @@ procfs_unmount(struct mount *mp, __unused int mntflags, __unused vfs_context_t c
         // Decrement mounted instance count.
         mounted_instance_count--;
     }
+    procfs_structure_free();
+
     return 0;
 }
 
