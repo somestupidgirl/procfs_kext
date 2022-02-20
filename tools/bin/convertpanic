@@ -1,0 +1,57 @@
+#!/usr/bin/awk -f
+
+BEGIN { ntraces=0; nexts=0; mode="search"; }
+/Backtrace \(CPU/ { setMode("foundtrace"); }
+/Kernel Extensions in backtrace:/ { setMode("xtensions"); }
+/BSD process name/ { 
+	setMode("end"); 
+	#first collect, then print, because atos spits some stuff to console..
+	for (j=0; j<ntraces; j++) resolved[j]=tryResolve(backtrace[j]);
+	print "\n\nTRACE:";
+	for (j=0; j<ntraces; j++) print resolved[j];
+}
+// { 
+	if (mode=="foundtrace") { backtrace[ntraces++]=$3; } 
+	else if(mode=="xtensions" && NF>0) { 
+		# NF=0 is empty line, ignore those.
+		if ($2 !="") { e=$2; } else { e=$1; }
+		
+		fullname=substr(e,1,index(e,"("));
+		match(fullname, "[a-zA-Z]+[\(]");
+		extname[nexts]=substr(fullname, RSTART, RLENGTH-1);
+		extadr[nexts]=substr(e,index(e,"@")+1, 18);
+		#print "extad "nexts":" extname[nexts] " @ " extadr[nexts];
+		nexts++;
+	 } 
+   }
+
+function setMode(newmode) {
+	mode=newmode;
+	print ("Processing:"newmode);
+	getline;
+}
+
+function tryResolve(tracepos) {
+	for (i=0; i<nexts; i++) {
+		resolve = atos(tracepos, extname[i], extadr[i]);
+		if (resolve!=0) return resolve;
+	}
+	return tracepos;
+}
+
+
+# try to use atos to resolve given tracepos. 
+# tracepos the function position to be resolved
+# kextname the kext that might hold this position (short name like IOUSBHostFamily, without ".kext")
+# basepos the kext base position
+# returns resolved string, or 0 if resolve failed.
+function atos(tracepos, kextname, basepos) {
+	# execute atos but write res to file "ff" so that we can get it.
+	fullname="/System/Library/Extensions/" kextname ".kext/Contents/MacOS/"kextname;
+	cmd ="xcrun atos -arch x86_64 -l "basepos" -o "fullname" "tracepos" >ff";
+	res=system(cmd);
+	if (res!=0) return 0;
+	getline v < "ff"; 
+	close("ff"); # must close, otherwise we keep reading first "ff" file
+	return v;
+}
