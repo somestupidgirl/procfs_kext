@@ -197,7 +197,6 @@ void
 procfs_release_pids(pid_t *pidp, uint32_t size)
 {
     OSFree(pidp, size, g_tag);
-    *pidp = NULL;
 }
 
 int
@@ -224,6 +223,7 @@ procfs_get_process_count(kauth_cred_t creds)
 
     procfs_get_pids(&pidp, &process_count, &size, is_suser ? NULL : creds);
     procfs_release_pids(pidp, size);
+    pidp = NULL;
 
     return process_count;
 }
@@ -361,6 +361,7 @@ procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid)
     if (p != NULL) {
         error = procfs_check_can_access_process(creds, p);
         proc_rele(p);
+        p = NULL;
     }
     return error;
 }

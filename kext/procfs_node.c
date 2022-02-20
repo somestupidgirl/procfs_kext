@@ -273,6 +273,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
             // Remove the procfsnode_t from the hash table and
             // release it.
             procfsnode_free_node(target_procfsnode);
+            target_procfsnode = NULL;
             new_procfsnode = NULL; // To avoid double free.
             break;
         }
@@ -295,6 +296,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
     // *after* releasing the hash lock just in case it might block.
     if (new_procfsnode != NULL && new_procfsnode != target_procfsnode) {
         OSFree(new_procfsnode, sizeof(procfsnode_t), g_tag);
+        new_procfsnode = NULL;
     }
 
     // Set the return value, or NULL if we failed.

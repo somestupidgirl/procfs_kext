@@ -367,6 +367,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                                     }
                                 }
                                 procfs_release_thread_ids(thread_ids, thread_count);
+                                thread_ids = NULL;
                                 
                                 if (found == FALSE) {
                                     error = ENOENT;
@@ -384,6 +385,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
         }
         if (target_proc != NULL) {
             proc_rele(target_proc);
+            target_proc = NULL;
         }
 
         // We have a match if match_node is not NULL.
@@ -570,6 +572,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         }
                         procfs_construct_process_dir_name(p, name_buffer);
                         proc_rele(p);
+                        p = NULL;
                     }
                     int size = procfs_calc_dirent_size(name_buffer);
 
@@ -586,6 +589,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 }
 
                 procfs_release_pids(pid_list, pid_list_size);
+                pid_list = NULL;
                 break;   // Exit from the outer loop.
             } else if (threaddir) {
                 // Iterate over all of the threads for the current process and write
@@ -614,8 +618,10 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                             nextpos += size;
                         }
                         procfs_release_thread_ids(thread_ids, thread_count);
+                        thread_ids = NULL;
                     }
                     proc_rele(p);
+                    p = NULL;
                     break;   // Exit from the outer loop.
                 } else {
                     // No process for the current pid.
@@ -657,6 +663,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         _proc_fdunlock(p);
                     }
                     proc_rele(p);
+                    p = NULL;
                     break;   // Exit from the outer loop.
                 } else {
                     // No process for the current pid.
@@ -853,6 +860,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
         gid = kauth_cred_getgid(proc_cred);
 
         proc_rele(p);
+        p = NULL;
     }
     VATTR_RETURN(vap, va_uid, uid);
     VATTR_RETURN(vap, va_gid, gid);
