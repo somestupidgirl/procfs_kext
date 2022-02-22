@@ -11,8 +11,10 @@
 #ifndef procfs_h
 #define procfs_h
 
-#include <sys/mount.h>
+#ifndef FSBUNDLE
 #include <libkern/OSMalloc.h>
+#include <sys/mount.h>
+#endif /* FSBUNDLE */
 
 #pragma mark -
 #pragma mark Common Definitions
@@ -53,8 +55,11 @@ typedef struct procfsnode procfsnode_t;
 
 /* -- Internal definitions. -- */
 
+#ifndef FSBUNDLE
+
 /* -- Global functions and data -- */
 // Tag used for memory allocation.
+
 extern OSMallocTag g_tag;
 
 /* -- Macros and data. -- */
@@ -99,5 +104,7 @@ procfs_should_access_check(procfs_mount_t *pmp)
 {
     return (pmp->pmnt_flags & PROCFS_MOPT_NOPROCPERMS) == 0;
 }
+
+#endif /* FSBUNDLE */
 
 #endif /* procfs_h */

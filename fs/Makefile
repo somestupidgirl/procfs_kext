@@ -44,6 +44,8 @@ CFLAGS+=	$(SDKFLAGS) \
 			-nostdinc \
 			-fno-builtin \
 			-fno-common \
+			-I../include \
+			-I../lib \
 			-I$(DEVELOPER_DIR)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include
 
 # warnings
@@ -59,6 +61,7 @@ LDFLAGS+=	$(SDKFLAGS) \
 			$(ARCHFLAGS)
 
 # libraries
+LIBS+=		-L../lib/libutil/build/Release
 LIBS+=		-lutil
 
 # fslibs flags

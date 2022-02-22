@@ -14,6 +14,10 @@
 // "procperms" (which is secure).
 //
 
+#ifndef FSBUNDLE
+#define FSBUNDLE
+#endif
+
 #include <sys/mount.h>
 
 #include <errno.h>
@@ -24,8 +28,8 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#include "mntopts.h"
-#include "mount_procfs.h"
+#include <miscfs/procfs/procfs.h>
+#include <libutil/mntopts.h>
 
 // Forward declarations of local functions.
 static void usage(char *name);

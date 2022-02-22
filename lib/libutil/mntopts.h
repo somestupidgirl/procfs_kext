@@ -61,67 +61,66 @@ extern "C" {
 #endif
 
 struct mntopt {
-    const char  *m_option;      /* option name */
-    int          m_inverse;     /* if a negative option, eg "dev" */
-    int          m_flag;        /* bit to set, eg. MNT_RDONLY */
-    int          m_altloc;      /* 1 => set bit in altflags */
+	const char *m_option;	/* option name */
+	int m_inverse;		/* if a negative option, eg "dev" */
+	int m_flag;		/* bit to set, eg. MNT_RDONLY */
+	int m_altloc;		/* 1 => set bit in altflags */
 };
 
 /* User-visible MNT_ flags. */
-#define MOPT_ASYNC              { "async",      0, MNT_ASYNC,            0 }
-#define MOPT_NODEV              { "dev",        1, MNT_NODEV,            0 }
-#define MOPT_NOEXEC             { "exec",       1, MNT_NOEXEC,           0 }
-#define MOPT_NOSUID             { "suid",       1, MNT_NOSUID,           0 }
-#define MOPT_RDONLY             { "rdonly",     0, MNT_RDONLY,           0 }
-#define MOPT_SYNC               { "sync",       0, MNT_SYNCHRONOUS,      0 }
-#define MOPT_UNION              { "union",      0, MNT_UNION,            0 }
-#define MOPT_USERQUOTA          { "userquota",  0, 0,                    0 }
-#define MOPT_GROUPQUOTA         { "groupquota",	0, 0,                    0 }
-#define MOPT_BROWSE             { "browse",     1, MNT_DONTBROWSE,       0 }
-#define MOPT_AUTOMOUNTED        { "automounted",0, MNT_AUTOMOUNTED,      0 }
-#define MOPT_DEFWRITE           { "defwrite",   0, MNT_DEFWRITE,         0 }
-#define	MOPT_NOATIME            { "atime",      1, MNT_NOATIME,          0 }
-#define MOPT_IGNORE_OWNERSHIP   { "owners",     1, MNT_IGNORE_OWNERSHIP, 0 }
-
+#define MOPT_ASYNC		{ "async",	0, MNT_ASYNC, 0 }
+#define MOPT_NODEV		{ "dev",	1, MNT_NODEV, 0 }
+#define MOPT_NOEXEC		{ "exec",	1, MNT_NOEXEC, 0 }
+#define MOPT_NOSUID		{ "suid",	1, MNT_NOSUID, 0 }
+#define MOPT_RDONLY		{ "rdonly",	0, MNT_RDONLY, 0 }
+#define MOPT_SYNC		{ "sync",	0, MNT_SYNCHRONOUS, 0 }
+#define MOPT_UNION		{ "union",	0, MNT_UNION, 0 }
+#define MOPT_USERQUOTA		{ "userquota",	0, 0, 0 }
+#define MOPT_GROUPQUOTA		{ "groupquota",	0, 0, 0 }
+#define MOPT_BROWSE		{ "browse",	1, MNT_DONTBROWSE, 0 }
+#define MOPT_AUTOMOUNTED	{ "automounted",0, MNT_AUTOMOUNTED, 0 }
+#define MOPT_DEFWRITE		{ "defwrite",	0, MNT_DEFWRITE, 0}
+#define	MOPT_NOATIME		{ "atime",	1, MNT_NOATIME, 0}
+#define MOPT_IGNORE_OWNERSHIP	{ "owners",	1, MNT_IGNORE_OWNERSHIP, 0}
 /* alias the deprecated name for compatibility */
-#define MOPT_PERMISSIONS        { "perm",       1, MNT_IGNORE_OWNERSHIP, 0 }
-#define	MOPT_QUARANTINE         { "quarantine", 0, MNT_QUARANTINE,       0 }
-#define MOPT_CPROTECT           { "protect",    0, MNT_CPROTECT,         0 }
+#define MOPT_PERMISSIONS	{ "perm",	1, MNT_IGNORE_OWNERSHIP, 0}
+#define	MOPT_QUARANTINE		{ "quarantine",	0, MNT_QUARANTINE, 0}
+#define MOPT_CPROTECT		{ "protect",	0, MNT_CPROTECT, 0 }
 
 /* Control flags. */
-#define MOPT_FORCE              { "force",      0, MNT_FORCE,            0 }
-#define MOPT_UPDATE             { "update",     0, MNT_UPDATE,           0 }
-#define MOPT_RELOAD             { "reload",     0, MNT_RELOAD,           0 }
+#define MOPT_FORCE		{ "force",	0, MNT_FORCE, 0 }
+#define MOPT_UPDATE		{ "update",	0, MNT_UPDATE, 0 }
+#define MOPT_RELOAD		{ "reload",	0, MNT_RELOAD, 0 }
 
 /* Support for old-style "ro", "rw" flags. */
-#define MOPT_RO                 { "ro",         0, MNT_RDONLY,           0 }
-#define MOPT_RW                 { "rw",         1, MNT_RDONLY,           0 }
+#define MOPT_RO			{ "ro",		0, MNT_RDONLY, 0 }
+#define MOPT_RW			{ "rw",		1, MNT_RDONLY, 0 }
 
 /* This is parsed by mount(8), but is ignored by specific mount_*(8)s. */
-#define MOPT_AUTO               { "auto",       0, 0,                    0 }
+#define MOPT_AUTO		{ "auto",	0, 0, 0 }
 
-#define MOPT_FSTAB_COMPAT  \
-    MOPT_RO,               \
-    MOPT_RW,               \
-    MOPT_AUTO
+#define MOPT_FSTAB_COMPAT						\
+	MOPT_RO,							\
+	MOPT_RW,							\
+	MOPT_AUTO
 
 /* Standard options which all mounts can understand. */
-#define MOPT_STDOPTS       \
-    MOPT_USERQUOTA,        \
-    MOPT_GROUPQUOTA,       \
-    MOPT_FSTAB_COMPAT,     \
-    MOPT_NODEV,            \
-    MOPT_NOEXEC,           \
-    MOPT_NOSUID,           \
-    MOPT_RDONLY,           \
-	MOPT_UNION,            \
-    MOPT_BROWSE,           \
-    MOPT_AUTOMOUNTED,      \
-    MOPT_DEFWRITE,         \
-	MOPT_NOATIME,          \
-	MOPT_PERMISSIONS,      \
-	MOPT_IGNORE_OWNERSHIP, \
-	MOPT_QUARANTINE,       \
+#define MOPT_STDOPTS							\
+	MOPT_USERQUOTA,							\
+	MOPT_GROUPQUOTA,						\
+	MOPT_FSTAB_COMPAT,						\
+	MOPT_NODEV,							\
+	MOPT_NOEXEC,							\
+	MOPT_NOSUID,							\
+	MOPT_RDONLY,							\
+	MOPT_UNION,							\
+        MOPT_BROWSE,							\
+        MOPT_AUTOMOUNTED,						\
+        MOPT_DEFWRITE,							\
+	MOPT_NOATIME,							\
+	MOPT_PERMISSIONS,						\
+	MOPT_IGNORE_OWNERSHIP,						\
+	MOPT_QUARANTINE,							\
 	MOPT_CPROTECT
 
 typedef struct mntoptparse *mntoptparse_t;
