@@ -130,7 +130,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
 
     boolean_t done = FALSE;
     while (!done) {
-        assert(locked);
+        kassert(locked);
         error = 0;
 
         // Select the correct hash bucket and walk along it, looking for an existing
@@ -176,8 +176,8 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
             } else {
                 // If we get here, we know that we need to use the node that we
                 // allocated last time around the loop, so promote it to target_procfsnode
-                assert(locked);
-                assert(new_procfsnode != NULL);
+                kassert(locked);
+                kassert(new_procfsnode != NULL);
 
                 target_procfsnode = new_procfsnode;
 
@@ -195,8 +195,8 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
 
         // At this point, we have a procfsnode_t, which either already existed
         // or was just created. We also have the lock for the node hash table.
-        assert(target_procfsnode != NULL);
-        assert(locked);
+        kassert(target_procfsnode != NULL);
+        kassert(locked);
 
         // Check whether another thread is already in the process of creating a
         // vnode for this procfsnode_t. If it is, wait until it's done and go
@@ -240,7 +240,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
             // we don't need to relock (and indeed doing so would introduce yet more
             // race conditions). vnode_getwithvid() added an iocount reference for us,
             // which the caller is expected to eventually release with vnode_put().
-            assert(error == 0);
+            kassert(error == 0);
             break;
         }
 
@@ -254,7 +254,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
         locked = FALSE;
 
         error = (*create_vnode_func)(create_vnode_params, target_procfsnode, &target_vnode);
-        assert(error != 0 || target_vnode != NULL);
+        kassert(error != 0 || target_vnode != NULL);
 
         // Relock the hash table and clear node_attaching_vnode now that we are
         // safely back from the caller's callback.

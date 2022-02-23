@@ -257,7 +257,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
         procfsnode_id_t match_node_id;
         proc_t target_proc = NULL;
         TAILQ_FOREACH(match_node, &dir_snode->psn_children, psn_next) {
-            assert(error == 0);
+            kassert(error == 0);
             procfs_structure_node_type_t node_type = match_node->psn_node_type;
             if (strcmp(name, match_node->psn_name) == 0) {
                 // Name matched. This is the droid we are looking for. Construct the
