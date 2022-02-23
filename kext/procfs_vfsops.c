@@ -226,6 +226,7 @@ procfs_unmount(struct mount *mp, __unused int mntflags, __unused vfs_context_t c
 
         vfs_setfsprivate(mp, NULL);
         OSFree(procfs_mp, sizeof(procfs_mount_t), g_tag);
+        procfs_mp = NULL;
 
         // Decrement mounted instance count.
         mounted_instance_count--;
