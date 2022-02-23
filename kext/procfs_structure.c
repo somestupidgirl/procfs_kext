@@ -13,6 +13,8 @@
 #include <sys/vnode.h>
 #include <string.h>
 
+#include <libkext/libkext.h>
+
 #include <miscfs/procfs/procfs_data.h>
 #include <miscfs/procfs/procfs_structure.h>
 

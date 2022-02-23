@@ -24,6 +24,8 @@
 #include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_subr.h>
 
+#include <libkext/libkext.h>
+
 #include <libklookup/klookup.h>
 
 #include "symbols.h"

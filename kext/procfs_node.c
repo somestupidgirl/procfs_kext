@@ -12,6 +12,8 @@
 #include <sys/types.h>
 #include <sys/vnode.h>
 
+#include <libkext/libkext.h>
+
 #include <miscfs/procfs/procfs.h>
 #include <miscfs/procfs/procfs_node.h>
 

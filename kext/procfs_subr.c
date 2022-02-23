@@ -23,6 +23,8 @@
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
 
+#include <libkext/libkext.h>
+
 #include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_subr.h>
 
