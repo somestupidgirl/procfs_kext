@@ -735,7 +735,7 @@ procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, i
     int error = 0;
 
     if (size <= uio_resid(uio)) {
-        error = uiomove((const char * )&entry, (int)size, uio);
+        error = uiomove64((const char * )&entry, (int)size, uio);
         *sizep = size;
     } else {
         // No room to copy out.
@@ -887,14 +887,14 @@ procfs_vnop_readlink(struct vnop_readlink_args *ap)
         proc_t p = current_proc();
         pid_t pid = proc_pid(p);
         snprintf(pid_buffer, PROCESS_NAME_SIZE, "%d", pid);
-        error = uiomove(pid_buffer, (int)strlen(pid_buffer), ap->a_uio);
+        error = uiomove64(pid_buffer, (int)strlen(pid_buffer), ap->a_uio);
     } else if (snode->psn_node_type == PROCFS_PROCNAME_DIR) {
         // A link from the process name to the process id. Create a target
         // of the form "../123" and copy it out to the caller's buffer.
         pid_t pid = pnp->node_id.nodeid_pid;
         char pid_buffer[PROCESS_NAME_SIZE];
         snprintf(pid_buffer, PROCESS_NAME_SIZE, "../%d", pid);
-        error = uiomove(pid_buffer, (int)strlen(pid_buffer), ap->a_uio);
+        error = uiomove64(pid_buffer, (int)strlen(pid_buffer), ap->a_uio);
     } else {
         // Not valid for other node types.
         error = EINVAL;
