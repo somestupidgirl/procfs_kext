@@ -41,31 +41,17 @@ kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d);
 kern_return_t
 procfs_start(kmod_info_t *ki, __unused void *d)
 {
-    uuid_string_t uuid;
     struct vfsconf *vfsc;
     kern_return_t ret = KERN_SUCCESS;
-    struct mach_header_64 *mh; 
+    uuid_string_t uuid;
 
     LOG_DBG("%s \n", version);     /* Print darwin kernel version */
-#if  0
-    log_sysctl_register();
 
-    ret = kauth_register();
-    if (ret != KERN_SUCCESS) {
-        goto out_error;
-    }
-
-    ret = log_kctl_register();
-    if (ret != KERN_SUCCESS) {
-        kauth_deregister();
-        goto out_error;
-    }
-#endif
     ret = libkext_vma_uuid(ki->address, uuid);
     kassert(ret == KERN_SUCCESS);
     LOG_DBG("kext executable uuid %s \n", uuid);
 
-    ret = procfs_init(vfsc); // vfsc here??? :s
+    ret = procfs_init(vfsc);
     if (ret != KERN_SUCCESS) {
         LOG_ERR("procfs_init() failed errno:  %d \n", ret);
         goto out_error;
@@ -112,13 +98,7 @@ procfs_stop(__unused kmod_info_t *ki, __unused void *d)
         LOG_ERR("util_vma_uuid() failed  errno: %d \n", ret);
         goto out_error;
     }
-#if 0
-    ret = log_kctl_deregister();
-    if (ret != KERN_SUCCESS) {
-        LOG_ERR("log_kctl_deregister() failed  errno: %d \n", ret);
-        goto out_error;
-    }
-#endif
+
     ret = vfs_fsremove(procfs_vfs_table_ref);
     if (ret != KERN_SUCCESS) {
         LOG_ERR("vfs_fsremove() failure  errno: %d \n", ret);
