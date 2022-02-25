@@ -69,7 +69,7 @@ typedef struct procfsnode procfsnode_t;
 /* -- Global functions and data -- */
 // Tag used for memory allocation.
 
-extern OSMallocTag g_tag;
+extern OSMallocTag procfs_osmalloc_tag;
 
 /* -- Macros and data. -- */
 

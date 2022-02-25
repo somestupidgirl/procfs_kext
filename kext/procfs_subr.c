@@ -178,7 +178,7 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
     _proc_iterate = SymbolLookup("_proc_iterate");
 
     uint32_t size = nprocs * sizeof(pid_t);
-    pid_t *pidp = (pid_t *)OSMalloc(size, g_tag);
+    pid_t *pidp = (pid_t *)OSMalloc(size, procfs_osmalloc_tag);
 
     struct procfs_pidlist_data data;
     data.creds = creds;
@@ -198,7 +198,7 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
 void
 procfs_release_pids(pid_t *pidp, uint32_t size)
 {
-    OSFree(pidp, size, g_tag);
+    OSFree(pidp, size, procfs_osmalloc_tag);
 }
 
 int
@@ -250,7 +250,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     // Get all of the threads in the task.
     if (_task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
         uint64_t thread_id_info[THREAD_IDENTIFIER_INFO_COUNT];
-        uint64_t *threadid_ptr = (uint64_t *)OSMalloc(count * sizeof(uint64_t), g_tag);
+        uint64_t *threadid_ptr = (uint64_t *)OSMalloc(count * sizeof(uint64_t), procfs_osmalloc_tag);
         *thread_ids = threadid_ptr;
 
         // For each thread, get identifier info and extract the thread id.
@@ -275,10 +275,10 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
             if (actual_count < count) {
                 if (actual_count > 0) {
                     int size = actual_count * sizeof(uint64_t);
-                    threadid_ptr = (uint64_t *)OSMalloc(size, g_tag);
+                    threadid_ptr = (uint64_t *)OSMalloc(size, procfs_osmalloc_tag);
                     bcopy(*thread_ids, threadid_ptr, size);
                 }
-                OSFree(*thread_ids, count * sizeof(uint64_t), g_tag);
+                OSFree(*thread_ids, count * sizeof(uint64_t), procfs_osmalloc_tag);
                 count = actual_count;
                 *thread_ids = count > 0 ? threadid_ptr : NULL;
             }
@@ -301,7 +301,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
 void
 procfs_release_thread_ids(uint64_t *thread_ids, int thread_count)
 {
-    OSFree(thread_ids, thread_count * sizeof(uint64_t), g_tag);
+    OSFree(thread_ids, thread_count * sizeof(uint64_t), procfs_osmalloc_tag);
 }
 
 /*

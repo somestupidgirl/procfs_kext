@@ -43,8 +43,11 @@ typedef struct procfs_hash_head procfs_hash_head;
 STATIC u_long procfsnode_hash_to_bucket_mask;
 
 // Lock used to protect the hash table.
-lck_grp_t *procfsnode_lck_grp;
-lck_mtx_t *procfsnode_hash_mutex;
+lck_grp_t *procfsnode_lck_grp = NULL;
+lck_mtx_t *procfsnode_hash_mutex = NULL;
+
+/* Tag used for memory allocation. */
+OSMallocTag procfs_osmalloc_tag = NULL;
 
 // Macro that gets the header of the bucket that corresponds to a given
 // hash value.
@@ -157,7 +160,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
                 lck_mtx_unlock(procfsnode_hash_mutex);
                 locked = FALSE;
 
-                new_procfsnode = (procfsnode_t *)OSMalloc(sizeof(procfsnode_t), g_tag);
+                new_procfsnode = (procfsnode_t *)OSMalloc(sizeof(procfsnode_t), procfs_osmalloc_tag);
                 if (new_procfsnode == NULL) {
                     // Allocation failure - bail. Nothing to clean up and
                     // we don't hold the lock.
@@ -297,7 +300,7 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
     // Free the node we allocated, if we didn't use it. We do this
     // *after* releasing the hash lock just in case it might block.
     if (new_procfsnode != NULL && new_procfsnode != target_procfsnode) {
-        OSFree(new_procfsnode, sizeof(procfsnode_t), g_tag);
+        OSFree(new_procfsnode, sizeof(procfsnode_t), procfs_osmalloc_tag);
         new_procfsnode = NULL;
     }
 
@@ -350,7 +353,7 @@ STATIC void
 procfsnode_free_node(procfsnode_t *procfsnode)
 {
     LIST_REMOVE(procfsnode, node_hash);
-    OSFree(procfsnode, sizeof(procfsnode_t), g_tag);
+    OSFree(procfsnode, sizeof(procfsnode_t), procfs_osmalloc_tag);
 }
 
 /*

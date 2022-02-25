@@ -45,8 +45,10 @@ extern struct vnodeopv_desc *procfs_vnodeops_list[1];
 // vnodes.
 extern int (**procfs_vnodeop_p)(void *);
 
+// See: procfs_node.c
 extern lck_grp_t *procfsnode_lck_grp;
 extern lck_mtx_t *procfsnode_hash_mutex;
+extern OSMallocTag procfs_osmalloc_tag;
 
 #pragma mark -
 #pragma mark Function Prototypes
@@ -91,12 +93,6 @@ struct vfs_fsentry procfs_vfsentry = {
 };
 
 #pragma mark -
-#pragma mark Global Data
-
-/* Tag used for memory allocation. */
-OSMallocTag g_tag;
-
-#pragma mark -
 #pragma mark Static Data
 
 /* Number of mounted instances of procfs */
@@ -120,8 +116,9 @@ procfs_init(__unused struct vfsconf *vfsconf)
         initialized = 1;
 
         // Create the tag for memory allocation.
-        g_tag = OSMalloc_Tagalloc(PROCFS_BUNDLEID, OSMT_DEFAULT);
-        if (g_tag == NULL) {
+        procfs_osmalloc_tag = OSMalloc_Tagalloc(PROCFS_BUNDLEID, OSMT_DEFAULT);
+
+        if (procfs_osmalloc_tag == NULL) {
             return ENOMEM;   // Plausible error code.
         }
 
@@ -134,17 +131,21 @@ procfs_init(__unused struct vfsconf *vfsconf)
 void
 procfs_fini(void)
 {
-    if (g_tag) {
-        OSMalloc_Tagfree(g_tag);
-        g_tag = NULL;
+    if (procfs_osmalloc_tag != NULL) {
+        OSMalloc_Tagfree(procfs_osmalloc_tag);
+        procfs_osmalloc_tag = NULL;
         goto out;
     }
-    if (procfsnode_lck_grp) {
+
+    if (procfsnode_lck_grp != NULL) {
         lck_grp_free(procfsnode_lck_grp);
+        procfsnode_lck_grp = NULL;
         goto out;
     }
-    if (procfsnode_hash_mutex) {
+
+    if (procfsnode_hash_mutex != NULL) {
         lck_mtx_free(procfsnode_hash_mutex, procfsnode_lck_grp);
+        procfsnode_hash_mutex = NULL;
         goto out;
     }
 out:
@@ -174,7 +175,7 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
         }
 
         // Allocate the procfs mount structure and link it to the VFS structure.
-        procfs_mp = (procfs_mount_t *)OSMalloc(sizeof(procfs_mount_t), g_tag);
+        procfs_mp = (procfs_mount_t *)OSMalloc(sizeof(procfs_mount_t), procfs_osmalloc_tag);
         if (procfs_mp == NULL) {
             printf("procfs: Failed to allocate procfs_mount_t");
             return ENOMEM;
@@ -225,7 +226,7 @@ procfs_unmount(struct mount *mp, __unused int mntflags, __unused vfs_context_t c
         vflush(mp, NULLVP, FORCECLOSE);
 
         vfs_setfsprivate(mp, NULL);
-        OSFree(procfs_mp, sizeof(procfs_mount_t), g_tag);
+        OSFree(procfs_mp, sizeof(procfs_mount_t), procfs_osmalloc_tag);
         procfs_mp = NULL;
 
         // Decrement mounted instance count.
