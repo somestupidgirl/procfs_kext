@@ -31,7 +31,7 @@
 // Each separate mount of the file system requires a unique id,
 // which is also used by every node in the file system. This is
 // equivalent to the dev_t associated with a real file system.
-STATIC int32_t procfs_mount_id;
+STATIC int32_t procfs_mount_id = 0;
 
 #pragma mark -
 #pragma mark External References
