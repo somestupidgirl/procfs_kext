@@ -192,6 +192,7 @@ int procfs_vnop_default(struct vnop_generic_args *arg)
 STATIC int
 procfs_vnop_lookup(struct vnop_lookup_args *ap)
 {
+    __typeof(_fdt_next) fdt_next = SymbolLookup("_fdt_next");
     _proc_fdlock_spin = SymbolLookup("_proc_fdlock_spin");
     _proc_fdunlock = SymbolLookup("_proc_fdunlock");
     _proc_task = SymbolLookup("_proc_task");
@@ -277,14 +278,8 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                     // Check whether it is a valid file descriptor.
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
-                        struct proc_fdinfo *fdi = proc_find(target_proc);
-                        struct filedesc *fdp = fdi->proc_fd;
-                        _proc_fdlock_spin(target_proc);
-                        if (id < fdp->fd_nfiles) {
-                            struct fileproc *fp = fdp->fd_ofiles[id];
-                            valid = fp!= NULL && !(fdp->fd_ofileflags[id] & UF_RESERVED);
-                        }
-                        _proc_fdunlock(target_proc);
+                        struct fdt_iterator iter = fdt_next(target_proc, id - 1, true);
+                        valid = iter.fdti_fd == id;
                     }
                 }
 
