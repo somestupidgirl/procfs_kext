@@ -128,8 +128,10 @@ procfs_atoi(const char *p, const char **end_ptr)
  */
 struct procfs_pidlist_data
 {
+    int num_procs;
+    int max_procs;
     kauth_cred_t creds;     // Credential to use for access check, or NULL
-    pid_t       *next_pid;  // Where to put the next process id.
+    pid_t *pids;
 };
 
 /*
@@ -139,13 +141,22 @@ struct procfs_pidlist_data
  * be accessible to an entity with those credentials.
  */
 STATIC int
-procfs_get_pid(proc_t p, struct procfs_pidlist_data *data)
+procfs_get_pid(proc_t p, void *udata)
 {
+    struct procfs_pidlist_data *data = udata;
     kauth_cred_t creds = data->creds;
-    pid_t pid = proc_pid(p);
+
     if (creds == NULL || procfs_check_can_access_process(creds, p) == 0) {
-        *data->next_pid++ = proc_find(pid);
+        if (data->num_procs >= data->max_procs) {
+            // Workaround race-condition between read of nprocs and the kernel
+            // spawning more processes.
+            return PROC_RETURNED;
+        }
+
+        data->pids[data->num_procs] = proc_pid(p);
+        data->num_procs++;
     }
+
     return PROC_RETURNED;
 }
 
