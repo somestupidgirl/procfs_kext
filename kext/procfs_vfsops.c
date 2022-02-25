@@ -134,21 +134,18 @@ procfs_fini(void)
     if (procfs_osmalloc_tag != NULL) {
         OSMalloc_Tagfree(procfs_osmalloc_tag);
         procfs_osmalloc_tag = NULL;
-        goto out;
     }
 
     if (procfsnode_lck_grp != NULL) {
         lck_grp_free(procfsnode_lck_grp);
         procfsnode_lck_grp = NULL;
-        goto out;
     }
 
     if (procfsnode_hash_mutex != NULL) {
         lck_mtx_free(procfsnode_hash_mutex, procfsnode_lck_grp);
         procfsnode_hash_mutex = NULL;
-        goto out;
     }
-out:
+
     return;
 }
 
