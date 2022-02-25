@@ -172,7 +172,7 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
         }
 
         // Allocate the procfs mount structure and link it to the VFS structure.
-        procfs_mp = (procfs_mount_t *)OSMalloc(sizeof(procfs_mount_t), procfs_osmalloc_tag);
+        procfs_mp = OSMalloc(sizeof(procfs_mount_t), procfs_osmalloc_tag);
         if (procfs_mp == NULL) {
             printf("procfs: Failed to allocate procfs_mount_t");
             return ENOMEM;
@@ -190,7 +190,7 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
 
         // Increment the mounted instance count so that each mount of the file system
         // has a unique name as seen by the mount(1) command.
-        mounted_instance_count++;
+        OSAddAtomic(1, &mounted_instance_count);
 
         // Set up the statfs structure in the VFS mount with mostly
         // boilerplate default values.
