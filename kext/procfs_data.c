@@ -422,7 +422,7 @@ procfs_process_node_size(procfsnode_t *pnp, kauth_cred_t creds)
     proc_t p = proc_find(pid);
     if (p != NULL) {
         if (size == 0) {
-            size = procfs_get_process_count(creds);
+            size += procfs_get_process_count(creds);
         }
         proc_rele(p);
         p = NULL;
