@@ -21,7 +21,6 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <IOKit/IOLib.h>
 #include <mach-o/nlist.h>
 
 #include <libklookup/klookup.h>
@@ -90,7 +89,7 @@ void *SymbolLookup(const char *Symbol)
       if (MachHeader->magic != MH_MAGIC_64)
       {
          printf("\n\n****** ********* ********* Latebloom KLOOKUP: BAD MAGIC HEADER\n\n");
-         IOLog("latebloom: Bad Mach-O Magic Header\n");
+         panic("latebloom: Bad Mach-O Magic Header\n");
          return NULL;
       }
 
@@ -118,7 +117,7 @@ void *SymbolLookup(const char *Symbol)
       if (!(LinkEdit = FindSegment64(MachHeader, SEG_LINKEDIT)))
       {
          printf("\n\n****** ********* ********* Latebloom KLOOKUP: __LINKEDIT NOT FOUND\n\n");
-         IOLog("latebloom: __LINKEDIT not found\n");
+         panic("latebloom: __LINKEDIT not found\n");
          return NULL;
       }
 
@@ -143,7 +142,7 @@ void *SymbolLookup(const char *Symbol)
       if (SymbolTable == NULL)
       {
          printf("\n\n****** ********* ********* Latebloom KLOOKUP: LC_SYMTAB NOT FOUND\n\n");
-         IOLog("latebloom: LC_SYMTAB not found\n");
+         panic("latebloom: LC_SYMTAB not found\n");
          return NULL;
       }
 
@@ -170,7 +169,7 @@ void *SymbolLookup(const char *Symbol)
    if (Address == NULL)
    {
       printf("\n\n****** ********* ********* Latebloom KLOOKUP: SYMBOL '%s' NOT FOUND\n\n", Symbol);
-      IOLog("latebloom: Symbol '%s' not found\n", Symbol);
+      panic("latebloom: Symbol '%s' not found\n", Symbol);
    }
 
    // Return either <Symbol>'s associated address, or NULL if we didn't find it.
