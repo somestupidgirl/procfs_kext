@@ -75,7 +75,7 @@ typedef int (*procfs_read_data_fn)(procfsnode_t *pnp, uio_t uio, vfs_context_t c
  *
  * The psn_node_type field is the type of the structure node. These types
  * are mapped to the usual vnode types by the file system when getting
- * node attributes and are used during node lookup and other vnode operations.
+ * node attributes and are used during node lookup and other vnode operations.po00
  *
  * The psn_name field is the name that should be used for the node in the
  * file system. For nodes of type PROCFS_PROCDIR and PROCFS_PROCNAME_DIR,
