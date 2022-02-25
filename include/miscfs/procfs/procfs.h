@@ -19,11 +19,6 @@
 #pragma mark -
 #pragma mark Common Definitions
 
-/* vfc_vfsflags: */
-#define VFC_VFSGENERICARGS      0x004
-#define VFC_VFS64BITREADY       0x100
-#define VFC_VFSNOMACLABEL       0x1000
-
 // File system type name.
 #define PROCFS_FSNAME        "procfs"
 #define PROCFS_BUNDLEID      "com.stupid.filesystems.procfs"
@@ -31,16 +26,13 @@
 #define PROCFS_VERSION       "1.0.0"
 #define PROCFS_LCK_GRP_NAME  PROCFS_BUNDLEID ".lckgrp"
 #define PROCFS_NOTYPENUM     0
-#define PROCFS_VFC_FLAGS  ( \
-        VFC_VFS64BITREADY   | \
-        VFC_VFSNOMACLABEL   | \
-        0                     \
-)
+
 #define PROCFS_VFS_FLAGS  ( \
         VFS_TBL64BITREADY   | \
         VFS_TBLFSNODELOCK   | \
+        VFS_TBLLOCALVOL     | \
         VFS_TBLNOTYPENUM    | \
-        PROCFS_VFC_FLAGS    | \
+        VFS_TBLNOMACLABEL   | \
         0                     \
 )
 
