@@ -32,17 +32,6 @@
 
 #include "symbols.h"
 
-#pragma mark -
-#pragma mark Local Variables
-
-int nprocs = 0;
-
-#pragma mark -
-#pragma mark Function Prototypes.
-
-struct procfs_pidlist_data;
-STATIC int procfs_get_pid(proc_t p, struct procfs_pidlist_data *data);
-
 /*
  * Given a vnode that corresponds to a procfsnode_t, returns the corresponding
  * process id and proc_t reference. If the node does not have a corresponding
