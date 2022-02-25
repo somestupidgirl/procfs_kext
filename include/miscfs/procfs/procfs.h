@@ -32,7 +32,6 @@
 #define PROCFS_LCK_GRP_NAME  PROCFS_BUNDLEID ".lckgrp"
 #define PROCFS_NOTYPENUM     0
 #define PROCFS_VFC_FLAGS  ( \
-        VFC_VFSGENERICARGS  | \
         VFC_VFS64BITREADY   | \
         VFC_VFSNOMACLABEL   | \
         0                     \
