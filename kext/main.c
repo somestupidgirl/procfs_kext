@@ -42,7 +42,7 @@ kern_return_t
 procfs_start(kmod_info_t *ki, __unused void *d)
 {
     struct vfsconf *vfsc;
-    kern_return_t ret = KERN_SUCCESS;
+    int ret = KERN_SUCCESS;
     uuid_string_t uuid;
 
     LOG_DBG("%s \n", version);     /* Print darwin kernel version */
@@ -52,14 +52,14 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     LOG_DBG("kext executable uuid %s \n", uuid);
 
     ret = procfs_init(vfsc);
-    if (ret != KERN_SUCCESS) {
+    if (ret != 0) {
         LOG_ERR("procfs_init() failed errno:  %d \n", ret);
         goto out_error;
     }
     LOG_DBG("lock group(%s) allocated \n", PROCFS_LCK_GRP_NAME);
 
     ret = vfs_fsadd(&procfs_vfsentry, &procfs_vfs_table_ref);
-    if (ret != KERN_SUCCESS) {
+    if (ret != 0) {
         LOG_ERR("vfs_fsadd() failure  errno: %d \n", ret);
         procfs_vfs_table_ref = NULL;
         goto out_vfsadd;
@@ -69,22 +69,13 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     LOG_DBG("loaded %s version %s build %s (%s) \n",
         PROCFS_BUNDLEID, PROCFS_VERSION, PROCFS_BUILDNUM, __TS__);
 
-    if (ret == KERN_SUCCESS) {
-        goto out_exit;
-    } else {
-        goto out_error;
-    }
-
-out_exit:
-    return ret;
+    return KERN_SUCCESS;
 
 out_vfsadd:
     procfs_fini();
-    goto out_error;
 
 out_error:
-    ret = KERN_FAILURE;
-    goto out_exit;
+    return KERN_FAILURE;
 }
 
 kern_return_t
@@ -106,10 +97,7 @@ procfs_stop(__unused kmod_info_t *ki, __unused void *d)
     }
 
     procfs_fini();
-#if 0
-    kauth_deregister();
-    log_sysctl_deregister();
-#endif
+
     libkext_massert();
 
     LOG_DBG("unloaded %s version %s build %s (%s) \n",
