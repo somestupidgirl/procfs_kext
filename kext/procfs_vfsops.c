@@ -96,7 +96,7 @@ struct vfs_fsentry procfs_vfsentry = {
 #pragma mark Static Data
 
 /* Number of mounted instances of procfs */
-STATIC int mounted_instance_count;
+STATIC int mounted_instance_count = 0;
 
 #pragma mark -
 #pragma mark VFS Operations
