@@ -439,6 +439,7 @@ out:
 STATIC int
 procfs_vnop_readdir(struct vnop_readdir_args *ap)
 {
+    __typeof(_fdt_next) fdt_next = SymbolLookup("_fdt_next");
     _proc_fdlock_spin = SymbolLookup("_proc_fdlock_spin");
     _proc_fdunlock = SymbolLookup("_proc_fdunlock");
     _proc_task = SymbolLookup("_proc_task");
@@ -635,30 +636,33 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 proc_t p = proc_find(pid);
                 if (p != NULL) {
                     char fd_buffer[PROCESS_NAME_SIZE];
-                    struct proc_fdinfo *fdi = proc_find(p);
-                    struct filedesc *fdp = fdi->proc_fd;
-                    for (int i = 0; i < fdp->fd_nfiles; i++) {
-                        _proc_fdlock_spin(p);
-                        struct fileproc *fp = fdp->fd_ofiles[i];
-                        if (fp != NULL && !(fdp->fd_ofileflags[i] & UF_RESERVED)) {
-                            // Need to unlock before copy out in case of fault and because it's a "long" operation.
-                            _proc_fdunlock(p);
-                            snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
-                            int size = procfs_calc_dirent_size(fd_buffer);
 
-                            // Copy out only if we are past the start offset.
-                            if (nextpos >= startpos) {
-                                error = procfs_copyout_dirent(VDIR, procfs_get_fileid(pid, i, base_node_id), fd_buffer, uio, &size);
-                                if (error != 0 || size == 0) {
-                                    break;
-                                }
-                                numentries++;
-                            }
-                            nextpos += size;
-                            _proc_fdunlock(p);
-                        }
+                    _proc_fdlock_spin(p);
+
+                    int i = 0;
+                    struct fileproc *iter;
+                    fdt_foreach(iter, p) {
                         _proc_fdunlock(p);
+
+                        snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
+                        int size = procfs_calc_dirent_size(fd_buffer);
+
+                        // Copy out only if we are past the start offset.
+                        if (nextpos >= startpos) {
+                            error = procfs_copyout_dirent(VDIR, procfs_get_fileid(pid, i, base_node_id), fd_buffer, uio, &size);
+                            if (error != 0 || size == 0) {
+                                break;
+                            }
+                            numentries++;
+                        }
+                        nextpos += size;
+                        i++;
+
+                        _proc_fdlock_spin(p);
                     }
+
+                    _proc_fdunlock(p);
+
                     proc_rele(p);
                     p = NULL;
                     break;   // Exit from the outer loop.
