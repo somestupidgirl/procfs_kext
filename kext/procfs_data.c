@@ -39,6 +39,7 @@
 #pragma mark -
 #pragma mark External References
 
+extern void procfs_fill_fileinfo(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
 extern int procfs_fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fsgetpath);
 
 #pragma mark -
@@ -287,7 +288,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     int error = 0;
     proc_t p = proc_find(pid);
     if (p != NULL) {
-        struct fileproc *fp = NULL;
+        struct fileproc *fp;
         vnode_t vp;
         uint32_t vid;
 
@@ -302,7 +303,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 // a vnode_fdinfowithpath structure.
                 struct vnode_fdinfowithpath info;
                 bzero(&info, sizeof(info));
-                //_fill_fileinfo(fp, p, fd, &info.pfi); // FIXME
+                procfs_fill_fileinfo(fp, p, fd, &info.pfi); // FIXME
                 error = procfs_fill_vnodeinfo(vp, &info.pvip.vip_vi, NULL);
                 // If all is well, add in the file path and copy the data
                 // out to user space.
@@ -342,7 +343,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     int error = 0;
     proc_t p = proc_find(pid);
     if (p != NULL) {
-        struct fileproc *fp = NULL;
+        struct fileproc *fp;
         socket_t so;
         
         // Get the socket and fileproc structures for the file. If the
@@ -353,7 +354,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
             struct socket_fdinfo info;
             
             bzero(&info, sizeof(info));
-            //_fill_fileinfo(fp, p, fd, &info.pfi); // FIXME
+            procfs_fill_fileinfo(fp, p, fd, &info.pfi); // FIXME
             if ((error = _fill_socketinfo(so, &info.psi)) == 0) {
                 error = procfs_copy_data((char *)&info, sizeof(info), uio);
             }
