@@ -27,8 +27,9 @@
 
 #include <sys/cdefs.h>
 #include <sys/proc.h>
-#include <libkproc/libproc.h>
 #include <mach/message.h>
+
+#include <libproc/libproc.h>
 
 typedef uint64_t kqueue_id_t;
 

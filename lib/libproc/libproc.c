@@ -31,19 +31,17 @@
 #include <sys/process_policy.h>
 #include <sys/resource.h>
 #include <sys/types.h>
-
 #include <mach/message.h>
 
+#include <libproc/libproc_internal.h>
 #include <libklookup/klookup.h>
-
-#include "libproc_internal.h"
 
 static int(*proc_info)(int callnum, int pid, int flavor, uint64_t arg, void * buffer, int buffersize) = NULL;
 static int(*proc_info_extended_id)(int32_t callnum, int32_t pid, uint32_t flavor, uint32_t flags, uint64_t ext_id, uint64_t arg, user_addr_t buffer, int32_t buffersize) = NULL;
 static int(*process_policy)(int scope, int action, int policy, int policy_subtype, proc_policy_attribute_t * attrp, pid_t target_pid, uint64_t target_threadid) = NULL;
 static int(*getpid)(void) = NULL;
-static int (*proc_rlimit_control)(pid_t pid, int flavor, void *arg) = NULL;
-static uint64_t (*thread_selfid)(void);
+static int(*proc_rlimit_control)(pid_t pid, int flavor, void *arg) = NULL;
+static uint64_t(*thread_selfid)(void) = NULL;
 
 __private_extern__ int proc_setthreadname(void * buffer, int buffersize);
 

@@ -32,7 +32,7 @@
 #include <libkext/libkext.h>
 
 #include <libklookup/klookup.h>
-#include <libkproc/libproc.h>
+#include <libproc/libproc.h>
 
 #include "symbols.h"
 

@@ -27,7 +27,9 @@
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/sysproto.h>
-#include <libkproc/libproc.h>
+
+#include <libkext/libkext.h>
+#include <libproc/libproc.h>
 
 
 typedef struct {
@@ -64,7 +66,7 @@ check_init(const char *path, uint32_t flags)
 	fdOpenInfoRef   info;
 	int             status;
 
-	info = _MALLOC(sizeof(*info), M_PROC, M_WAITOK);
+	info = kern_os_malloc(sizeof(*info));
 	if (!info) {
 		return NULL;
 	}
@@ -92,7 +94,7 @@ check_init(const char *path, uint32_t flags)
 
 fail:
 
-	_FREE(info, sizeof(info));
+	kern_os_free(info);
 	return NULL;
 }
 
@@ -104,18 +106,18 @@ static void
 check_free(fdOpenInfoRef info)
 {
 	if (info->pids != NULL) {
-		_FREE(info->pids, sizeof(info->pids));
+		kern_os_free(info->pids);
 	}
 
 	if (info->threads != NULL) {
-		_FREE(info->threads, sizeof(info->threads));
+		kern_os_free(info->threads);
 	}
 
 	if (info->fds != NULL) {
-		_FREE(info->fds, sizeof(info->fds));
+		kern_os_free(info->fds);
 	}
 
-	_FREE(info, sizeof(info));
+	kern_os_free(info);
 
 	return;
 }
@@ -299,9 +301,9 @@ check_process_fds(fdOpenInfoRef info, int pid)
 			}
 
 			if (info->fds == NULL) {
-				info->fds = _MALLOC(sizeof(info->fds_size), M_PROC, M_WAITOK);
+				info->fds = kern_os_malloc(sizeof(info->fds_size));
 			} else {
-				info->fds = _REALLOC(info->fds, sizeof(info->fds_size), M_PROC, M_WAITOK);
+				info->fds = kern_os_realloc(info->fds, sizeof(info->fds_size));
 			}
 			if (info->fds == NULL) {
 				return -1;
@@ -416,9 +418,9 @@ check_process_threads(fdOpenInfoRef info, int pid)
 				}
 
 				if (info->threads == NULL) {
-					info->threads = _MALLOC(sizeof(info->thr_size), M_PROC, M_WAITOK);
+					info->threads = kern_os_malloc(sizeof(info->thr_size));
 				} else {
-					info->threads = _REALLOC(info->threads, sizeof(info->thr_size), M_PROC, M_WAITOK);
+					info->threads = kern_os_realloc(info->threads, sizeof(info->thr_size));
 				}
 				if (info->threads == NULL) {
 					return -1;
@@ -593,9 +595,9 @@ proc_listpidspath(uint32_t      type,
 			}
 
 			if (info->pids == NULL) {
-				info->pids = _MALLOC(sizeof(info->pids_size), M_PROC, M_WAITOK);
+				info->pids = kern_os_malloc(sizeof(info->pids_size));
 			} else {
-				info->pids = _REALLOC(info->pids, sizeof(info->pids_size), M_PROC, M_WAITOK);
+				info->pids = kern_os_realloc(info->pids, sizeof(info->pids_size));
 			}
 			if (info->pids == NULL) {
 				goto done;

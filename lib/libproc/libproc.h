@@ -40,7 +40,7 @@
 #include <Availability.h>
 #include <os/availability.h>
 
-#include "libproc_internal.h"
+#include <libproc/libproc_internal.h>
 
 /*
  * This header file contains private interfaces to obtain process information.

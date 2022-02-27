@@ -18,7 +18,7 @@ CFLAGS?=	-std=c99 \
 			-DDEBUG
 
 EXT = a
-LIB = libkproc.$(EXT)
+LIB = libproc.$(EXT)
 SRCS = $(wildcard *.c)
 LIB_OBJS = $(patsubst %.c,%.o,$(sort $(SRCS)))
 INC  =  -I.
