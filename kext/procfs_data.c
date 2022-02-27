@@ -19,6 +19,7 @@
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
+#include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/vnode.h>
 
@@ -31,14 +32,14 @@
 #include <libkext/libkext.h>
 
 #include <libklookup/klookup.h>
+#include <libkproc/libproc.h>
 
 #include "symbols.h"
 
 #pragma mark -
 #pragma mark External References
 
-extern void _fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * fproc);
-extern int _fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fsgetpath);
+extern int procfs_fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fsgetpath);
 
 #pragma mark -
 #pragma mark Local Function Prototypes
@@ -298,8 +299,8 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 // a vnode_fdinfowithpath structure.
                 struct vnode_fdinfowithpath info;
                 bzero(&info, sizeof(info));
-                _fill_fileinfo(fp, p, fd, &info.pfi);
-                error = _fill_vnodeinfo(vp, &info.pvip.vip_vi, NULL);
+                //_fill_fileinfo(fp, p, fd, &info.pfi); // FIXME
+                error = procfs_fill_vnodeinfo(vp, &info.pvip.vip_vi, NULL);
                 // If all is well, add in the file path and copy the data
                 // out to user space.
                 if (error == 0) {
@@ -349,7 +350,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
             struct socket_fdinfo info;
             
             bzero(&info, sizeof(info));
-            _fill_fileinfo(fp, p, fd, &info.pfi);
+            //_fill_fileinfo(fp, p, fd, &info.pfi); // FIXME
             if ((error = _fill_socketinfo(so, &info.psi)) == 0) {
                 error = procfs_copy_data((char *)&info, sizeof(info), uio);
             }
