@@ -42,13 +42,13 @@ kern_return_t
 procfs_start(kmod_info_t *ki, __unused void *d)
 {
     struct vfsconf *vfsc;
-    int ret = KERN_SUCCESS;
+    int ret = 0;
     uuid_string_t uuid;
 
     LOG_DBG("%s \n", version);     /* Print darwin kernel version */
 
     ret = libkext_vma_uuid(ki->address, uuid);
-    kassert(ret == KERN_SUCCESS);
+    kassert(ret == 0);
     LOG_DBG("kext executable uuid %s \n", uuid);
 
     ret = procfs_init(vfsc);
