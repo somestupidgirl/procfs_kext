@@ -195,7 +195,7 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     int pid = proc_pid(p);
-    int flags = 0;
+    uint64_t flags = 0;
 
     if (p != NULL) {
         struct proc_bsdinfo info;
