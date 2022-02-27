@@ -150,6 +150,10 @@ procfs_fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_file
     type   = ((const file_type_t)((fp->fp_glob)->fg_ops->fo_type));
     gflags = 0;
 
+    if (os_ref_get_count_raw(&fp->fp_glob->fg_count) > 1) {
+        status |= PROC_FP_SHARED;
+    }
+
     if (proc != PROC_NULL) {
         if ((FDFLAGS_GET(proc, fd) & UF_EXCLOSE) != 0) {
             status |= PROC_FP_CLEXEC;
