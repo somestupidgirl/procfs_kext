@@ -189,17 +189,18 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_pidbsdinfo = SymbolLookup("_proc_pidbsdinfo");
-
     // Get the process id from the node id in the procfsnode and locate
     // the process.
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    int pid = proc_pid(p);
+    int flags = 0;
+
     if (p != NULL) {
         struct proc_bsdinfo info;
 
         // Get the BSD-centric process info and copy it out.
-        error = _proc_pidbsdinfo(p, &info, FALSE);
+        error = proc_pidinfo(pid, PROC_PIDTBSDINFO, flags, &info, sizeof(info));
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
@@ -217,17 +218,18 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_pidtaskinfo = SymbolLookup("_proc_pidtaskinfo");
-
     // Get the process id from the node id in the procfsnode and locate
     // the process.
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    int pid = proc_pid(p);
+    int flags = 0;
+
     if (p != NULL) {
         struct proc_taskinfo info;
 
         // Get the task info and copy it out.
-        error = _proc_pidtaskinfo(p, &info);
+        error = proc_pidinfo(pid, PROC_PIDTASKINFO, flags, &info, sizeof(info));
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
@@ -244,18 +246,19 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _proc_pidthreadinfo = SymbolLookup("_proc_pidthreadinfo");
-
     // Get the process id and thread from the node id in the procfsnode and locate
     // the process.
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    int pid = proc_pid(p);
+    int flags = 0;
+
     if (p != NULL) {
         struct proc_threadinfo info;
-        uint64_t threadid = pnp->node_id.nodeid_objectid;
+        //uint64_t threadid = pnp->node_id.nodeid_objectid;
 
         // Get the task info and copy it out.
-        error = _proc_pidthreadinfo(p, threadid, TRUE, &info);
+        error = proc_pidinfo(pid, PROC_PIDTHREADINFO, flags, &info, sizeof(info));
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
