@@ -45,8 +45,6 @@ struct fileglob {
 void
 _fill_fileinfo(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo *proc_finfo)
 {
-	_fp_isguarded = SymbolLookup("_fp_isguarded");
-
 	proc_finfo->fi_openflags = _f_flag;
 	proc_finfo->fi_status = 0;
 	proc_finfo->fi_offset = _f_offset;
@@ -65,7 +63,7 @@ _fill_fileinfo(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo *p
 			proc_finfo->fi_status |= PROC_FP_CLFORK;
 		}
 	}
-
+#if 0
 	if (_fp_isguarded(fp, 0)) {
 		proc_finfo->fi_status |= PROC_FP_GUARDED;
 		proc_finfo->fi_guardflags = 0;
@@ -86,6 +84,7 @@ _fill_fileinfo(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo *p
 			proc_finfo->fi_guardflags |= PROC_FI_GUARD_FILEPORT;
 		}
 	}
+#endif
 }
 
 /*

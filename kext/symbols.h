@@ -18,7 +18,6 @@ static int(*_proc_pidthreadinfo)(proc_t p, uint64_t arg, bool thuniqueid, struct
 static void(*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg) = NULL;
 static task_t(*_proc_task)(proc_t proc) = NULL;
 static struct fdt_iterator(*_fdt_next)(proc_t p, int fd, bool only_settled) = NULL;
-static int (*_fp_isguarded)(struct fileproc *fp, u_int attrs) = NULL;
 static int(*_vn_stat)(struct vnode *vp, void * sb, kauth_filesec_t *xsec, int isstat64, int needsrealdev, vfs_context_t ctx) = NULL;
 static uint64_t (*_vnode_get_va_fsid)(struct vnode_attr *vap) = NULL;
 static errno_t(*_fill_socketinfo)(socket_t so, struct socket_info *si) = NULL;
