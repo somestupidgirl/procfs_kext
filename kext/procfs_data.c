@@ -35,6 +35,12 @@
 #include "symbols.h"
 
 #pragma mark -
+#pragma mark External References
+
+extern void _fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * fproc);
+extern int _fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fsgetpath);
+
+#pragma mark -
 #pragma mark Local Function Prototypes
 
 STATIC int procfs_copy_data(char *data, int data_len, uio_t uio);
@@ -269,9 +275,6 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
 int
 procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _fill_fileinfo = SymbolLookup("_fill_fileinfo");
-    _fill_vnodeinfo = SymbolLookup("_fill_vnodeinfo");
-
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     pid_t pid = pnp->node_id.nodeid_pid;
@@ -325,7 +328,6 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _fill_fileinfo = SymbolLookup("_fill_fileinfo");
     _fill_socketinfo = SymbolLookup("_fill_socketinfo");
 
     // We need the file descriptor and the process id. We get
