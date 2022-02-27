@@ -1,6 +1,8 @@
 #ifndef _OS_REFCNT_INTERNAL_H
 #define _OS_REFCNT_INTERNAL_H
 
+#include <kern/debug.h>
+
 struct os_refcnt {
 	os_ref_atomic_t ref_count;
 #if OS_REFCNT_DEBUG
