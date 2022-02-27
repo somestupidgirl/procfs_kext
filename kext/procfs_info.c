@@ -13,7 +13,6 @@
 
 static int(*_vn_stat)(struct vnode *vp, void * sb, kauth_filesec_t *xsec, int isstat64, int needsrealdev, vfs_context_t ctx) = NULL;
 static uint64_t(*_vnode_get_va_fsid)(struct vnode_attr *vap) = NULL;
-//static int(*_fp_isguarded)(struct fileproc *fp, u_int attrs) = NULL;
 
 __options_decl(fileproc_vflags_t, unsigned int, {
     FPV_NONE        = 0,
