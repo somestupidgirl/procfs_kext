@@ -516,7 +516,7 @@ procfs_copy_data(char *data, int data_len, uio_t uio)
     off_t start_offset = uio_offset(uio);
     data_len -= start_offset;
     if (data_len >= 0) {
-        error = uiomove64(data + start_offset, (int)data_len, uio);
+        error = uiomove(data + start_offset, (int)data_len, uio);
     }
     return error;
 }
