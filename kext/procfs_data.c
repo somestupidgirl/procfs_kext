@@ -40,7 +40,7 @@
 #pragma mark External References
 
 extern void procfs_fill_fileinfo(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
-extern int procfs_fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fsgetpath);
+extern int procfs_fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo);
 
 #pragma mark -
 #pragma mark Local Function Prototypes
@@ -304,7 +304,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 struct vnode_fdinfowithpath info;
                 bzero(&info, sizeof(info));
                 procfs_fill_fileinfo(fp, p, fd, &info.pfi); // FIXME
-                error = procfs_fill_vnodeinfo(vp, &info.pvip.vip_vi, NULL);
+                error = procfs_fill_vnodeinfo(vp, &info.pvip.vip_vi);
                 // If all is well, add in the file path and copy the data
                 // out to user space.
                 if (error == 0) {

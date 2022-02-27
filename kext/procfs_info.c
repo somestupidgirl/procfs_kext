@@ -220,7 +220,7 @@ munge_vinfo_stat(struct stat64 *sbp, struct vinfo_stat *vsbp)
 }
 
 int
-procfs_fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fsgetpath)
+procfs_fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo)
 {
     struct mount * dead_mountp = SymbolLookup("_dead_mountp");
     _vnode_get_va_fsid = SymbolLookup("_vnode_get_va_fsid");
