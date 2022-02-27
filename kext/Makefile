@@ -92,11 +92,11 @@ LDFLAGS+= 	$(SDKFLAGS) \
 
 # libraries
 LIBS+=		-L../MacKernelSDK/Library/x86_64 \
-			-L../lib/libbsdkextlog \
 			-L../lib/libkext \
-			-L../lib/libklookup
+			-L../lib/libklookup \
+			-L../lib/libkproc
 
-LIBS+=		-lcc_kext -lkmod -lkext -lklookup
+LIBS+=		-lcc_kext -lkmod -lkext -lklookup -lkproc
 
 # kextlibs flags
 KLFLAGS+=	-xml -c -undef-symbols -unsupported

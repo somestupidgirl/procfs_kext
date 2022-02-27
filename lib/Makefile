@@ -9,6 +9,7 @@ all: debug
 debug:
 	$(MAKE) -C libkext
 	$(MAKE) -C libklookup
+	$(MAKE) -C libkproc
 	$(MAKE) -C libutil
 
 
@@ -18,6 +19,7 @@ release: debug
 clean:
 	$(MAKE) -C libkext clean
 	$(MAKE) -C libklookup clean
+	$(MAKE) -C libkproc clean
 	$(MAKE) -C libutil clean
 
 .PHONY: all debug release clean
