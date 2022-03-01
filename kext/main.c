@@ -41,7 +41,7 @@ kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d);
 kern_return_t
 procfs_start(kmod_info_t *ki, __unused void *d)
 {
-    struct vfsconf *vfsc;
+    struct vfsconf *vfsc = NULL;
     int ret = 0;
     uuid_string_t uuid;
 
