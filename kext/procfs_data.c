@@ -37,12 +37,6 @@
 #include "symbols.h"
 
 #pragma mark -
-#pragma mark External References
-
-extern void procfs_fill_fileinfo(struct fileproc *fp, proc_t proc, int fd, struct proc_fileinfo * finfo);
-extern int procfs_fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo);
-
-#pragma mark -
 #pragma mark Local Function Prototypes
 
 STATIC int procfs_copy_data(char *data, int data_len, uio_t uio);
@@ -283,13 +277,13 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
-    pid_t pid = pnp->node_id.nodeid_pid;
+    int pid = pnp->node_id.nodeid_pid;
     int fd = (int)pnp->node_id.nodeid_objectid;
 
-    int error = 0;
+    int count, error = 0;
     proc_t p = proc_find(pid);
+
     if (p != NULL) {
-        struct fileproc *fp;
         vnode_t vp;
         uint32_t vid;
 
@@ -303,21 +297,22 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 // Got the vnode. Pack vnode and file info into
                 // a vnode_fdinfowithpath structure.
                 struct vnode_fdinfowithpath info;
-                bzero(&info, sizeof(info));
-                procfs_fill_fileinfo(fp, p, fd, &info.pfi); // FIXME
-                error = procfs_fill_vnodeinfo(vp, &info.pvip.vip_vi);
+                error = proc_pidfdinfo(pid, fd, PROC_PIDVNODEPATHINFO, &info, sizeof(info));
+
                 // If all is well, add in the file path and copy the data
                 // out to user space.
                 if (error == 0) {
-                    int count = MAXPATHLEN;
-                    vn_getpath(vp, info.pvip.vip_path, &count);
-                    info.pvip.vip_path[MAXPATHLEN-1] = 0;
-                    error = procfs_copy_data((char *)&info, sizeof(info), uio);
+                    count = MAXPATHLEN;
+                    vn_getpath(vp, &info.pvip.vip_path[0], &count);
+                    info.pvip.vip_path[MAXPATHLEN - 1] = 0;
+                    error = procfs_copy_data((char *)&info, sizeof(struct vnode_fdinfowithpath), uio);
                 }
+
                 // Release the vnode hold.
                 vnode_put(vp);
             }
             // Release the hold on the fileproc structure
+            // fp_drop(p, fd, fp, 0); // can't be resolved
             file_drop(fd);
         }
         proc_rele(p);
@@ -334,7 +329,9 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    _fill_socketinfo = SymbolLookup("_fill_socketinfo");
+    struct socket_fdinfo info;
+    struct fileproc *fp = NULL;
+    socket_t so;
 
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
@@ -343,20 +340,15 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
 
     int error = 0;
     proc_t p = proc_find(pid);
+
     if (p != NULL) {
-        struct fileproc *fp;
-        socket_t so;
-        
         // Get the socket and fileproc structures for the file. If the
         // file is not a socket, this fails and we will return an error.
         // Otherwise, the fileproc has an additional iocount, which we
         // must remember to release.
         if ((error = file_socket(fd, &so)) == 0) {
-            struct socket_fdinfo info;
-            
-            bzero(&info, sizeof(info));
-            procfs_fill_fileinfo(fp, p, fd, &info.pfi); // FIXME
-            if ((error = _fill_socketinfo(so, &info.psi)) == 0) {
+            error = proc_pidfdinfo(pid, fd, PROC_PIDFDSOCKETINFO, &info, sizeof(info));
+            if (error == 0) {
                 error = procfs_copy_data((char *)&info, sizeof(info), uio);
             }
             // Release the hold on the fileproc structure
