@@ -113,6 +113,7 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     _proc_list_lock = SymbolLookup("_proc_list_lock");
     _proc_list_unlock = SymbolLookup("_proc_list_unlock");
+    _proc_pgrp = SymbolLookup("_proc_pgrp");
 
     int error;
 
@@ -120,9 +121,9 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p != NULL) {
         pid_t session_id = (pid_t)0;
         _proc_list_lock();
-        proc_t pgrp = p->p_pgrp;
+        struct pgrp * pgrp = _proc_pgrp(p);
         if (pgrp != NULL) {
-            session_id = proc_sessionid(pgrp);
+            session_id = proc_sessionid(p);
             if (session_id < 0) {
                 session_id = 0;
             }
