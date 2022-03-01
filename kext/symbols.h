@@ -22,5 +22,6 @@ static errno_t(*_fill_socketinfo)(socket_t so, struct socket_info *si) = NULL;
 static kern_return_t(*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count) = NULL;
 static kern_return_t(*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count) = NULL;
 static thread_t(*_convert_port_to_thread)(ipc_port_t port) = NULL;
+static struct pgrp *(*_proc_pgrp)(proc_t p) = NULL;
 
 #endif /* _symbols_h */
