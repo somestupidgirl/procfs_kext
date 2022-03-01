@@ -417,7 +417,7 @@ size_t
 procfs_process_node_size(procfsnode_t *pnp, kauth_cred_t creds)
 {
     // Nodes of this type contribute a size of 1 for each visible process.
-    int size = 0;
+    size_t size = 0;
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != NULL) {
@@ -443,7 +443,7 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
     // in the owning process. Because of the way the file system is
     // structured, the pid of the owning process is available in the
     // node_id of the procfs node.
-    int size = 0;
+    size_t size = 0;
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != NULL) {
