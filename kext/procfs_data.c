@@ -305,7 +305,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                     count = MAXPATHLEN;
                     vn_getpath(vp, &info.pvip.vip_path[0], &count);
                     info.pvip.vip_path[MAXPATHLEN - 1] = 0;
-                    error = procfs_copy_data((char *)&info, sizeof(struct vnode_fdinfowithpath), uio);
+                    error = procfs_copy_data((char *)&info, sizeof(info), uio);
                 }
 
                 // Release the vnode hold.
