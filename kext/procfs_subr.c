@@ -128,8 +128,10 @@ procfs_atoi(const char *p, const char **end_ptr)
  */
 struct procfs_pidlist_data
 {
+    int num_procs;
+    int max_procs;
     kauth_cred_t creds;     // Credential to use for access check, or NULL
-    pid_t       *next_pid;  // Where to put the next process id.
+    pid_t *pids;
 };
 
 /*
@@ -139,12 +141,22 @@ struct procfs_pidlist_data
  * be accessible to an entity with those credentials.
  */
 STATIC int
-procfs_get_pid(proc_t p, struct procfs_pidlist_data *data)
+procfs_get_pid(proc_t p, void *udata)
 {
+    struct procfs_pidlist_data *data = udata;
     kauth_cred_t creds = data->creds;
+
     if (creds == NULL || procfs_check_can_access_process(creds, p) == 0) {
-        *data->next_pid++ = proc_pid(p);
+        if (data->num_procs >= data->max_procs) {
+            // Workaround race-condition between read of nprocs and the kernel
+            // spawning more processes.
+            return PROC_RETURNED;
+        }
+
+        data->pids[data->num_procs] = proc_pid(p);
+        data->num_procs++;
     }
+
     return PROC_RETURNED;
 }
 
@@ -163,17 +175,24 @@ procfs_get_pid(proc_t p, struct procfs_pidlist_data *data)
 void
 procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds)
 {
+    // We will be resolving the nprocs/maxproc global variables
+    // later on along with the proc_iterate() function
+    int nprocs = *p_nprocs;
+
     uint32_t size = nprocs * sizeof(pid_t);
-    pid_t *pidp = (pid_t *)OSMalloc(size, procfs_osmalloc_tag);
+    pid_t *pidp = OSMalloc(size, procfs_osmalloc_tag);
 
     struct procfs_pidlist_data data;
+    data.num_procs = 0;
+    data.max_procs = nprocs;
     data.creds = creds;
-    data.next_pid = pidp;
+    data.pids = pidp;
 
-    proc_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
+    proc_iterate(PROC_ALLPROCLIST, procfs_get_pid, &data, NULL, NULL);
+
     *pidpp = pidp;
     *sizep = size;
-    *pid_count = (int)(data.next_pid - pidp);
+    *pid_count = data.num_procs;
 }
 
 /*
