@@ -427,7 +427,18 @@ size_t
 procfs_process_node_size(procfsnode_t *pnp, kauth_cred_t creds)
 {
     // Nodes of this type contribute a size of 1 for each visible process.
-    return procfs_get_process_count(creds);
+    size_t size = 0;
+    pid_t pid = pnp->node_id.nodeid_pid;
+    proc_t p = proc_find(pid);
+    if (p != NULL) {
+        if (size == 0) {
+            size += procfs_get_process_count(creds);
+        }
+        proc_rele(p);
+        p = NULL;
+    }
+
+    return size;
 }
 
 /*
