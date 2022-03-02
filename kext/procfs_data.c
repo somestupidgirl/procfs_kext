@@ -135,14 +135,18 @@ int
 procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     int error = 0;
+    pid_t session_id = (pid_t)0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         proc_list_lock();
-        struct pgrp *pgrp = p->p_pgrp;
+        struct pgrp * pgrp = proc_pgrp(p);
         if (pgrp != NULL) {
             // Get the controlling terminal vnode from the process session,
             // if it has one.
-            struct session *sp = pgrp->pg_session;
+            session_id = proc_sessionid(p);
+            if (session_id < 0) {
+                session_id = 0;
+            }
             if (sp != NULL) {
                 vnode_t cttyvp;
                 session_lock(sp);
