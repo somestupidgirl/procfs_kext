@@ -758,15 +758,16 @@ procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, i
  * decision to be made when resolving the target.
  */
 STATIC int
-procfs_vnop_getattr(struct vnop_getattr_args *ap) {
+procfs_vnop_getattr(struct vnop_getattr_args *ap)
+{
     vnode_t vp = ap->a_vp;
     procfsnode_t *procfs_node = vnode_to_procfsnode(vp);
     procfs_structure_node_t *snode = procfs_node->node_structure_node;
     procfs_structure_node_type_t node_type = snode->psn_node_type;
-    
+
     pid_t pid;  // pid of the process for this node.
     proc_t p;   // proc_t for the process - NULL for the root node.
-    
+
     // Get the process pid and proc_t for the target vnode.
     // Returns ENOENT if the process does not exist. For the
     // root vnode, p is zero and pid is PRNODE_NO_PID, but the
@@ -775,62 +776,62 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
     if (error != 0) {
         return error;
     }
-    
+
     // Permissions usually allow access only for the node's owning process and group,
     // but the "noprocperms" mount option can be used to allow read and execute access
     // to all users, if required. We reflect this by setting "modemask" to limit the
     // permissions that will be returned.
     procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(vp));
     mode_t modemask = (pmp->pmnt_flags & PROCFS_MOPT_NOPROCPERMS) ? RWX_OWNER_RX_ALL : ALL_ACCESS_OWNER_GROUP_ONLY;
-    
+
     struct vnode_attr *vap = ap->a_vap;
     switch (node_type) {
     case PROCFS_ROOT:
         // Root directory is accessible to everyone.
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL);
         break;
-        
+
     case PROCFS_PROCDIR:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
-        
+
     case PROCFS_THREADDIR:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
-        
+
     case PROCFS_DIR:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
-        
+
     case PROCFS_FILE:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
-        
+
     case PROCFS_DIR_THIS:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
-        
+
     case PROCFS_DIR_PARENT:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
-            
+
     case PROCFS_FD_DIR:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL);
         break;
-        
+
     case PROCFS_CURPROC:        // Symbolic link to the calling process (FALLTHRU)
     case PROCFS_PROCNAME_DIR:   // Symbolic link to a process directory
         VATTR_RETURN(vap, va_mode, ALL_ACCESS_ALL);   // All access - target will determine actual access.
         break;
     }
-    
+
     // ----- Generic attributes.
     VATTR_RETURN(vap, va_type, vnode_type_for_structure_node_type(node_type)); // File type
     VATTR_RETURN(vap, va_fsid, pmp->pmnt_id);                           // File system id.
     VATTR_RETURN(vap, va_fileid, procfs_get_node_fileid(procfs_node));  // Unique file id.
     VATTR_RETURN(vap, va_data_size,
                  procfs_get_node_size_attr(procfs_node, ap->a_context->vc_ucred)); // File size.
-    
+
     // Use the process start time as the create time if we have a process.
     // otherwise use the file system mount time. Set the other times to the
     // same value, since there is really no way to track them.
@@ -846,7 +847,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
     VATTR_RETURN(vap, va_change_time, create_time);
     VATTR_RETURN(vap, va_create_time, create_time);
     VATTR_RETURN(vap, va_modify_time, create_time);
-    
+
     // Set the UID/GID from the credentials of the process that
     // corresponds to the procfsnode_t, if there is one. There
     // is no process for the root node. For other nodes. the uid
@@ -858,7 +859,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
         // Get the effective uid and gid from the process.
         uid = p->p_uid;
         gid = p->p_gid;
-        
+
         proc_rele(p);
     }
     VATTR_RETURN(vap, va_uid, uid);
@@ -873,7 +874,8 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap) {
  * specific data for each case is generated and returned here.
  */
 STATIC int
-procfs_vnop_readlink(struct vnop_readlink_args *ap) {
+procfs_vnop_readlink(struct vnop_readlink_args *ap)
+{
     int error = 0;
     vnode_t vp = ap->a_vp;
     procfsnode_t *pnp = vnode_to_procfsnode(vp);
@@ -907,12 +909,13 @@ procfs_vnop_readlink(struct vnop_readlink_args *ap) {
  * except in the case of a directory, for which the error is EISDIR.
  */
 STATIC int
-procfs_vnop_read(struct vnop_read_args *ap) {
+procfs_vnop_read(struct vnop_read_args *ap)
+{
     vnode_t vp = ap->a_vp;
     procfsnode_t *pnp = vnode_to_procfsnode(vp);
     procfs_structure_node_t *snode = pnp->node_structure_node;
     procfs_read_data_fn read_data_fn = snode->psn_read_data_fn;
-    
+
     int error = EINVAL;
     if (procfs_is_directory_type(snode->psn_node_type)) {
         error = EISDIR;
@@ -927,7 +930,8 @@ procfs_vnop_read(struct vnop_read_args *ap) {
  * no longer needed by the kernel file system code.
  */
 STATIC int
-procfs_vnop_reclaim(struct vnop_reclaim_args *ap) {
+procfs_vnop_reclaim(struct vnop_reclaim_args *ap)
+{
     procfsnode_reclaim(ap->a_vp);
     return 0;
 }
@@ -939,10 +943,11 @@ procfs_vnop_reclaim(struct vnop_reclaim_args *ap) {
  * Creates a vnode with given properties, which depend on the vnode type.
  */
 STATIC int
-procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp, vnode_t *vpp) {
+procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp, vnode_t *vpp)
+{
     procfs_structure_node_t *snode = pnp->node_structure_node;
     struct vnode_fsparam vnode_create_params;
-    
+
     memset(&vnode_create_params, 0, sizeof(vnode_create_params));
     vnode_create_params.vnfs_mp = vnode_mount(cap->vca_parentvp);
     vnode_create_params.vnfs_vtype = vnode_type_for_structure_node_type(snode->psn_node_type);
@@ -952,14 +957,14 @@ procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp, vnode_t *v
     vnode_create_params.vnfs_vops = procfs_vnodeop_p;
     vnode_create_params.vnfs_markroot = 0;
     vnode_create_params.vnfs_flags = VNFS_CANTCACHE;
-    
+
     // Create the vnode, if possible.
     vnode_t new_vnode;
     int error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vnode_create_params, &new_vnode);
-    
+
     // Return the root vnode pointer to the caller, if it was created.
     *vpp = error == 0 ? new_vnode : NULLVP;
-    
+
     return error;
 }
 
@@ -969,7 +974,8 @@ procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp, vnode_t *v
  * string.
  */
 STATIC void
-procfs_construct_process_dir_name(proc_t p, char *buffer) {
+procfs_construct_process_dir_name(proc_t p, char *buffer)
+{
     pid_t pid = p->p_pid;
     int len = snprintf(buffer, PROCESS_NAME_SIZE, "%d ", pid);
     strlcpy(buffer + len, p->p_comm, MAXCOMLEN + 1);
