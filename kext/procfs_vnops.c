@@ -9,6 +9,7 @@
 
 #include <sys/dirent.h>
 #include <sys/errno.h>
+#include <sys/filedesc.h>
 #include <sys/kauth.h>
 #include <sys/param.h>
 #include <sys/proc.h>

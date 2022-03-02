@@ -15,6 +15,7 @@
 #include <libkern/libkern.h>
 
 #include <sys/file.h>
+#include <sys/filedesc.h>
 #include <sys/proc_info.h>
 #include <sys/proc.h>
 #include <sys/types.h>
