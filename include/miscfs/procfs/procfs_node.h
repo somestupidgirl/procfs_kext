@@ -41,10 +41,10 @@ typedef struct {
 struct procfsnode {
     // Linkage for the node hash. Protected by the node hash lock.
     LIST_ENTRY(procfsnode)  node_hash;
-    
+
     // Pointer to the associated vnode. Protected by the node hash lock.
     vnode_t                 node_vnode;
-    
+
     // Records whether this node is currently being attached to a vnode.
     // Only one thread can be allowed to link the node to a vnode. If a
     // thread that wants to create a procfsnode and link it to a vnode
@@ -53,11 +53,11 @@ struct procfsnode {
     // some or all of the work that it needed to do has been completed.
     // Protected by the node hash lock.
     boolean_t               node_attaching_vnode;
-    
+
     // Records whether a thread is awaiting the outcome of vnode attachment.
     // Protected by the node hash lock.
     boolean_t               node_thread_waiting_attach;
-    
+
     // node_mnt_id and node_id taken together uniquely identify a node. There
     // must only ever be one procnfsnode instance (and hence one vnode) for each
     // (node_mnt_id, node_id) combination. The node_mnt_id value can be obtained
