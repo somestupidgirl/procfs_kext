@@ -871,7 +871,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     }
     VATTR_RETURN(vap, va_uid, uid);
     VATTR_RETURN(vap, va_gid, gid);
-    
+
     return error;
 }
 
