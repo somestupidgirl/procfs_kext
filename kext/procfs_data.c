@@ -49,7 +49,8 @@ extern void  fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct pro
  * owning process's pid.
  */
 int
-procfs_read_pid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+procfs_read_pid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
     pid_t pid = pnp->node_id.nodeid_pid;
     int error = procfs_copy_data((char *)&pid, sizeof(pid), uio);
     return error;
@@ -60,9 +61,10 @@ procfs_read_pid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
  * owning process's parent's pid.
  */
 int
-procfs_read_ppid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+procfs_read_ppid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
     int error;
-    
+
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         pid_t ppid = p->p_ppid;
@@ -79,9 +81,10 @@ procfs_read_ppid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
  * owning process's process group id.
  */
 int
-procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
     int error;
-    
+
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         pid_t pgrpid = p->p_pgrpid;
@@ -100,7 +103,7 @@ procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
 int
 procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error;
-    
+
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         pid_t session_id = (pid_t)0;
@@ -113,7 +116,7 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
             }
         }
         proc_list_unlock();
-        
+
         error = procfs_copy_data((char *)&session_id, sizeof(session_id), uio);
         proc_rele(p);
     } else {
@@ -127,7 +130,8 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
  * name of the owning process's controlling terminal.
  */
 int
-procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
@@ -165,14 +169,15 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
  * structure and copies it to the area described by a uio structure.
  */
 int
-procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
     // Get the process id from the node id in the procfsnode and locate
     // the process.
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         struct proc_bsdinfo info;
-        
+
         // Get the BSD-centric process info and copy it out.
         error = proc_pidbsdinfo(p, &info, FALSE);
         if (error == 0) {
@@ -189,14 +194,15 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
  * by a uio structure.
  */
 int
-procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
     // Get the process id from the node id in the procfsnode and locate
     // the process.
     int error = 0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         struct proc_taskinfo info;
-        
+
         // Get the task info and copy it out.
         error = proc_pidtaskinfo(p, &info);
         if (error == 0) {
@@ -212,7 +218,8 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) 
  * structure and copies it to tthe area described by a uio structure.
  */
 int
-procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
     // Get the process id and thread from the node id in the procfsnode and locate
     // the process.
     int error = 0;
@@ -240,19 +247,20 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
  * vnode and the file itself.
  */
 int
-procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     pid_t pid = pnp->node_id.nodeid_pid;
     int fd = (int)pnp->node_id.nodeid_objectid;
-    
+
     int error = 0;
     proc_t p = proc_find(pid);
     if (p != NULL) {
         struct fileproc *fp;
         vnode_t vp;
         uint32_t vid;
-        
+
         // Get the vnode, vnode id and fileproc structure for the file.
         // The fileproc has an additional iocount, which we must remember
         // to release.
@@ -264,10 +272,10 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
                 // a vnode_fdinfowithpath structure.
                 struct vnode_fdinfowithpath info;
                 bzero(&info, sizeof(info));
-                
+
                 fill_fileinfo(fp, p, fd, &info.pfi);
                 error = fill_vnodeinfo(vp, &info.pvip.vip_vi);
-                
+
                 // If all is well, add in the file path and copy the data
                 // out to user space.
                 if (error == 0) {
@@ -276,7 +284,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
                     info.pvip.vip_path[MAXPATHLEN-1] = 0;
                     error = procfs_copy_data((char *)&info, sizeof(info), uio);
                 }
-                
+
                 // Release the vnode hold.
                 vnode_put(vp);
             }
@@ -296,12 +304,13 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
  * Reads the data associated with a file descriptor that refers to a socket.
  */
 int
-procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     pid_t pid = pnp->node_id.nodeid_pid;
     int fd = (int)pnp->node_id.nodeid_objectid;
-    
+
     int error = 0;
     proc_t p = proc_find(pid);
     if (p != NULL) {
@@ -343,7 +352,8 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
  * child nodes is aggregated to get the result.
  */
 size_t
-procfs_get_node_size_attr(procfsnode_t *pnp, kauth_cred_t creds) {
+procfs_get_node_size_attr(procfsnode_t *pnp, kauth_cred_t creds)
+{
     procfs_structure_node_t *snode = pnp->node_structure_node;
     procfs_structure_node_type_t node_type = snode->psn_node_type;
 
@@ -385,7 +395,8 @@ procfs_get_node_size_attr(procfsnode_t *pnp, kauth_cred_t creds) {
  * Gets the size for a node that represents a process.
  */
 size_t
-procfs_process_node_size(__unused procfsnode_t *pnp, kauth_cred_t creds) {
+procfs_process_node_size(procfsnode_t *pnp, kauth_cred_t creds)
+{
     // Nodes of this type contribute a size of 1 for each visible process.
     return procfs_get_process_count(creds);
 }
@@ -394,7 +405,8 @@ procfs_process_node_size(__unused procfsnode_t *pnp, kauth_cred_t creds) {
  * Gets the size for a node that represents a thread.
  */
 size_t
-procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
+procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
+{
     // Nodes of this type contribute a size of 1 for each thread
     // in the owning process. Because of the way the file system is
     // structured, the pid of the owning process is available in the
@@ -417,7 +429,8 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
  * of a process. Counts one for every open file in the process.
  */
 size_t
-procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds) {
+procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
+{
     int size = 0;
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
