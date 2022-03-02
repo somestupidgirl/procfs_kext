@@ -153,23 +153,27 @@ struct vnodeopv_desc *procfs_vnodeops_list[] = {
  * Vnode operations that don't require us to do anything.
  */
 STATIC int
-procfs_vnop_open(__unused struct vnop_open_args *ap) {
+procfs_vnop_open(__unused struct vnop_open_args *ap)
+{
     return 0;
 }
 
 
 STATIC int
-procfs_vnop_access(__unused struct vnop_access_args *ap) {
+procfs_vnop_access(__unused struct vnop_access_args *ap)
+{
     return 0;
 }
 
 STATIC
-int procfs_vnop_close(__unused struct vnop_close_args *ap) {
+int procfs_vnop_close(__unused struct vnop_close_args *ap)
+{
     return 0;
 }
 
 STATIC
-int procfs_vnop_inactive(__unused struct vnop_inactive_args *ap) {
+int procfs_vnop_inactive(__unused struct vnop_inactive_args *ap)
+{
     // We do everything in procfs_vnop_reclaim.
     return 0;
 }
@@ -200,7 +204,8 @@ int procfs_vnop_inactive(__unused struct vnop_inactive_args *ap) {
  * vnode cache and create it if it's not there.
  */
 STATIC int
-procfs_vnop_lookup(struct vnop_lookup_args *ap) {
+procfs_vnop_lookup(struct vnop_lookup_args *ap)
+{
     char name[NAME_MAX + 1];
     int error = 0;
     struct componentname *cnp = ap->a_cnp;
@@ -291,7 +296,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                         proc_fdunlock(target_proc);
                     }
                 }
-                
+
                 if (valid) {
                     // Construct the node id from the process id and file number.
                     match_node_id.nodeid_base_id = match_node->psn_base_node_id;
@@ -322,7 +327,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                     match_node_id.nodeid_pid = node_type ==
                             PROCFS_PROCDIR || node_type == PROCFS_PROCNAME_DIR ? id : dir_pnp->node_id.nodeid_pid;
                     match_node_id.nodeid_objectid = node_type == PROCFS_THREADDIR ? id : dir_pnp->node_id.nodeid_objectid;
-                    
+
                     // The pid must match an existing process.
                     target_proc = proc_find(match_node_id.nodeid_pid);
                     if (target_proc == NULL) {
@@ -330,7 +335,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                         error = ENOENT;
                         break;
                     }
-                    
+
                     // For the case of PROCFS_PROCNAME_DIR, the name must be a complete
                     // and literal match to the full name that corresponds to the process
                     // id from the first part of the name.
@@ -343,7 +348,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
                             break;
                         }
                     }
-                    
+
                     // Determine whether an access check is required for access to
                     // the target process directory and its subdirectories. Do not
                     // check if root or if the file system is mounted with
@@ -392,7 +397,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap) {
         if (target_proc != NULL) {
             proc_rele(target_proc);
         }
-        
+
         // We have a match if match_node is not NULL.
         if (match_node != NULL && error == 0) {
             // We matched and match_node_id has been set to the node id of the
@@ -445,21 +450,22 @@ out:
  * once the uio_offset value has been reached.
  */
 STATIC int
-procfs_vnop_readdir(struct vnop_readdir_args *ap) {
+procfs_vnop_readdir(struct vnop_readdir_args *ap)
+{
     vnode_t vp = ap->a_vp;
     if (vnode_vtype(vp) != VDIR) {
         return ENOTDIR;
     }
-    
+
     procfsnode_t *dir_pnp = vnode_to_procfsnode(vp);
     procfs_structure_node_t *dir_snode = dir_pnp->node_structure_node;
-    
+
     int numentries = 0;
     int error = 0;
     uio_t uio = ap->a_uio;
     off_t nextpos = 0;
     off_t startpos = uio_offset(uio);
-    
+
     // Determine whether access checks are required for process-related
     // nodes. Do not check if root or if the file system is mounted with
     // the "noprocperms" option.
@@ -467,7 +473,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
     procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(vp));
     boolean_t check_access = !suser && procfs_should_access_check(pmp);
     kauth_cred_t creds = ap->a_context->vc_ucred;
-    
+
     procfs_structure_node_t *snode = TAILQ_FIRST(&dir_snode->psn_children);
     while (snode != NULL && uio_resid(uio) > 0) {
         // We inherit the parent directory's pid and thread id for
@@ -477,7 +483,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
         uint64_t objectid = dir_pnp->node_id.nodeid_objectid;
         procfs_base_node_id_t base_node_id = snode->psn_base_node_id;
         const char *name = snode->psn_name;
-        
+
         // If there is a process id associated with this node, perform
         // an access check if required. Skip the entry if the user
         // does not have permission to see it.
@@ -491,27 +497,27 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
             case PROCFS_ROOT: // Indicates structure error - skip it.
                 printf("procfs_vnop_readdir: ERROR: found PROCFS_ROOT\n");
                 continue;
-                    
+
            case PROCFS_DIR:
                 type = DT_DIR;
                 break;
-                    
+
             case PROCFS_FILE:
                 type = DT_REG;
                 break;
-                    
+
             case PROCFS_DIR_THIS:
                 type = DT_DIR;
-                    
+
                 // We need to use the node id of the directory node for this case.
                 pid = dir_pnp->node_id.nodeid_pid;
                 objectid = dir_pnp->node_id.nodeid_objectid;
                 base_node_id = dir_pnp->node_id.nodeid_base_id;
                 break;
-                    
+
             case PROCFS_DIR_PARENT:
                 type = DT_DIR;
-                    
+
                 // We need to use the node id of the directory's parent node for this case.
                 procfsnode_id_t parent_node_id;
                 procfs_get_parent_node_id(dir_pnp, &parent_node_id);
@@ -519,11 +525,11 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                 objectid = parent_node_id.nodeid_objectid;
                 base_node_id = parent_node_id.nodeid_base_id;
                 break;
-                    
+
             case PROCFS_CURPROC:
                 type = DT_LNK;
                 break;
-                
+
             // We handle these cases separately.
             case PROCFS_PROCDIR:
                 procdir = TRUE;
@@ -532,16 +538,16 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
             case PROCFS_PROCNAME_DIR:
                 procnamedir = TRUE;
                 break;
-                    
+
             case PROCFS_THREADDIR:
                 threaddir = TRUE;
                 break;
-                    
+
             case PROCFS_FD_DIR:
                 fddir = TRUE;
                 break;
             }
-        
+
             if (procdir || procnamedir) {
                 // An entry that represents the list of all processes.
                 // Iterate over all active processes and write entries for those that
@@ -554,7 +560,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                 uint32_t pid_list_size;
                 pid_t *pid_list;
                 procfs_get_pids(&pid_list, &pid_count, &pid_list_size, check_access ? creds : NULL);
-                
+
                 // Process each process in turn. We only get back process ids for the
                 // processes that the caller has permission to access.
                 for (int i = 0; i < pid_count; i++) {
@@ -574,7 +580,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                         proc_rele(p);
                     }
                     int size = procfs_calc_dirent_size(name_buffer);
-                    
+
                     // Copy out only if we are past the start offset.
                     if (nextpos >= startpos) {
                         error = procfs_copyout_dirent(VDIR, procfs_get_fileid(this_pid,
@@ -586,7 +592,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                     }
                     nextpos += size;
                 }
-                
+
                 procfs_release_pids(pid_list, pid_list_size);
                 break;   // Exit from the outer loop.
             } else if (threaddir) {
@@ -623,7 +629,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                     // No process for the current pid.
                     error = ENOENT;
                 }
-                
+
                 if (error != 0) {
                     break;
                 }
@@ -663,7 +669,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
                     // No process for the current pid.
                     error = ENOENT;
                 }
-                
+
                 if (error != 0) {
                     break;
                 }
@@ -691,7 +697,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
     uio_setoffset(uio, nextpos);
     *ap->a_eofflag = snode == NULL; // EOF if we handled the last entry
     *ap->a_numdirent = numentries;
-    
+
     return error;
 }
 
@@ -702,7 +708,8 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap) {
  * rounded up to a multiple of 4 bytes.
  */
 STATIC int
-procfs_calc_dirent_size(const char *name) {
+procfs_calc_dirent_size(const char *name)
+{
     // We want to copy out a packed directory entry, which means we
     // need to calculate the actual length based on the length of the
     // name field, then round it to a 4-byte boundary.
@@ -717,16 +724,18 @@ procfs_calc_dirent_size(const char *name) {
  * structure.
  */
 STATIC int
-procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, int *sizep) {
+procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, int *sizep)
+{
     struct dirent entry;
     entry.d_type = type;
     entry.d_ino = (ino_t)file_id;
     entry.d_namlen = strlen(name);
     strlcpy(entry.d_name, name, entry.d_namlen + 1);
-    
+
     int size = *sizep;
     entry.d_reclen = size;
     int error = 0;
+
     if (size <= uio_resid(uio)) {
         error = uiomove((const char * )&entry, (int)size, uio);
         *sizep = size;
