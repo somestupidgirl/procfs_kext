@@ -186,7 +186,8 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
  * invocation of procfs_get_pids().
  */
 void
-procfs_release_pids(pid_t *pidp, uint32_t size) {
+procfs_release_pids(pid_t *pidp, uint32_t size)
+{
     OSFree(pidp, size, procfs_osmalloc_tag);
 }
 
