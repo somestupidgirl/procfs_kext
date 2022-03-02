@@ -38,7 +38,7 @@ typedef struct {
  * The filesystem-dependent vnode private data for procfs.
  * There is one insance of this structure for each active node.
  */
-typedef struct procfsnode {
+struct procfsnode {
     // Linkage for the node hash. Protected by the node hash lock.
     LIST_ENTRY(procfsnode)  node_hash;
     
@@ -67,7 +67,7 @@ typedef struct procfsnode {
 
     // Pointer to the procfs_structure_node_t for this node.
     procfs_structure_node_t *node_structure_node;   // Set when allocated, never changes.
-} procfsnode_t;
+};
 
 #pragma mark -
 #pragma mark Vnode to/from procfsnode Conversion

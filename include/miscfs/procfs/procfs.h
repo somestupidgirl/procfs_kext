@@ -48,6 +48,8 @@ typedef struct procfs_mount_args {
     int mnt_options;      // The procfs mount options.
 } procfs_mount_args_t;
 
+typedef struct procfsnode procfsnode_t;
+
 #pragma mark -
 #pragma mark Internel Definitions - Kernel Only
 
