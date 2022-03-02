@@ -46,7 +46,8 @@ extern int (**procfs_vnodeop_p)(void *);
 #pragma mark -
 #pragma mark Function Prototypes
 
-int procfs_init(struct vfsconf *vfsconf);
+int procfs_init(__unused struct vfsconf *vfsconf);
+void procfs_fini(void);
 
 STATIC int procfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t context);
 STATIC int procfs_unmount(struct mount *mp, int mntflags, vfs_context_t context);
@@ -121,6 +122,27 @@ procfs_init(__unused struct vfsconf *vfsconf)
         procfsnode_start_init();
     }
     return 0;
+}
+
+void
+procfs_fini(void)
+{
+    if (procfs_osmalloc_tag != NULL) {
+        OSMalloc_Tagfree(procfs_osmalloc_tag);
+        procfs_osmalloc_tag = NULL;
+    }
+
+    if (procfsnode_lck_grp != NULL) {
+        lck_grp_free(procfsnode_lck_grp);
+        procfsnode_lck_grp = NULL;
+    }
+
+    if (procfsnode_hash_mutex != NULL) {
+        lck_mtx_free(procfsnode_hash_mutex, procfsnode_lck_grp);
+        procfsnode_hash_mutex = NULL;
+    }
+
+    return;
 }
 
 /*
