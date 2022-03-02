@@ -24,7 +24,8 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#include "mntopts.h"
+#include <libutil/mntopts.h>
+
 #include "procfs.h"
 
 // Forward declarations of local functions.
