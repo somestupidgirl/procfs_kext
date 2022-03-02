@@ -70,11 +70,15 @@ struct procfsnode {
 #pragma mark -
 #pragma mark Vnode to/from procfsnode Conversion
 
-static inline vnode_t procfsnode_to_vnode(procfsnode_t *pnp) {
+static inline vnode_t
+procfsnode_to_vnode(procfsnode_t *pnp)
+{
     return pnp->node_vnode;
 }
 
-static inline procfsnode_t *vnode_to_procfsnode(vnode_t vp) {
+static inline procfsnode_t *
+vnode_to_procfsnode(vnode_t vp)
+{
     return (procfsnode_t *)vnode_fsnode(vp);
 }
 
@@ -82,7 +86,9 @@ static inline procfsnode_t *vnode_to_procfsnode(vnode_t vp) {
 #pragma mark Inline Convenience Functions
 
 // Gets the pid_t for the process corresponding to a procfsnode_t
-static inline pid_t procfsnode_to_pid(procfsnode_t *procfsnode) {
+static inline pid_t
+procfsnode_to_pid(procfsnode_t *procfsnode)
+{
     return procfsnode->node_id.nodeid_pid;
 }
 
