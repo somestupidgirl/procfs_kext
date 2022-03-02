@@ -17,6 +17,8 @@
 #include <miscfs/procfs/procfs.h>
 #include <miscfs/procfs/procfs_node.h>
 
+#include <libkext/libkext.h>
+
 #pragma mark Local Definitions
 
 // The fixed mounted device name for this file system. The first
@@ -36,7 +38,7 @@ STATIC int32_t procfs_mount_id;
 
 /* -- External references -- */
 // Vnode ops descriptor for this file system.
-extern struct vnodeopv_desc *procfs_vnodeops_list[];
+extern struct vnodeopv_desc *procfs_vnodeops_list[1];
 
 // Pointer to the constructed vnode operations vector. Set
 // when the file system is registered and used when creating
@@ -64,7 +66,9 @@ STATIC void populate_vfs_attr(struct mount *mp, struct vfs_attr *fsap);
 STATIC int procfs_create_root_vnode(mount_t mp, procfsnode_t *pnp, vnode_t *vpp);
 
 #pragma mark -
-#pragma mark VFS Operations Structure and VFS declaration
+#pragma mark VFS Operations and Entry Structures
+
+vfstable_t procfs_vfs_table_ref;
 
 /*
  * VFS OPS structure maps VFS-level operations to
@@ -72,27 +76,21 @@ STATIC int procfs_create_root_vnode(mount_t mp, procfsnode_t *pnp, vnode_t *vpp)
  * are in this file.
  */
 struct vfsops procfs_vfsops = {
-    &procfs_mount,      // mount
-    NULL,               // start
-    &procfs_unmount,    // unmount
-    &procfs_root,        // root
-    NULL,               // quotactl
-    &procfs_getattr,    // getattr (for statfs(2) system call)
-    NULL,               // sync
-    NULL,               // vget
-    NULL,               // fhtovp
-    NULL,               // vptofh
-    &procfs_init,       // init
-    NULL,               // sysctl,
-    NULL,               // setattr,
-    {NULL}
+    .vfs_mount          = procfs_mount,
+    .vfs_unmount        = procfs_unmount,
+    .vfs_root           = procfs_root,
+    .vfs_getattr        = procfs_getattr,
+    .vfs_init           = procfs_init,
 };
 
-#pragma mark -
-#pragma mark Global Data
-
-/* Tag used for memory allocation. */
-OSMallocTag procfs_osmalloc_tag;
+struct vfs_fsentry procfs_vfsentry = {
+    .vfe_vfsops         = &procfs_vfsops,
+    .vfe_vopcnt         = ARRAY_SIZE(procfs_vnodeops_list),
+    .vfe_opvdescs       = &procfs_vnodeops_list,
+    .vfe_fstypenum      = PROCFS_NOTYPENUM,
+    .vfe_fsname         = PROCFS_FSNAME,
+    .vfe_flags          = PROCFS_VFS_FLAGS
+};
 
 #pragma mark -
 #pragma mark Static Data
