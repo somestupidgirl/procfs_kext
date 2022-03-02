@@ -24,9 +24,9 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#include <libutil/mntopts.h>
+#include <miscfs/procfs/procfs.h>
 
-#include "procfs.h"
+#include <libutil/mntopts.h>
 
 // Forward declarations of local functions.
 static void usage(char *name);

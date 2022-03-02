@@ -13,8 +13,8 @@
 #include <sys/vnode.h>
 #include <string.h>
 
-#include "procfs_data.h"
-#include "procfs_structure.h"
+#include <miscfs/procfs/procfs_data.h>
+#include <miscfs/procfs/procfs_structure.h>
 
 /*
  * Definition and management of the file system layout. The

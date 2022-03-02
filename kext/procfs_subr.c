@@ -15,8 +15,8 @@
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
 
-#include "procfs_node.h"
-#include "procfs_subr.h"
+#include <miscfs/procfs/procfs_node.h>
+#include <miscfs/procfs/procfs_subr.h>
 
 #pragma mark -
 #pragma mark External References.

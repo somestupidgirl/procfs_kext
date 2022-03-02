@@ -11,8 +11,8 @@
 #include <sys/mount.h>
 #include <sys/vnode.h>
 
-#include "procfs.h"
-#include "procfs_node.h"
+#include <miscfs/procfs/procfs.h>
+#include <miscfs/procfs/procfs_node.h>
 
 #pragma mark Local Definitions
 

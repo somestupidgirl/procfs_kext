@@ -19,10 +19,10 @@
 #include <sys/uio_internal.h>
 #include <sys/vnode_internal.h>
 
-#include "procfs_data.h"
-#include "procfs_node.h"
-#include "procfs_structure.h"
-#include "procfs_subr.h"
+#include <miscfs/procfs/procfs_data.h>
+#include <miscfs/procfs/procfs_node.h>
+#include <miscfs/procfs/procfs_structure.h>
+#include <miscfs/procfs/procfs_subr.h>
 
 #pragma mark -
 #pragma mark Local Function Prototypes

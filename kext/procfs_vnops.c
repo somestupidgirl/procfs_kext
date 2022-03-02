@@ -15,10 +15,10 @@
 #include <sys/user.h>
 #include <sys/vnode.h>
 
-#include "procfs.h"
-#include "procfs_data.h"
-#include "procfs_node.h"
-#include "procfs_subr.h"
+#include <miscfs/procfs/procfs.h>
+#include <miscfs/procfs/procfs_data.h>
+#include <miscfs/procfs/procfs_node.h>
+#include <miscfs/procfs/procfs_subr.h>
 
 #pragma mark -
 #pragma mark Local Definitions
