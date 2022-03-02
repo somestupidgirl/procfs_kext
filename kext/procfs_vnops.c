@@ -66,6 +66,7 @@ extern struct proclist allproc;
 #pragma mark -
 #pragma mark Function Prototypes
 
+STATIC int procfs_vnop_default(struct vnop_generic_args *arg);
 STATIC int procfs_vnop_lookup(struct vnop_lookup_args *ap);
 STATIC int procfs_vnop_getattr(struct vnop_getattr_args *ap);
 STATIC int procfs_vnop_reclaim(struct vnop_reclaim_args *ap);
@@ -88,7 +89,7 @@ STATIC void procfs_construct_process_dir_name(proc_t p, char *buffer);
 // vector when procfs is registered as a file system and a pointer
 // to that vector is stored in procfs_vnodeop_p.
 struct vnodeopv_entry_desc procfs_vnodeop_entries[] = {
-    { &vnop_default_desc,   (VOPFUNC)vn_default_error },
+    { &vnop_default_desc,   (VOPFUNC)procfs_vnop_default },     /* default */
     { &vnop_lookup_desc,    (VOPFUNC)procfs_vnop_lookup },      /* lookup */
     { &vnop_create_desc,    (VOPFUNC)vn_default_error },        /* create */
     { &vnop_open_desc,      (VOPFUNC)procfs_vnop_open },        /* open */
@@ -175,6 +176,12 @@ STATIC
 int procfs_vnop_inactive(__unused struct vnop_inactive_args *ap)
 {
     // We do everything in procfs_vnop_reclaim.
+    return 0;
+}
+
+STATIC
+int procfs_vnop_default(struct vnop_generic_args *arg)
+{
     return 0;
 }
 
