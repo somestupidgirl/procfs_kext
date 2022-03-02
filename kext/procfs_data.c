@@ -499,7 +499,8 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
  * is at data[N].
  */
 STATIC int
-procfs_copy_data(char *data, int data_len, uio_t uio) {
+procfs_copy_data(char *data, int data_len, uio_t uio)
+{
     int error = 0;
     off_t start_offset = uio->uio_offset;
     data_len -= start_offset;
