@@ -91,7 +91,7 @@ procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
-        pid_t pgrpid = p->p_pgrpid;
+        pid_t pgrpid = proc_pgrpid(p);
         error = procfs_copy_data((char *)&pgrpid, sizeof(pgrpid), uio);
         proc_rele(p);
         if (p != NULL) {
