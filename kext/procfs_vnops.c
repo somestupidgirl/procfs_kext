@@ -384,6 +384,10 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
 
         if (target_proc != NULL) {
             proc_rele(target_proc);
+
+            if (target_proc != NULL) {
+                target_proc = NULL;
+            }
         }
 
         // We have a match if match_node is not NULL.
