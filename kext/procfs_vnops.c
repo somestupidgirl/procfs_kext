@@ -570,6 +570,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         }
                         procfs_construct_process_dir_name(p, name_buffer);
                         proc_rele(p);
+                        if (p != NULL) {
+                            p = NULL;
+                        }
                     }
                     int size = procfs_calc_dirent_size(name_buffer);
 
@@ -616,6 +619,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         procfs_release_thread_ids(thread_ids, thread_count);
                     }
                     proc_rele(p);
+                    if (p != NULL) {
+                        p = NULL;
+                    }
                     break;   // Exit from the outer loop.
                 } else {
                     // No process for the current pid.
@@ -656,6 +662,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         proc_fdunlock(p);
                     }
                     proc_rele(p);
+                    if (p != NULL) {
+                        p = NULL;
+                    }
                     break;   // Exit from the outer loop.
                 } else {
                     // No process for the current pid.
