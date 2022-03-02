@@ -5,13 +5,17 @@
 //  Created by Kim Topley on 12/26/15.
 //
 //
+#include <string.h>
+
 #include <kern/assert.h>
 #include <kern/debug.h>
+
 #include <libkern/OSMalloc.h>
+
 #include <mach/boolean.h>
+
 #include <sys/proc_info.h>
 #include <sys/vnode.h>
-#include <string.h>
 
 #include <miscfs/procfs/procfs_data.h>
 #include <miscfs/procfs/procfs_structure.h>

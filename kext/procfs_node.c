@@ -6,7 +6,10 @@
 //
 
 #include <kern/assert.h>
+
 #include <libkern/OSMalloc.h>
+
+#include <sys/malloc.h>
 #include <sys/systm.h>
 #include <sys/types.h>
 #include <sys/vnode.h>

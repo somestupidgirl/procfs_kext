@@ -9,11 +9,17 @@
  * Utility functions for procfs.
  */
 #include <libkern/OSMalloc.h>
+
+#include <mach/mach_types.h>
+#include <mach/message.h>
 #include <mach/task.h>
 #include <mach/thread_act.h>
-#include <sys/ucred.h>
+#include <mach/thread_info.h>
+
+#include <sys/kauth.h>
 #include <sys/proc.h>
-#include <sys/proc_internal.h>
+#include <sys/proc_info.h>
+#include <sys/ucred.h>
 
 #include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_subr.h>

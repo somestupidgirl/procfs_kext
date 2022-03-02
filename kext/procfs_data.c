@@ -13,11 +13,12 @@
 //
 
 #include <libkern/libkern.h>
-#include <sys/file_internal.h>
+
+#include <sys/file.h>
 #include <sys/proc_info.h>
-#include <sys/proc_internal.h>
-#include <sys/uio_internal.h>
-#include <sys/vnode_internal.h>
+#include <sys/proc.h>
+#include <sys/uio.h>
+#include <sys/vnode.h>
 
 #include <miscfs/procfs/procfs_data.h>
 #include <miscfs/procfs/procfs_node.h>

@@ -13,7 +13,8 @@
 
 #include <sys/vnode.h>
 
-#include "procfs_structure.h"
+#include <miscfs/procfs/procfs.h>
+#include <miscfs/procfs/procfs_structure.h>
 
 #pragma mark -
 #pragma mark File System Dependent Node for procfs

@@ -12,7 +12,8 @@
 #include <sys/kernel_types.h>
 #include <sys/queue.h>
 
-#include "procfs.h"
+#include <miscfs/procfs/procfs.h>
+#include <miscfs/procfs/procfs_node.h>
 
 enum vtype;
 typedef struct procfsnode procfsnode_t;

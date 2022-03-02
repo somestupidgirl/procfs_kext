@@ -9,7 +9,7 @@
 #ifndef procfs_data_h
 #define procfs_data_h
 
-typedef struct procfsnode procfsnode_t;
+#include <miscfs/procfs/procfs_node.h>
 
 // Functions that copy procfsnode_t data to a buffer described by a uio_t structure.
 extern int procfs_read_pid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);

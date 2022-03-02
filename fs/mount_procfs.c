@@ -14,12 +14,16 @@
 // "procperms" (which is secure).
 //
 
+#ifndef FSBUNDLE
+#define FSBUNDLE
+#endif
+
 #include <sys/mount.h>
 
 #include <errno.h>
 #include <libgen.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
