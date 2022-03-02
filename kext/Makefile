@@ -90,9 +90,10 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			-Xlinker -export_dynamic
 
 # libraries
-LIBS+=		-L../MacKernelSDK/Library/x86_64
+LIBS+=		-L../MacKernelSDK/Library/x86_64 \
+			-L../lib/libkext
 
-LIBS+=		-lcc_kext -lkmod
+LIBS+=		-lcc_kext -lkmod -lkext
 
 # kextlibs flags
 KLFLAGS+=	-xml -c -undef-symbols -unsupported
