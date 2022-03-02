@@ -43,6 +43,11 @@ extern struct vnodeopv_desc *procfs_vnodeops_list[];
 // vnodes.
 extern int (**procfs_vnodeop_p)(void *);
 
+// See: procfs_node.c
+extern lck_grp_t *procfsnode_lck_grp;
+extern lck_mtx_t *procfsnode_hash_mutex;
+extern OSMallocTag procfs_osmalloc_tag;
+
 #pragma mark -
 #pragma mark Function Prototypes
 
@@ -113,7 +118,8 @@ procfs_init(__unused struct vfsconf *vfsconf)
         initialized = 1;
 
         // Create the tag for memory allocation.
-        procfs_osmalloc_tag = OSMalloc_Tagalloc("com.kadmas.procfs", 0);
+        procfs_osmalloc_tag = OSMalloc_Tagalloc(PROCFS_BUNDLEID, OSMT_DEFAULT);
+
         if (procfs_osmalloc_tag == NULL) {
             return ENOMEM;   // Plausible error code.
         }

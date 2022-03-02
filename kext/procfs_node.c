@@ -43,8 +43,11 @@ typedef struct procfs_hash_head procfs_hash_head;
 STATIC u_long procfsnode_hash_to_bucket_mask;
 
 // Lock used to protect the hash table.
-STATIC lck_grp_t *procfsnode_lck_grp;
-STATIC lck_mtx_t *procfsnode_hash_mutex;
+lck_grp_t *procfsnode_lck_grp = NULL;
+lck_mtx_t *procfsnode_hash_mutex = NULL;
+
+/* Tag used for memory allocation. */
+OSMallocTag procfs_osmalloc_tag = NULL;
 
 // Macro that gets the header of the bucket that corresponds to a given
 // hash value.
@@ -69,7 +72,7 @@ void
 procfsnode_start_init(void)
 {
     // Allocate the lock group and the mutex lock for the hash table.
-    procfsnode_lck_grp = lck_grp_alloc_init("com.kadmas.procfs.procfsnode_locks", LCK_GRP_ATTR_NULL);
+    procfsnode_lck_grp = lck_grp_alloc_init(PROCFS_BUNDLEID ".procfsnode_locks", LCK_GRP_ATTR_NULL);
     procfsnode_hash_mutex = lck_mtx_alloc_init(procfsnode_lck_grp, LCK_ATTR_NULL);
 }
 
