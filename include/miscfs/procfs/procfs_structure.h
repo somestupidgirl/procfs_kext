@@ -16,7 +16,6 @@
 #include <miscfs/procfs/procfs_node.h>
 
 enum vtype;
-typedef struct procfsnode procfsnode_t;
 
 /*
  * Definitions for the data structures that determine the
