@@ -57,11 +57,6 @@ static const int PID_SIZE = 16;
 static const int PROCESS_NAME_SIZE = MAXCOMLEN + PID_SIZE + PAD_SIZE;
 
 #pragma mark -
-#pragma mark External References
-
-extern struct proclist allproc;
-
-#pragma mark -
 #pragma mark Function Prototypes
 
 STATIC int procfs_vnop_default(struct vnop_generic_args *arg);
