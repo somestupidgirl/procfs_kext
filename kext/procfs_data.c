@@ -395,9 +395,9 @@ procfs_get_node_size_attr(procfsnode_t *pnp, kauth_cred_t creds)
             snode = snode->psn_parent;
         }
     }
-    
+
     assert(snode != NULL);
-    
+
     // For file types, get the size from the node itself. For
     // directory types, get the size by traversing child structure
     // nodes and adding in any implied children, such as process and
