@@ -214,6 +214,9 @@ procfs_get_process_count(kauth_cred_t creds)
 
     procfs_get_pids(&pidp, &process_count, &size, is_suser ? NULL : creds);
     procfs_release_pids(pidp, size);
+    if (pidp != NULL) {
+        pidp = NULL;
+    }
     
     return process_count;
 }
