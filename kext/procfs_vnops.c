@@ -589,6 +589,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 }
 
                 procfs_release_pids(pid_list, pid_list_size);
+                if (pid_list != NULL) {
+                    pid_list = NULL;
+                }
                 break;   // Exit from the outer loop.
             } else if (threaddir) {
                 // Iterate over all of the threads for the current process and write
