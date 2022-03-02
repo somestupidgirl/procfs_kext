@@ -9,8 +9,6 @@
 #ifndef procfs_node_h
 #define procfs_node_h
 
-#if KERNEL 
-
 #include <sys/vnode.h>
 
 #include <miscfs/procfs/procfs.h>
@@ -114,7 +112,5 @@ extern int procfsnode_find(procfs_mount_t *pmp,
                            void *create_vnode_params);
 extern void procfsnode_reclaim(vnode_t vp);
 extern void procfs_get_parent_node_id(procfsnode_t *pnp, procfsnode_id_t *idp);
-
-#endif /* KERNEL */
 
 #endif /* procfs_node_h */
