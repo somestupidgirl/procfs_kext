@@ -43,18 +43,19 @@ STATIC int procfs_get_pid(proc_t p, struct procfs_pidlist_data *data);
  * exists, returns ENOENT.
  */
 int
-procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp) {
+procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp)
+{
     procfsnode_t *procfs_node = vnode_to_procfsnode(vp);
     procfs_structure_node_t *snode = procfs_node->node_structure_node;
     procfs_structure_node_type_t node_type = snode->psn_node_type;
-    
+
     pid_t pid = procfsnode_to_pid(procfs_node);
     proc_t p = pid == PRNODE_NO_PID ? NULL : proc_find(pid); // Process for the vnode, if there is one.
     if (p == NULL && procfs_node_type_has_pid(node_type)) {
         // Process must have gone -- return an error
         return ENOENT;
     }
-    
+
     *procp = p;
     *pidp = pid;
     return 0;
@@ -65,7 +66,8 @@ procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp) {
  * associated process id.
  */
 boolean_t
-procfs_node_type_has_pid(procfs_structure_node_type_t node_type) {
+procfs_node_type_has_pid(procfs_structure_node_type_t node_type)
+{
     return node_type != PROCFS_ROOT && node_type != PROCFS_CURPROC
                     && node_type != PROCFS_DIR;
 }
@@ -80,7 +82,8 @@ procfs_node_type_has_pid(procfs_structure_node_type_t node_type) {
  * It should, however, be good enough.
  */
 uint64_t
-procfs_get_node_fileid(procfsnode_t *pnp) {
+procfs_get_node_fileid(procfsnode_t *pnp)
+{
     procfsnode_id_t node_id = pnp->node_id;
     return procfs_get_fileid(node_id.nodeid_pid, node_id.nodeid_objectid, pnp->node_structure_node->psn_base_node_id);
 }
@@ -91,7 +94,8 @@ procfs_get_node_fileid(procfsnode_t *pnp) {
  * id. It should, however, be good enough.
  */
 uint64_t
-procfs_get_fileid(pid_t pid, uint64_t objectid, procfs_base_node_id_t base_id) {
+procfs_get_fileid(pid_t pid, uint64_t objectid, procfs_base_node_id_t base_id)
+{
     uint64_t id = base_id;
     if (pid != PRNODE_NO_PID) {
         id |= pid << 8;
@@ -107,7 +111,8 @@ procfs_get_fileid(pid_t pid, uint64_t objectid, procfs_base_node_id_t base_id) {
  * character encountered.
  */
 int
-procfs_atoi(const char *p, const char **end_ptr) {
+procfs_atoi(const char *p, const char **end_ptr)
+{
     int value = 0;
     const char *next = p;
     char c;
@@ -116,7 +121,7 @@ procfs_atoi(const char *p, const char **end_ptr) {
         value = value * 10 + c - '0';
     }
     *end_ptr = next - 1;
-    
+
     // Invalid if the first character was not a digit.
     return next == p + 1 ? -1 : value;
 }
@@ -124,7 +129,8 @@ procfs_atoi(const char *p, const char **end_ptr) {
 /*
  * Structure used to keep track of pid collection.
  */
-struct procfs_pidlist_data {
+struct procfs_pidlist_data
+{
     kauth_cred_t creds;     // Credential to use for access check, or NULL
     pid_t       *next_pid;  // Where to put the next process id.
 };
@@ -136,7 +142,8 @@ struct procfs_pidlist_data {
  * be accessible to an entity with those credentials.
  */
 STATIC int
-procfs_get_pid(proc_t p, struct procfs_pidlist_data *data) {
+procfs_get_pid(proc_t p, struct procfs_pidlist_data *data)
+{
     kauth_cred_t creds = data->creds;
     if (creds == NULL || procfs_check_can_access_process(creds, p) == 0) {
         *data->next_pid++ = p->p_pid;
@@ -157,14 +164,15 @@ procfs_get_pid(proc_t p, struct procfs_pidlist_data *data) {
  * the values that it received from this function. 
  */
 void
-procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds) {
+procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds)
+{
     uint32_t size = nprocs * sizeof(pid_t);
     pid_t *pidp = (pid_t *)OSMalloc(size, procfs_osmalloc_tag);
-    
+
     struct procfs_pidlist_data data;
     data.creds = creds;
     data.next_pid = pidp;
-    
+
     proc_iterate(PROC_ALLPROCLIST, (int (*)(proc_t, void *))&procfs_get_pid, &data, NULL, NULL);
     *pidpp = pidp;
     *sizep = size;
@@ -185,11 +193,12 @@ procfs_release_pids(pid_t *pidp, uint32_t size) {
  * process with given credentials.
  */
 int
-procfs_get_process_count(kauth_cred_t creds) {
+procfs_get_process_count(kauth_cred_t creds)
+{
     pid_t *pidp;
     int process_count;
     uint32_t size;
-    
+
     boolean_t is_suser = suser(creds, NULL) == 0;
     procfs_get_pids(&pidp, &process_count, &size, is_suser ? NULL : creds);
     procfs_release_pids(pidp, size);
@@ -204,17 +213,18 @@ procfs_get_process_count(kauth_cred_t creds) {
  * by calling procfs_release_thread_ids().
  */
 int
-procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_count) {
+procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_count)
+{
     int result = KERN_SUCCESS;
     thread_act_array_t threads;
     mach_msg_type_number_t count;
-    
+
     // Get all of the threads in the task.
     if (task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
         uint64_t thread_id_info[THREAD_IDENTIFIER_INFO_COUNT];
         uint64_t *threadid_ptr = (uint64_t *)OSMalloc(count * sizeof(uint64_t), procfs_osmalloc_tag);
         *thread_ids = threadid_ptr;
-        
+
         // For each thread, get identifier info and extract the thread id.
         for (unsigned int i = 0; i < count && result == KERN_SUCCESS; i++) {
             unsigned int thread_info_count = THREAD_IDENTIFIER_INFO_COUNT;
@@ -255,7 +265,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     }
     
     *thread_count = result == KERN_SUCCESS ? count : 0;
-    
+
     return result;
 }
 
@@ -264,7 +274,8 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
  * the get_thread_ids_for_task() function.
  */
 void
-procfs_release_thread_ids(uint64_t *thread_ids, int thread_count) {
+procfs_release_thread_ids(uint64_t *thread_ids, int thread_count)
+{
     OSFree(thread_ids, thread_count * sizeof(uint64_t), procfs_osmalloc_tag);
 }
 
@@ -272,7 +283,8 @@ procfs_release_thread_ids(uint64_t *thread_ids, int thread_count) {
  * Get the number of threads for a given task.
  */
 int
-procfs_get_task_thread_count(task_t task) {
+procfs_get_task_thread_count(task_t task)
+{
     uint64_t *thread_ids;
     int thread_count = 0;
     if (procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count) == 0) {
@@ -288,7 +300,8 @@ procfs_get_task_thread_count(task_t task) {
  * 0 if access is allowed and EACCES otherwise.
  */
 int
-procfs_check_can_access_process(kauth_cred_t creds, proc_t p) {
+procfs_check_can_access_process(kauth_cred_t creds, proc_t p)
+{
     posix_cred_t posix_creds = &creds->cr_posix;
     
     // Allow access if the effective user id matches the
@@ -297,7 +310,7 @@ procfs_check_can_access_process(kauth_cred_t creds, proc_t p) {
     if (cred_euid == p->p_uid || cred_euid == p->p_ruid) {
         return 0;
     }
-    
+
     // Also allow access if the effective group id matches
     // the effective or saved group id of the process.
     gid_t cred_egid = posix_creds->cr_groups[0];
@@ -316,7 +329,8 @@ procfs_check_can_access_process(kauth_cred_t creds, proc_t p) {
  * no process with the given pid and EACCES otherwise.
  */
 int
-procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid) {
+procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid)
+{
     int error = ESRCH;
     proc_t p = proc_find(pid);
     if (p != NULL) {
