@@ -21,6 +21,7 @@
 #include <sys/uio.h>
 #include <sys/vnode.h>
 
+#include <miscfs/procfs/procfs.h>
 #include <miscfs/procfs/procfs_data.h>
 #include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_structure.h>
