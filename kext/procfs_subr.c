@@ -8,6 +8,8 @@
 /*
  * Utility functions for procfs.
  */
+#include <kern/thread.h>
+
 #include <libkern/OSMalloc.h>
 
 #include <mach/mach_types.h>
