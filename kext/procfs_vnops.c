@@ -362,6 +362,10 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                                     }
                                 }
                                 procfs_release_thread_ids(thread_ids, thread_count);
+
+                                if (thread_ids != NULL) {
+                                    thread_ids = NULL;
+                                }
                                 
                                 if (found == FALSE) {
                                     error = ENOENT;
