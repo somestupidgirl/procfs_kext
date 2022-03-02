@@ -108,7 +108,8 @@ procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
  * owning process's session id.
  */
 int
-procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
+procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
     int error;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
