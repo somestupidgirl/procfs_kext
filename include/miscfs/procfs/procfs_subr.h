@@ -22,6 +22,7 @@ extern int procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, in
 extern void procfs_release_thread_ids(uint64_t *thread_ids, int thread_count);
 extern int procfs_check_can_access_process(kauth_cred_t creds, proc_t p);
 extern int procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid);
+extern int procfs_issuser(kauth_cred_t creds);
 extern int procfs_get_process_count(kauth_cred_t creds);
 extern int procfs_get_task_thread_count(task_t task);
 
