@@ -46,10 +46,8 @@
 
 // Structure used to hold the values needed to create a new vnode
 // corresponding to a procfsnode_t.
-STATIC typedef struct {
-    // Parent vnode.
-    vnode_t vca_parentvp;
-    
+typedef struct {
+    vnode_t vca_parentvp; // Parent vnode.
 } procfs_vnode_create_args;
 
 // Size of a buffer large enough to hold the string form of a pid_t
