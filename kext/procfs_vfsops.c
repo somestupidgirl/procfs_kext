@@ -172,7 +172,7 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
         }
 
         // Allocate the procfs mount structure and link it to the VFS structure.
-        procfs_mp = (procfs_mount_t *)OSMalloc(sizeof(procfs_mount_t), procfs_osmalloc_tag);
+        procfs_mp = OSMalloc(sizeof(procfs_mount_t), procfs_osmalloc_tag);
         if (procfs_mp == NULL) {
             printf("procfs: Failed to allocate procfs_mount_t");
             return ENOMEM;
