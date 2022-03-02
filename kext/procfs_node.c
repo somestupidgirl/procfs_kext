@@ -278,7 +278,13 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
             // Remove the procfsnode_t from the hash table and
             // release it.
             procfsnode_free_node(target_procfsnode);
-            new_procfsnode = NULL; // To avoid double free.
+
+            if (target_procfsnode != NULL) {
+                target_procfsnode = NULL;
+            }
+            if (new_procfsnode != NULL) {
+                new_procfsnode = NULL; // To avoid double free.
+            }
             break;
         }
 
@@ -300,6 +306,10 @@ procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_n
     // *after* releasing the hash lock just in case it might block.
     if (new_procfsnode != NULL && new_procfsnode != target_procfsnode) {
         OSFree(new_procfsnode, sizeof(procfsnode_t), procfs_osmalloc_tag);
+
+        if (new_procfsnode != NULL) {
+            new_procfsnode = NULL;
+        }
     }
 
     // Set the return value, or NULL if we failed.
@@ -328,8 +338,9 @@ procfsnode_reclaim(vnode_t vp)
 
         // CAUTION: pnp is now invalid. Null it out to cause a panic
         // if it gets referenced beyond this point.
-        pnp = NULL;
-        
+        if (pnp != NULL) {
+            pnp = NULL;
+        }
         lck_mtx_unlock(procfsnode_hash_mutex);
     }
 
