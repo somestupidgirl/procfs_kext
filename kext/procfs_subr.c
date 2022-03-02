@@ -319,20 +319,24 @@ int
 procfs_check_can_access_process(kauth_cred_t creds, proc_t p)
 {
     posix_cred_t posix_creds = &creds->cr_posix;
-    
+    kauth_cred_t proc_cred = kauth_cred_proc_ref(p);
+
     // Allow access if the effective user id matches the
     // effective or real user id of the process.
     uid_t cred_euid = posix_creds->cr_uid;
-    if (cred_euid == p->p_uid || cred_euid == p->p_ruid) {
+    if (cred_euid == kauth_cred_getuid(proc_cred) || cred_euid == kauth_cred_getruid(proc_cred)) {
         return 0;
     }
 
     // Also allow access if the effective group id matches
     // the effective or saved group id of the process.
     gid_t cred_egid = posix_creds->cr_groups[0];
-    if (cred_egid == p->p_gid || cred_egid == p->p_rgid) {
+    if (cred_egid == kauth_cred_getgid(proc_cred) || cred_egid == kauth_cred_getrgid(proc_cred)) {
         return 0;
     }
+
+    kauth_cred_unref(proc_cred);
+
     return EACCES;
 }
 
