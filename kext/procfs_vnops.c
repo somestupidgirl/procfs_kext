@@ -835,7 +835,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     VATTR_RETURN(vap, va_fsid, pmp->pmnt_id);                           // File system id.
     VATTR_RETURN(vap, va_fileid, procfs_get_node_fileid(procfs_node));  // Unique file id.
     VATTR_RETURN(vap, va_data_size,
-                 procfs_get_node_size_attr(procfs_node, ap->a_context->vc_ucred)); // File size.
+                 procfs_get_node_size_attr(procfs_node, vfs_context_ucred(ap->a_context))); // File size.
 
     // Use the process start time as the create time if we have a process.
     // otherwise use the file system mount time. Set the other times to the
@@ -858,14 +858,18 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     // is no process for the root node. For other nodes. the uid
     // and gid are the real ids for the current process.
     proc_t current = current_proc();
-    uid_t uid = current == NULL ? (uid_t)0 : current->p_ruid;
-    gid_t gid = current == NULL ? (gid_t)0 : current->p_gid;
+    kauth_cred_t proc_cred = kauth_cred_proc_ref(current);
+    uid_t uid = current == NULL ? (uid_t)0 : kauth_cred_getruid(proc_cred);
+    gid_t gid = current == NULL ? (gid_t)0 : kauth_cred_getgid(proc_cred);
     if (p != NULL) {
         // Get the effective uid and gid from the process.
-        uid = p->p_uid;
-        gid = p->p_gid;
+        uid = kauth_cred_getuid(proc_cred);
+        gid = kauth_cred_getgid(proc_cred);
 
         proc_rele(p);
+        if (p != NULL) {
+            p = NULL;
+        }
     }
     VATTR_RETURN(vap, va_uid, uid);
     VATTR_RETURN(vap, va_gid, gid);
