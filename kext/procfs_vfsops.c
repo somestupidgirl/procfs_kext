@@ -31,7 +31,7 @@
 // Each separate mount of the file system requires a unique id,
 // which is also used by every node in the file system. This is
 // equivalent to the dev_t associated with a real file system.
-STATIC int32_t procfs_mount_id;
+STATIC int32_t procfs_mount_id = 0;
 
 #pragma mark -
 #pragma mark External References
@@ -96,7 +96,7 @@ struct vfs_fsentry procfs_vfsentry = {
 #pragma mark Static Data
 
 /* Number of mounted instances of procfs */
-STATIC int mounted_instance_count;
+STATIC int mounted_instance_count = 0;
 
 #pragma mark -
 #pragma mark VFS Operations
@@ -190,7 +190,7 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
 
         // Increment the mounted instance count so that each mount of the file system
         // has a unique name as seen by the mount(1) command.
-        mounted_instance_count++;
+        OSAddAtomic(1, &mounted_instance_count);
 
         // Set up the statfs structure in the VFS mount with mostly
         // boilerplate default values.
@@ -226,7 +226,7 @@ procfs_unmount(struct mount *mp, __unused int mntflags, __unused vfs_context_t c
         OSFree(procfs_mp, sizeof(procfs_mount_t), procfs_osmalloc_tag);
         
         // Decrement mounted instance count.
-        mounted_instance_count--;
+        OSAddAtomic(-1, &mounted_instance_count);
     }
     procfs_structure_free();
 
