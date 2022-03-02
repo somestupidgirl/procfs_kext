@@ -27,6 +27,15 @@
 #define PROCFS_LCK_GRP_NAME  PROCFS_BUNDLEID ".lckgrp"
 #define PROCFS_NOTYPENUM     0
 
+#define PROCFS_VFS_FLAGS  ( \
+        VFS_TBL64BITREADY   | \
+        VFS_TBLFSNODELOCK   | \
+        VFS_TBLLOCALVOL     | \
+        VFS_TBLNOTYPENUM    | \
+        VFS_TBLNOMACLABEL   | \
+        0                     \
+)
+
 // Mount option flags.
 // Do not apply process permissions to the pid entries in /proc.
 #define PROCFS_MOPT_NOPROCPERMS (1 << 0)
