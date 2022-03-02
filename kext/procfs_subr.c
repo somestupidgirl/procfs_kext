@@ -351,6 +351,9 @@ procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid)
     if (p != NULL) {
         error = procfs_check_can_access_process(creds, p);
         proc_rele(p);
+        if (p != NULL) {
+            p = NULL;
+        }
     }
     return error;
 }
