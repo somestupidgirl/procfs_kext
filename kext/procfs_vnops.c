@@ -620,6 +620,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                             nextpos += size;
                         }
                         procfs_release_thread_ids(thread_ids, thread_count);
+                        if (thread_ids != NULL) {
+                            thread_ids = NULL;
+                        }
                     }
                     proc_rele(p);
                     if (p != NULL) {
