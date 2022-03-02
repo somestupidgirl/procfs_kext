@@ -14,7 +14,6 @@
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/stat.h>
-#include <sys/user.h>
 #include <sys/vnode.h>
 #include <sys/vm.h>
 
