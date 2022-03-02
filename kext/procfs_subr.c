@@ -27,11 +27,6 @@
 #include <miscfs/procfs/procfs_subr.h>
 
 #pragma mark -
-#pragma mark External References.
-
-extern thread_t convert_port_to_thread(ipc_port_t port);
-
-#pragma mark -
 #pragma mark Function Prototypes.
 
 struct procfs_pidlist_data;
