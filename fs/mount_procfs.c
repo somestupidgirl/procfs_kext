@@ -43,23 +43,24 @@ static _Bool verbose = FALSE;
 static struct mntopt mopts[] = {
     // The standard mount options.
     MOPT_STDOPTS,
-    
+
     // procfs mount options.
     { "procperms", 1, PROCFS_MOPT_NOPROCPERMS, 0}, // Inverse: if omitted, this option is enabled.
-    
+
     // End marker
     { NULL }
 };
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     /* -- Argument processing. Extracts mount options -- */
     char *prog_name = basename(argv[0]);
-    
+
     // Default generic mount options and procfs options, which can be overridden
     // using the -o option.
     int generic_options = MNT_NOEXEC | MNT_NOSUID;
     int procfs_options = 0;
-    
+
     opterr = 0;  // Silence default messages from getopt()
     int option;
     while ((option = getopt(argc, argv, "vo:?h")) != -1) {
@@ -87,7 +88,7 @@ int main(int argc, char *argv[]) {
     }
     argc -= optind;
     argv += optind;
-    
+
     if (argc != 2) {
         // Expecting special and mount point arguments.
         usage(argv[0]);
@@ -102,12 +103,12 @@ int main(int argc, char *argv[]) {
     if (verbose) {
         syslog(PROCFS_SYSLOG_LEVEL, "%s: Mounting procfs on %s", prog_name, mntdir);
     }
-    
+
     int result = mount(PROCFS_FSNAME, mntdir, generic_options, &mount_args);
     if (result < 0) {
         fprintf(stderr, "%s: Failed to mount procfs on %s: %s\n", prog_name, mntdir, strerror(errno));
     }
-    
+
     if (verbose) {
         if (result == 0) {
             syslog(PROCFS_SYSLOG_LEVEL, "%s: mount completed", prog_name);
