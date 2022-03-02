@@ -837,8 +837,10 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     // same value, since there is really no way to track them.
     struct timespec create_time;
     if (p != NULL) {
+#if 0
         create_time.tv_sec = p->p_start.tv_sec;
         create_time.tv_nsec = p->p_start.tv_usec * 1000;
+#endif
     } else {
         create_time.tv_sec = pmp->pmnt_mount_time.tv_sec;
         create_time.tv_nsec = pmp->pmnt_mount_time.tv_nsec;
