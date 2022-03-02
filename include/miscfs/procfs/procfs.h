@@ -54,6 +54,7 @@ typedef struct procfsnode procfsnode_t;
 #pragma mark Internel Definitions - Kernel Only
 
 /* -- Internal definitions. -- */
+
 #ifndef FSBUNDLE
 
 /* -- Global functions and data -- */
@@ -83,17 +84,23 @@ typedef struct procfs_mount {
 } procfs_mount_t;
 
 // Convert from procfs mount pointer to VFS mount structure
-static inline struct mount *procfs_mp_to_vfs_mp(procfs_mount_t *pmp) {
+static inline struct mount *
+procfs_mp_to_vfs_mp(procfs_mount_t *pmp)
+{
     return pmp->pmnt_mp;
 }
 
 // Convert from VFS mount pointer to procfs mount pointer.
-static inline procfs_mount_t *vfs_mp_to_procfs_mp(struct mount *vmp) {
+static inline procfs_mount_t *
+vfs_mp_to_procfs_mp(struct mount *vmp)
+{
     return(procfs_mount_t *)vfs_fsprivate(vmp);
 }
 
 // Returns whether access checks should apply to the vnodes on a given mount point.
-static inline boolean_t procfs_should_access_check(procfs_mount_t *pmp) {
+static inline boolean_t
+procfs_should_access_check(procfs_mount_t *pmp)
+{
     return (pmp->pmnt_flags & PROCFS_MOPT_NOPROCPERMS) == 0;
 }
 
