@@ -271,12 +271,9 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                     // Check whether it is a valid file descriptor.
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
-                        struct filedesc *fdp = target_proc->p_fd;
                         proc_fdlock_spin(target_proc);
-                        if (id < fdp->fd_nfiles) {
-                            struct fileproc *fp = fdp->fd_ofiles[id];
-                            valid = fp!= NULL && !(fdp->fd_ofileflags[id] & UF_RESERVED);
-                        }
+                        struct fdt_iterator iter = fdt_next(target_proc, id - 1, true);
+                        valid = iter.fdti_fd == id;
                         proc_fdunlock(target_proc);
                     }
                 }
@@ -340,7 +337,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                     boolean_t suser = vfs_context_suser(ap->a_context) == 0;
                     procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(dvp));
                     boolean_t check_access = !suser && procfs_should_access_check(pmp);
-                    kauth_cred_t creds = ap->a_context->vc_ucred;
+                    kauth_cred_t creds = vfs_context_ucred(ap->a_context);
                     if (check_access && procfs_check_can_access_process(creds, target_proc) != 0) {
                         // Access not permitted - claim that the path does not exist.
                         error = ENOENT;
