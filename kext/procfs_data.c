@@ -117,7 +117,7 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
         proc_list_lock();
         struct pgrp *pgrp = p->p_pgrp;
         if (pgrp != NULL) {
-            struct session *sp = pgrp->pg_session;
+            struct session *sp = proc_sessionid(p);
             if (sp != NULL) {
                 session_id = sp->s_sid;
             }
