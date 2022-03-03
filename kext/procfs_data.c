@@ -279,6 +279,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     int fd = (int)pnp->node_id.nodeid_objectid;
 
     int error = 0;
+#if 0
     proc_t p = proc_find(pid);
     if (p != NULL) {
         struct fileproc *fp;
@@ -312,7 +313,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 // Release the vnode hold.
                 vnode_put(vp);
             }
-            
+
             // Release the hold on the fileproc structure
             fp_drop(p, fd, fp, FALSE);
         }
@@ -323,7 +324,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     } else {
         error = ESRCH;
     }
-    
+#endif
     return error;
 }
 
