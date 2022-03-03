@@ -143,15 +143,14 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         if (pgrp != NULL) {
             // Get the controlling terminal vnode from the process session,
             // if it has one.
-            session_id = proc_sessionid(p);
-            if (session_id < 0) {
-                session_id = 0;
-            }
+#if 0
+            struct session *sp = pgrp->pg_session;
+#endif
+            vnode_t *vp; // FIXME
+            struct session *sp; // FIXME
             if (sp != NULL) {
                 vnode_t cttyvp;
-                session_lock(sp);
-                cttyvp = sp->s_ttyvp;
-                session_unlock(sp);
+                cttyvp = proc_gettty(sp, vp);
                 if (cttyvp != NULL) {
                     // Convert the vnode to a full path.
                     int name_len = MAXPATHLEN;
