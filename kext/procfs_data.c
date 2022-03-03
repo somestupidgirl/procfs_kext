@@ -183,6 +183,7 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     // Get the process id from the node id in the procfsnode and locate
     // the process.
     int error = 0;
+#if 0
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         struct proc_bsdinfo info;
@@ -197,6 +198,7 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             p = NULL;
         }
     }
+#endif
     return error;
 }
 
