@@ -61,7 +61,6 @@ LDFLAGS+=	$(SDKFLAGS) \
 			$(ARCHFLAGS)
 
 # libraries
-LIBS+=		-L../lib/libutil/build/Release
 LIBS+=		-lutil
 
 # fslibs flags
