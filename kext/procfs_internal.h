@@ -112,6 +112,7 @@ extern struct session * (*_proc_session)(proc_t p);
 #pragma mark -
 #pragma mark Private KPI Symbols (sys/proc.h)
 
+extern int (*_proc_starttime)(proc_t p, struct timeval *tv);
 extern task_t (*_proc_task)(proc_t proc);
 extern uint32_t (*_proc_getuid)(proc_t);
 extern uint32_t (*_proc_getgid)(proc_t);

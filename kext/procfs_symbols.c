@@ -36,6 +36,9 @@ SYM_INIT(proc_best_name);
 SYM_INIT(proc_gettty);
 SYM_INIT(proc_gettty_dev);
 
+// Process Start Time
+SYM_INIT(proc_starttime);
+
 // Process UID/GID
 SYM_INIT(proc_getuid);
 SYM_INIT(proc_getgid);
@@ -87,6 +90,9 @@ resolve_symbols()
 	// Process TTY
 	SYM_LOOKUP(proc_gettty);
 	SYM_LOOKUP(proc_gettty_dev);
+
+	// Process Start Time
+	SYM_LOOKUP(proc_starttime);
 
 	// Process UID/GID
 	SYM_LOOKUP(proc_getuid);
