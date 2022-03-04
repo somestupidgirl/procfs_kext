@@ -349,8 +349,6 @@ procfs_check_can_access_process(kauth_cred_t creds, proc_t p)
         return 0;
     }
 
-    kauth_cred_unref(proc_cred);
-
     return EACCES;
 }
 
