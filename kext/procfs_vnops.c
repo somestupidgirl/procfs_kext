@@ -989,8 +989,7 @@ procfs_construct_process_dir_name(proc_t p, char *buffer)
 {
     pid_t pid = proc_pid(p);
     int len = snprintf(buffer, PROCESS_NAME_SIZE, "%d ", pid);
-#if 0
-    strlcpy(buffer + len, p->p_comm, MAXCOMLEN + 1);
-#endif
+    char comm = _proc_best_name(p);
+    strlcpy(buffer + len, comm, MAXCOMLEN + 1);
 }
 
