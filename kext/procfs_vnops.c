@@ -18,6 +18,8 @@
 #include <sys/vnode.h>
 #include <sys/vm.h>
 
+#include <sys/_types/_timeval.h>
+
 #include <miscfs/procfs/procfs.h>
 #include <miscfs/procfs/procfs_data.h>
 #include <miscfs/procfs/procfs_node.h>
@@ -892,11 +894,14 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     // otherwise use the file system mount time. Set the other times to the
     // same value, since there is really no way to track them.
     struct timespec create_time;
+    struct timeval tv;
+
+    int proc_sec = _proc_starttime(p, tv.tv_sec);
+    int proc_usec = _proc_starttime(p, tv.tv_usec);
+
     if (p != NULL) {
-#if 0
-        create_time.tv_sec = p->p_start.tv_sec;
-        create_time.tv_nsec = p->p_start.tv_usec * 1000;
-#endif
+        create_time.tv_sec = proc_sec;
+        create_time.tv_nsec = proc_usec * 1000;
     } else {
         create_time.tv_sec = pmp->pmnt_mount_time.tv_sec;
         create_time.tv_nsec = pmp->pmnt_mount_time.tv_nsec;
