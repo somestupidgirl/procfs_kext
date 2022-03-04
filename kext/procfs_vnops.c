@@ -124,16 +124,41 @@ struct vnodeopv_desc *procfs_vnodeops_list[1] = {
 #pragma mark -
 #pragma mark Vnode Operations
 
+STATIC int
+procfs_vnop_open(struct vnop_open_args *ap)
+{
+    proc_t p;
+    int error;
+    pid_t pid;
+    struct vnode *vp, *lvp;
+    procfsnode_t *procfs_node;
+
+    procfs_node = vnode_to_procfsnode(vp);
+    pid = procfsnode_to_pid(procfs_node);
+    p = proc_find(pid);
+    if (p == NULL) {
+        return ENOENT;
+    }
+    proc_rele(p);
+    if (p != NULL) {
+        p = NULL;
+    }
+
+    vp = ap->a_vp;
+    lvp = PROCVPTOLOWERVP(vp);
+
+    error = vnode_getwithref(lvp);
+    if (error == 0) {
+        error = _VNOP_OPEN(lvp, ap->a_mode, ap->a_context);
+        vnode_put(lvp);
+    }
+
+    return error;
+}
+
 /*
  * Vnode operations that don't require us to do anything.
  */
-STATIC int
-procfs_vnop_open(__unused struct vnop_open_args *ap)
-{
-    return 0;
-}
-
-
 STATIC int
 procfs_vnop_access(__unused struct vnop_access_args *ap)
 {

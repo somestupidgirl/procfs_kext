@@ -12,6 +12,7 @@
 #include <sys/vnode.h>
 
 #include <miscfs/procfs/procfs.h>
+#include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_structure.h>
 
 #pragma mark -
@@ -40,6 +41,9 @@ struct procfsnode {
     // Linkage for the node hash. Protected by the node hash lock.
     LIST_ENTRY(procfsnode)  node_hash;
 
+    // VREFed once
+    struct vnode *          proc_lowervp;
+
     // Pointer to the associated vnode. Protected by the node hash lock.
     vnode_t                 node_vnode;
 
@@ -66,6 +70,9 @@ struct procfsnode {
     // Pointer to the procfs_structure_node_t for this node.
     procfs_structure_node_t *node_structure_node;   // Set when allocated, never changes.
 };
+
+#define VTOPROC(vp) ((struct procfsnode *)vnode_fsnode(vp))
+#define PROCVPTOLOWERVP(vp) (VTOPROC(vp)->proc_lowervp)
 
 #pragma mark -
 #pragma mark Vnode to/from procfsnode Conversion
