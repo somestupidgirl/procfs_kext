@@ -28,6 +28,8 @@
 #include <miscfs/procfs/procfs_structure.h>
 #include <miscfs/procfs/procfs_subr.h>
 
+#include "procfs_internal.h"
+
 #pragma mark -
 #pragma mark Local Function Prototypes
 
@@ -106,15 +108,15 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         pid_t session_id = (pid_t)0;
-        proc_list_lock();
-        struct pgrp * pgrp = proc_pgrp(p);
+        _proc_list_lock();
+        struct pgrp * pgrp = _proc_pgrp(p);
         if (pgrp != NULL) {
             session_id = proc_sessionid(p);
             if (session_id < 0) {
                 session_id = 0;
             }
         }
-        proc_list_unlock();
+        _proc_list_unlock();
 
         error = procfs_copy_data((char *)&session_id, sizeof(session_id), uio);
         proc_rele(p);
@@ -138,8 +140,8 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     pid_t session_id = (pid_t)0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
-        proc_list_lock();
-        struct pgrp * pgrp = proc_pgrp(p);
+        _proc_list_lock();
+        struct pgrp * pgrp = _proc_pgrp(p);
         if (pgrp != NULL) {
             // Get the controlling terminal vnode from the process session,
             // if it has one.
@@ -150,7 +152,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             struct session *sp; // FIXME
             if (sp != NULL) {
                 vnode_t cttyvp;
-                cttyvp = proc_gettty(sp, vp);
+                cttyvp = _proc_gettty(sp, vp);
                 if (cttyvp != NULL) {
                     // Convert the vnode to a full path.
                     int name_len = MAXPATHLEN;
@@ -161,7 +163,7 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 }
             }
         }
-        proc_list_unlock();
+        _proc_list_unlock();
         proc_rele(p);
         if (p != NULL) {
             p = NULL;
@@ -459,7 +461,7 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != NULL) {
-        task_t task = proc_task(p);
+        task_t task = _proc_task(p);
         if (task != NULL) {
             size += procfs_get_task_thread_count(task);
         }
@@ -487,14 +489,14 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 
     size_t count = 0;
 
-    proc_fdlock_spin(p);
+    _proc_fdlock_spin(p);
 
     struct fileproc *iter;
-    fdt_foreach(iter, p) {
+    _fdt_foreach(iter, p) {
         count++;
     }
 
-    proc_fdunlock(p);
+    _proc_fdunlock(p);
     proc_rele(p);
     if (p != NULL) {
         p = NULL;

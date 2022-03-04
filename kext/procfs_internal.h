@@ -1,6 +1,8 @@
 #ifndef procfs_internal_h
 #define procfs_internal_h
 
+#include <sys/filedesc.h>
+
 struct proc;
 struct pgrp;
 struct session;
@@ -19,30 +21,27 @@ struct session;
  * We use process IDs <= PID_MAX; PID_MAX + 1 must also fit in a pid_t,
  * as it is used to represent "no process group".
  */
-//extern int nprocs, maxproc;
-//extern int maxprocperuid;
-//extern int hard_maxproc;
+extern int (*_nprocs);
+extern int (*_maxproc);
+extern int (*_maxprocperuid);
+extern int (*_hard_maxproc);
 
 #define PID_MAX                 99999
 #define NO_PID                  100000
 
-//#define SESS_LEADER(p, sessp)   ((sessp)->s_leader == (p))
+#pragma mark -
+#pragma mark Process Locks
 
-//#define PIDHASH(pid)    (&pidhashtbl[(pid) & pidhash])
-//extern LIST_HEAD(pidhashhead, proc) * pidhashtbl;
-//extern u_long pidhash;
-
-//#define PGRPHASH(pgid)  (&pgrphashtbl[(pgid) & pgrphash])
-//extern LIST_HEAD(pgrphashhead, pgrp) * pgrphashtbl;
-//extern u_long pgrphash;
-
-//#define SESSHASH(sessid) (&sesshashtbl[(sessid) & sesshash])
-//extern LIST_HEAD(sesshashhead, session) * sesshashtbl;
-//extern u_long sesshash;
-
-//LIST_HEAD(proclist, proc);
-//extern struct struct proclist *p_allproc;
-//extern struct proclist *p_zombproc;
+extern void (*_proc_lock)(struct proc *);
+extern void (*_proc_unlock)(struct proc *);
+extern void (*_proc_spinlock)(struct proc *);
+extern void (*_proc_spinunlock)(struct proc *);
+extern void (*_proc_list_lock)(void);
+extern void (*_proc_list_unlock)(void);
+extern void (*_proc_fdlock)(struct proc *);
+extern void (*_proc_fdlock_spin)(struct proc *);
+extern void (*_proc_fdunlock)(struct proc *);
+extern void (*_proc_fdlock_assert)(proc_t p, int assertflags);
 
 #pragma mark -
 #pragma mark Process Iteration
@@ -61,6 +60,9 @@ typedef int (*proc_iterate_fn_t)(proc_t, void *);
 #define PROC_CLAIMED            (2)
 #define PROC_CLAIMED_DONE       (3)
 
+#pragma mark -
+#pragma mark Process Group Iteration
+
 /*
  * pgrp_iterate walks the provided process group, calling `filterfn` with
  * `filterarg` for each process.  For processes where `filterfn` returned
@@ -73,7 +75,7 @@ typedef int (*proc_iterate_fn_t)(proc_t, void *);
  */
 #define PGRP_DROPREF (1)
 
-//extern void pgrp_iterate(struct pgrp *pgrp, unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+extern void (*_pgrp_iterate)(struct pgrp *pgrp, unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
 
 /*
  * proc_iterate walks the `allproc` and/or `zombproc` lists, calling `filterfn`
@@ -88,6 +90,64 @@ typedef int (*proc_iterate_fn_t)(proc_t, void *);
 #define PROC_ZOMBPROCLIST       (1U << 1) /* walk the zombie list */
 #define PROC_NOWAITTRANS        (1U << 2) /* do not wait for transitions (checkdirs only) */
 
-//extern void proc_iterate(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+extern void (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+
+#pragma mark -
+#pragma mark File Descriptor Table Iteration (sys/filedesc.h)
+
+extern struct fdt_iterator (*_fdt_next)(proc_t p, int fd, bool only_settled);
+
+#define _fdt_foreach(fp, p) \
+    for (struct fdt_iterator __fdt_it = _fdt_next(p, -1, true); \
+        ((fp) = __fdt_it.fdti_fp); \
+        __fdt_it = _fdt_next(p, __fdt_it.fdti_fd, true))
+
+#pragma mark -
+#pragma mark Private KPI Symbols (sys/proc_internal.h)
+
+extern struct pgrp * (*_proc_pgrp)(proc_t);
+extern struct pgrp * (*_tty_pgrp)(struct tty * tp);
+extern struct session * (*_proc_session)(proc_t p);
+
+#pragma mark -
+#pragma mark Private KPI Symbols (sys/proc.h)
+
+extern task_t (*_proc_task)(proc_t proc);
+extern uint32_t (*_proc_getuid)(proc_t);
+extern uint32_t (*_proc_getgid)(proc_t);
+
+#pragma mark -
+#pragma mark Missing Public KPI Symbols (sys/proc.h)
+
+/* returns the 32-byte name if it exists, otherwise returns the 16-byte name */
+extern char * (*_proc_best_name)(proc_t p);
+
+/*!
+ *  @function proc_gettty
+ *  @abstract Copies the associated tty vnode for a given process if it exists. The caller needs to decrement the iocount of the vnode.
+ *  @return 0 on success. ENOENT if the process has no associated TTY. EINVAL if arguments are NULL or vnode_getwithvid fails.
+ */
+extern int (*_proc_gettty)(proc_t p, vnode_t *vp);
+
+/* this routine populates the associated tty device for a given process if it exists, returns 0 on success or else returns EINVAL */
+extern int (*_proc_gettty_dev)(proc_t p, dev_t *dev);
+
+#pragma mark -
+#pragma mark Private KPI Symbols (kern/ipc_tt.h)
+
+/* Convert from a port to a thread */
+extern thread_t (*_convert_port_to_thread)(ipc_port_t port);
+
+#pragma mark -
+#pragma mark Missing Public KPI Symbols (mach/task.h)
+
+/* Routine task_threads */
+extern kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
+
+#pragma mark -
+#pragma mark Missing Public KPI Symbols (mach/thread_act.h)
+
+/* Routine thread_info */
+extern kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
 
 #endif /* procfs_internal_h */

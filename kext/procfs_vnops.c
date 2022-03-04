@@ -23,6 +23,8 @@
 #include <miscfs/procfs/procfs_node.h>
 #include <miscfs/procfs/procfs_subr.h>
 
+#include "procfs_internal.h"
+
 #pragma mark -
 #pragma mark Local Definitions
 
@@ -266,10 +268,10 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                     // Check whether it is a valid file descriptor.
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
-                        proc_fdlock_spin(target_proc);
-                        struct fdt_iterator iter = fdt_next(target_proc, id - 1, true);
+                        _proc_fdlock_spin(target_proc);
+                        struct fdt_iterator iter = _fdt_next(target_proc, id - 1, true);
                         valid = iter.fdti_fd == id;
-                        proc_fdunlock(target_proc);
+                        _proc_fdunlock(target_proc);
                     }
                 }
 
@@ -343,7 +345,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                             uint64_t *thread_ids;
                             int thread_count;
                             
-                            task_t task = proc_task(target_proc);
+                            task_t task = _proc_task(target_proc);
                             int result =  procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
                             if (result == KERN_SUCCESS) {
                                 boolean_t found = FALSE;
@@ -591,7 +593,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 // until we fill up the space or run out of threads.
                 proc_t p = proc_find(pid);
                 if (p != NULL) {
-                    task_t task = proc_task(p);
+                    task_t task = _proc_task(p);
                     int thread_count;
                     uint64_t *thread_ids;
                     error = procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
@@ -637,12 +639,12 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 if (p != NULL) {
                     char fd_buffer[PROCESS_NAME_SIZE];
 
-                    proc_fdlock_spin(p);
+                    _proc_fdlock_spin(p);
 
                     int i = 0;
                     struct fileproc *iter;
-                    fdt_foreach(iter, p) {
-                        proc_fdunlock(p);
+                    _fdt_foreach(iter, p) {
+                        _proc_fdunlock(p);
 
                         snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
                         int size = procfs_calc_dirent_size(fd_buffer);
@@ -658,8 +660,11 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         nextpos += size;
                         i++;
 
-                        proc_fdlock_spin(p);
+                        _proc_fdlock_spin(p);
                     }
+
+                    _proc_fdunlock(p);
+
                     proc_rele(p);
                     if (p != NULL) {
                         p = NULL;

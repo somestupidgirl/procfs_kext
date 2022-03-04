@@ -18,8 +18,11 @@
 
 #include <vm/vm_kern.h>
 
-#include <libkext/libkext.h>
 #include <miscfs/procfs/procfs.h>
+
+#include <libkext/libkext.h>
+
+#include "procfs_symbols.h"
 
 #pragma mark -
 #pragma mark External References
@@ -50,6 +53,12 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     ret = libkext_vma_uuid(ki->address, uuid);
     kassert(ret == 0);
     LOG_DBG("kext executable uuid %s \n", uuid);
+
+    ret = resolve_symbols();
+    if (ret != KERN_SUCCESS) {
+        LOG_ERR("resolve_symbols() failed errno:  %d \n", ret);
+        goto out_error;
+    }
 
     ret = procfs_init(vfsc);
     if (ret != 0) {
