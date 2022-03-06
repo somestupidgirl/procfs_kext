@@ -159,5 +159,15 @@ extern void *kern_os_malloc(size_t);
 extern void kern_os_free(void *);
 extern void *kern_os_realloc(void *, size_t);
 
+extern int isupper(char c);
+extern int islower(char c);
+extern int isspace(char c);
+extern int isdigit(char c);
+extern int isxdigit(char c);
+extern int isalpha(char c);
+extern int isalnum(char c);
+extern int toupper(char c);
+extern int tolower(char c);
+
 #endif /* LIBKEXT_H */
 
