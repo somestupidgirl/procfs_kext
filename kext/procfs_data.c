@@ -136,7 +136,6 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    vnode_t vp;
     int error = 0;
     pid_t session_id = (pid_t)0;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
@@ -146,10 +145,11 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         if (pgrp != NULL) {
             // Get the controlling terminal vnode from the process session,
             // if it has one.
-            // There doesn't seem to be a similar functcion for getting the
-            // process group (pgrp) session so let's try the proc session instead
-            // orig: struct session *sp = pgrp->pg_session;
-            struct session *sp = _proc_session(p);
+#if 0
+            struct session *sp = pgrp->pg_session;
+#endif
+            vnode_t *vp; // FIXME
+            struct session *sp; // FIXME
             if (sp != NULL) {
                 vnode_t cttyvp;
                 cttyvp = _proc_gettty(sp, vp);
