@@ -46,6 +46,9 @@ SYM_INIT(proc_getgid);
 // Process Task
 SYM_INIT(proc_task);
 
+// Proces Info
+SYM_INIT(fill_socketinfo);
+
 // File Descriptor Table
 SYM_INIT(fdt_next);
 
@@ -53,6 +56,9 @@ SYM_INIT(fdt_next);
 SYM_INIT(convert_port_to_thread);
 SYM_INIT(task_threads);
 SYM_INIT(thread_info);
+
+// Vnode
+SYM_INIT(vn_stat);
 
 // Vnode Operations
 SYM_INIT(VNOP_LOOKUP);
@@ -139,6 +145,9 @@ resolve_symbols()
 	// Process Task
 	SYM_LOOKUP(proc_task);
 
+	// Proces Info
+	SYM_LOOKUP(fill_socketinfo);
+
 	// File Descriptor
 	SYM_LOOKUP(fdt_next);
 
@@ -146,6 +155,9 @@ resolve_symbols()
 	SYM_LOOKUP(convert_port_to_thread);
 	SYM_LOOKUP(task_threads);
 	SYM_LOOKUP(thread_info);
+
+	// Vnode
+	SYM_LOOKUP(vn_stat);
 
 	// Vnode Operations
 	SYM_LOOKUP(VNOP_LOOKUP);
