@@ -82,6 +82,7 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			-Xlinker -kext \
 			-Xlinker -object_path_lto main.o \
 			-Xlinker -object_path_lto procfs_data.o \
+			-Xlinker -object_path_lto procfs_info.o \
 			-Xlinker -object_path_lto procfs_node.o \
 			-Xlinker -object_path_lto procfs_structure.o \
 			-Xlinker -object_path_lto procfs_subr.o \
@@ -98,7 +99,8 @@ LIBS+=		-L../MacKernelSDK/Library/x86_64 \
 LIBS+=		-lcc_kext -lkmod -lkext -lklookup
 
 # kextlibs flags
-KLFLAGS+=	-xml -c -undef-symbols -unsupported
+KLFLAGS+=	-xml -c -undef-symbols
+#-unsupported
 
 # targets
 

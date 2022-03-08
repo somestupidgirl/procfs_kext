@@ -29,8 +29,11 @@ SYM_INIT(proc_pgrp);
 SYM_INIT(tty_pgrp);
 SYM_INIT(proc_session);
 
+// UID/GID
+SYM_INIT(proc_issetugid);
+
 // Process Name
-SYM_INIT(proc_best_name);
+SYM_INIT(proc_name);
 
 // Process TTY
 SYM_INIT(proc_gettty);
@@ -39,15 +42,16 @@ SYM_INIT(proc_gettty_dev);
 // Process Start Time
 SYM_INIT(proc_starttime);
 
-// Process UID/GID
-SYM_INIT(proc_getuid);
-SYM_INIT(proc_getgid);
-
 // Process Task
 SYM_INIT(proc_task);
 
 // Proces Info
 SYM_INIT(fill_socketinfo);
+SYM_INIT(fill_taskprocinfo);
+SYM_INIT(fill_taskthreadinfo);
+
+// Process Misc
+SYM_INIT(proc_get_darwinbgstate);
 
 // File Descriptor Table
 SYM_INIT(fdt_next);
@@ -128,8 +132,11 @@ resolve_symbols()
 	SYM_LOOKUP(tty_pgrp);
 	SYM_LOOKUP(proc_session);
 
+	// UID/GID
+	SYM_LOOKUP(proc_issetugid);
+
 	// Process Name
-	SYM_LOOKUP(proc_best_name);
+	SYM_LOOKUP(proc_name);
 
 	// Process TTY
 	SYM_LOOKUP(proc_gettty);
@@ -138,15 +145,16 @@ resolve_symbols()
 	// Process Start Time
 	SYM_LOOKUP(proc_starttime);
 
-	// Process UID/GID
-	SYM_LOOKUP(proc_getuid);
-	SYM_LOOKUP(proc_getgid);
-
 	// Process Task
 	SYM_LOOKUP(proc_task);
 
 	// Proces Info
 	SYM_LOOKUP(fill_socketinfo);
+	SYM_LOOKUP(fill_taskprocinfo);
+	SYM_LOOKUP(fill_taskthreadinfo);
+
+	// Process Misc
+	SYM_LOOKUP(proc_get_darwinbgstate);
 
 	// File Descriptor
 	SYM_LOOKUP(fdt_next);

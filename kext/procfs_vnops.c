@@ -14,6 +14,7 @@
 #include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
+#include <sys/proc_internal.h>
 #include <sys/stat.h>
 #include <sys/vnode.h>
 #include <sys/vm.h>
@@ -842,10 +843,8 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     // same value, since there is really no way to track them.
     struct timespec create_time;
     if (p != NULL) {
-#if 0
         create_time.tv_sec = p->p_start.tv_sec;
         create_time.tv_nsec = p->p_start.tv_usec * 1000;
-#endif
     } else {
         create_time.tv_sec = pmp->pmnt_mount_time.tv_sec;
         create_time.tv_nsec = pmp->pmnt_mount_time.tv_nsec;
@@ -873,6 +872,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
             p = NULL;
         }
     }
+    kauth_cred_unref(&proc_cred);
     VATTR_RETURN(vap, va_uid, uid);
     VATTR_RETURN(vap, va_gid, gid);
 
@@ -989,7 +989,6 @@ procfs_construct_process_dir_name(proc_t p, char *buffer)
 {
     pid_t pid = proc_pid(p);
     int len = snprintf(buffer, PROCESS_NAME_SIZE, "%d ", pid);
-    char comm = _proc_best_name(p);
-    strlcpy(buffer + len, comm, MAXCOMLEN + 1);
+    _proc_name(pid, buffer + len, MAXCOMLEN + 1);
 }
 

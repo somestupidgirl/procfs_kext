@@ -2,10 +2,17 @@
 #define procfs_internal_h
 
 #include <sys/filedesc.h>
+#include <sys/vnode_if.h>
+#include <sys/proc_info.h>
 
 struct proc;
 struct pgrp;
 struct session;
+struct fileproc;
+struct vnode_attr;
+struct tty;
+struct proc_threadinfo_internal;
+struct proc_taskinfo_internal;
 
 #pragma mark -
 #pragma mark Process NULL Pointers
@@ -13,6 +20,8 @@ struct session;
 #define PROC_NULL               (struct proc *)NULL
 #define PGRP_NULL               (struct pgrp *)NULL
 #define SESSION_NULL            (struct session *)NULL
+#define FILEPROC_NULL           (struct fileproc *)0
+#define TASK_NULL               ((task_t) NULL)
 
 #pragma mark -
 #pragma mark PID Definitions
@@ -110,18 +119,26 @@ extern struct pgrp * (*_tty_pgrp)(struct tty * tp);
 extern struct session * (*_proc_session)(proc_t p);
 
 #pragma mark -
+#pragma mark Private KPI Symbols (sys/proc_info.h)
+extern int (*_fill_socketinfo)(socket_t so, struct socket_info *si);
+extern int (*_fill_taskprocinfo)(task_t task, struct proc_taskinfo_internal * ptinfo);
+extern int (*_fill_taskthreadinfo)(task_t task, uint64_t thaddr, bool thuniqueid, struct proc_threadinfo_internal * ptinfo, void * vpp, int *vidp);
+
+#pragma mark -
 #pragma mark Private KPI Symbols (sys/proc.h)
 
 extern int (*_proc_starttime)(proc_t p, struct timeval *tv);
 extern task_t (*_proc_task)(proc_t proc);
-extern uint32_t (*_proc_getuid)(proc_t);
-extern uint32_t (*_proc_getgid)(proc_t);
 
 #pragma mark -
 #pragma mark Missing Public KPI Symbols (sys/proc.h)
+// These should be available normally but if used the compiler automatically links the private kpi
+
+/* returns 1 if the process is tainted by uid or gid changes,e else 0 */
+extern int (*_proc_issetugid)(proc_t p);
 
 /* returns the 32-byte name if it exists, otherwise returns the 16-byte name */
-extern char * (*_proc_best_name)(proc_t p);
+extern void (*_proc_name)(int pid, char * buf, int size);
 
 /*!
  *  @function proc_gettty
@@ -140,6 +157,10 @@ extern int (*_proc_gettty_dev)(proc_t p, dev_t *dev);
 extern thread_t (*_convert_port_to_thread)(ipc_port_t port);
 
 #pragma mark -
+#pragma mark Other proc
+extern int (*_proc_get_darwinbgstate)(task_t task, uint32_t * flagsp);
+
+#pragma mark -
 #pragma mark Missing Public KPI Symbols (mach/task.h)
 
 /* Routine task_threads */
@@ -150,6 +171,11 @@ extern kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_o
 
 /* Routine thread_info */
 extern kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
+
+#pragma mark -
+#pragma mark Private KPI Symbols (sys/vnode.h)
+
+extern int (*_vn_stat)(struct vnode *vp, void * sb, kauth_filesec_t *xsec, int isstat64, int needsrealdev, vfs_context_t ctx);
 
 #pragma mark -
 #pragma mark Private KPI Symbols (sys/vnode_if.h)

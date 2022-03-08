@@ -16,8 +16,9 @@
 
 #include <sys/file.h>
 #include <sys/filedesc.h>
-#include <sys/proc_info.h>
 #include <sys/proc.h>
+#include <sys/proc_info.h>
+#include <sys/proc_internal.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/vnode.h>
@@ -28,6 +29,7 @@
 #include <miscfs/procfs/procfs_structure.h>
 #include <miscfs/procfs/procfs_subr.h>
 
+#include "procfs_info.h"
 #include "procfs_internal.h"
 
 #pragma mark -
@@ -101,28 +103,24 @@ procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
  * owning process's session id.
  */
 int
-procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
-{
+procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error;
+    pid_t session_id = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
-        pid_t session_id = (pid_t)0;
         _proc_list_lock();
-        struct pgrp * pgrp = _proc_pgrp(p);
+        struct pgrp *pgrp = p->p_pgrp;
         if (pgrp != NULL) {
-            session_id = proc_sessionid(p);
-            if (session_id < 0) {
-                session_id = 0;
+            struct session *sp = pgrp->pg_session;
+            if (sp != NULL) {
+                session_id = sp->s_sid;
             }
         }
         _proc_list_unlock();
 
         error = procfs_copy_data((char *)&session_id, sizeof(session_id), uio);
         proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
-        }
     } else {
         error = ESRCH;
     }
@@ -137,22 +135,18 @@ int
 procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     int error = 0;
-    pid_t session_id = (pid_t)0;
+
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         _proc_list_lock();
-        struct pgrp * pgrp = _proc_pgrp(p);
+        struct pgrp * pgrp = p->p_pgrp;
         if (pgrp != NULL) {
             // Get the controlling terminal vnode from the process session,
             // if it has one.
-#if 0
             struct session *sp = pgrp->pg_session;
-#endif
-            vnode_t *vp; // FIXME
-            struct session *sp; // FIXME
             if (sp != NULL) {
                 vnode_t cttyvp;
-                cttyvp = _proc_gettty(sp, vp);
+                cttyvp = sp->s_ttyvp;
                 if (cttyvp != NULL) {
                     // Convert the vnode to a full path.
                     int name_len = MAXPATHLEN;
@@ -187,15 +181,13 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
-        // Shoud be proc_bsdshortinfo on modern macOS, not proc_bsdinfo
-        struct proc_bsdshortinfo info;
+        struct proc_bsdshortinfo info; // Mac OS X >= 10.7 has proc_bsdshortinfo
 
         // Get the BSD-centric process info and copy it out.
-        //error = proc_pidshortbsdinfo(p, &info, FALSE);
-        //if (error == 0) {
-        //    error = procfs_copy_data((char *)&info, sizeof(info), uio);
-        //}
-        error = procfs_copy_data((char *)&info, sizeof(info), uio);
+        error = procfs_proc_pidshortbsdinfo(p, &info, 0);
+        if (error == 0) {
+            error = procfs_copy_data((char *)&info, sizeof(info), uio);
+        }
         proc_rele(p);
         if (p != NULL) {
             p = NULL;
@@ -222,11 +214,10 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         struct proc_taskinfo info;
 
         // Get the task info and copy it out.
-        //error = proc_pidtaskinfo(p, &info);
-        //if (error == 0) {
-        //    error = procfs_copy_data((char *)&info, sizeof(info), uio);
-        //}
-        error = procfs_copy_data((char *)&info, sizeof(info), uio);
+        error = procfs_proc_pidtaskinfo(p, &info);
+        if (error == 0) {
+            error = procfs_copy_data((char *)&info, sizeof(info), uio);
+        }
         proc_rele(p);
         if (p != NULL) {
             p = NULL;
@@ -253,11 +244,10 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
         uint64_t threadid = pnp->node_id.nodeid_objectid;
         
         // Get the task info and copy it out.
-        //error  = proc_pidthreadinfo(p, threadid, TRUE, &info);
-        //if (error == 0) {
-        //    error = procfs_copy_data((char *)&info, sizeof(info), uio);
-        //}
-        error = procfs_copy_data((char *)&info, sizeof(info), uio);
+        error  = procfs_proc_pidthreadinfo(p, threadid, TRUE, &info);
+        if (error == 0) {
+            error = procfs_copy_data((char *)&info, sizeof(info), uio);
+        }
         proc_rele(p);
         if (p != NULL) {
             p = NULL;
@@ -269,48 +259,6 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
 
 #pragma mark -
 #pragma mark File Node Data
-
-void
-procfs_fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
-{
-    fi->fi_openflags = 0; // todo
-    fi->fi_status = 0; // todo
-    fi->fi_offset = 0; // todo
-    fi->fi_type = 0; // todo
-    fi->fi_guardflags = 0; // todo
-}
-
-#include <libklookup/klookup.h>
-struct mount * _dead_mountp;
-
-int
-procfs_fill_vnodeinfo(vnode_t vp, struct vnode_info *vi, struct vnode_attr *ap)
-{
-    _dead_mountp = SymbolLookup("_dead_mountp");
-
-    mount_t mp;
-    vfs_context_t ctx;
-    struct stat64 *sb;
-
-    //mp = vfs_mp_to_procfs_mp(mp);
-    bzero(&sb, sizeof(struct stat64));
-    ctx = vfs_context_create((vfs_context_t)0);
-
-    struct vinfo_stat *stat = _vn_stat(vp, sb, NULL, 1, 0, ctx);
-    vi->vi_stat = *stat;
-    (void)vfs_context_rele(ctx);
-
-    vi->vi_type = vnode_vtype(vp);
-    vi->vi_pad = 0; // not sure what this is yet
-
-    if (vnode_mount(vp) != _dead_mountp) {
-        //vi->vi_fsid = vnode_mount(vp)->vfs_statfs(mp).vnfsidp;
-        //vi->vi_fsid = vp->v_mount->mnt_vfsstat.f_fsid;
-    } else {
-        vi->vi_fsid.val[0] = 0;
-        vi->vi_fsid.val[1] = 0;
-    }
-}
 
 /*
  * Reads the data associated with a file descriptor node. The data is 
@@ -327,7 +275,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx) {
     int error = 0;
     proc_t p = proc_find(pid);
     if (p != NULL) {
-        struct fileproc *fp;
+        struct fileproc *fp = NULL;
         vnode_t vp;
         uint32_t vid;
         
@@ -385,7 +333,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     int error = 0;
     proc_t p = proc_find(pid);
     if (p != NULL) {
-        struct fileproc *fp;
+        struct fileproc *fp = NULL;
         socket_t so;
 
         // Get the socket and fileproc structures for the file. If the
@@ -477,7 +425,7 @@ procfs_process_node_size(procfsnode_t *pnp, kauth_cred_t creds)
     proc_t p = proc_find(pid);
     if (p != NULL) {
         if (size == 0) {
-            size += procfs_get_process_count(creds);
+            size += sizeof(procfs_get_process_count(creds));
         }
         proc_rele(p);
         if (p != NULL) {
@@ -498,13 +446,13 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
     // in the owning process. Because of the way the file system is
     // structured, the pid of the owning process is available in the
     // node_id of the procfs node.
-    int size = 0;
+    size_t size = 0;
     pid_t pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != NULL) {
         task_t task = _proc_task(p);
         if (task != NULL) {
-            size += procfs_get_task_thread_count(task);
+            size += sizeof(procfs_get_task_thread_count(task));
         }
         proc_rele(p);
         if (p != NULL) {

@@ -137,6 +137,18 @@ struct proc_archinfo {
 #define PROC_FLAG_PA_SUSP       0x1000  /* The process is currently suspended due to resource starvation */
 #define PROC_FLAG_PSUGID        0x2000   /* process has set privileges since last exec */
 #define PROC_FLAG_EXEC          0x4000   /* process has called exec  */
+/* private */
+#define PROC_FLAG_DARWINBG      0x8000  /* process in darwin background */
+#define PROC_FLAG_EXT_DARWINBG  0x10000 /* process in darwin background - external enforcement */
+#define PROC_FLAG_IOS_APPLEDAEMON 0x20000       /* Process is apple daemon  */
+#define PROC_FLAG_DELAYIDLESLEEP 0x40000        /* Process is marked to delay idle sleep on disk IO */
+#define PROC_FLAG_IOS_IMPPROMOTION 0x80000      /* Process is daemon which receives importane donation  */
+#define PROC_FLAG_ADAPTIVE              0x100000         /* Process is adaptive */
+#define PROC_FLAG_ADAPTIVE_IMPORTANT    0x200000         /* Process is adaptive, and is currently important */
+#define PROC_FLAG_IMPORTANCE_DONOR   0x400000 /* Process is marked as an importance donor */
+#define PROC_FLAG_SUPPRESSED         0x800000 /* Process is suppressed */
+#define PROC_FLAG_APPLICATION 0x1000000 /* Process is an application */
+#define PROC_FLAG_IOS_APPLICATION PROC_FLAG_APPLICATION /* Process is an application */
 
 struct proc_taskinfo {
 	uint64_t                pti_virtual_size;       /* virtual memory size (bytes) */
