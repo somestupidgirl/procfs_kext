@@ -23,13 +23,13 @@
  * in any given instance of the file system (i.e. per mount).
  */
 typedef struct {
-    pid_t                   nodeid_pid;         // The owning process, or PRNODE_NO_PID if not process-linked
+    int                     nodeid_pid;         // The owning process, or PRNODE_NO_PID if not process-linked
     uint64_t                nodeid_objectid;    // The owning object within the process, or PRNODE_NO_OBJECTID if none.
     procfs_base_node_id_t   nodeid_base_id;     // The id of the structure node to which this node is linked.
 } procfsnode_id_t;
 
 // Special values for the nodeid_pid and nodeid_objectid fields.
-#define PRNODE_NO_PID       ((pid_t)-1)
+#define PRNODE_NO_PID       ((int)-1)
 #define PRNODE_NO_OBJECTID  ((uint64_t)0)
 
 /*

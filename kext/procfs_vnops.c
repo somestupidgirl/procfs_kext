@@ -119,7 +119,6 @@ struct vnodeopv_desc procfs_vnodeop_opv_desc = {
 // there is only one descriptor.
 struct vnodeopv_desc *procfs_vnodeops_list[1] = {
     &procfs_vnodeop_opv_desc,
-    NULL
 };
 
 #pragma mark -
@@ -155,7 +154,7 @@ int procfs_vnop_inactive(__unused struct vnop_inactive_args *ap)
 }
 
 STATIC
-int procfs_vnop_default(struct vnop_generic_args *arg)
+int procfs_vnop_default(__unused struct vnop_generic_args *arg)
 {
     return 0;
 }

@@ -33,11 +33,6 @@
 #include "procfs_internal.h"
 
 #pragma mark -
-#pragma mark Local Function Prototypes
-
-STATIC int procfs_copy_data(char *data, int data_len, uio_t uio);
-
-#pragma mark -
 #pragma mark Process and Thread Node Data
 
 /*
@@ -47,7 +42,7 @@ STATIC int procfs_copy_data(char *data, int data_len, uio_t uio);
 int
 procfs_read_pid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    pid_t pid = pnp->node_id.nodeid_pid;
+    int pid = pnp->node_id.nodeid_pid;
     int error = procfs_copy_data((char *)&pid, sizeof(pid), uio);
     return error;
 }
@@ -369,7 +364,7 @@ int
 procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx) {
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
-    pid_t pid = pnp->node_id.nodeid_pid;
+    int pid = pnp->node_id.nodeid_pid;
     int fd = (int)pnp->node_id.nodeid_objectid;
     
     int error = 0;
@@ -427,7 +422,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
 {
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
-    pid_t pid = pnp->node_id.nodeid_pid;
+    int pid = pnp->node_id.nodeid_pid;
     int fd = (int)pnp->node_id.nodeid_objectid;
 
     int error = 0;
@@ -521,7 +516,7 @@ procfs_process_node_size(procfsnode_t *pnp, kauth_cred_t creds)
 {
     // Nodes of this type contribute a size of 1 for each visible process.
     size_t size = 0;
-    pid_t pid = pnp->node_id.nodeid_pid;
+    int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != NULL) {
         if (size == 0) {
@@ -547,7 +542,7 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
     // structured, the pid of the owning process is available in the
     // node_id of the procfs node.
     size_t size = 0;
-    pid_t pid = pnp->node_id.nodeid_pid;
+    int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != NULL) {
         task_t task = _proc_task(p);
@@ -569,7 +564,7 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 size_t
 procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 {
-    pid_t pid = pnp->node_id.nodeid_pid;
+    int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
 
     if (p == NULL) {
