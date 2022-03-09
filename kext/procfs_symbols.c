@@ -49,6 +49,7 @@ SYM_INIT(proc_task);
 SYM_INIT(fill_socketinfo);
 SYM_INIT(fill_taskprocinfo);
 SYM_INIT(fill_taskthreadinfo);
+SYM_INIT(proc_fdlist);
 
 // Process Misc
 SYM_INIT(proc_get_darwinbgstate);
@@ -152,6 +153,7 @@ resolve_symbols()
 	SYM_LOOKUP(fill_socketinfo);
 	SYM_LOOKUP(fill_taskprocinfo);
 	SYM_LOOKUP(fill_taskthreadinfo);
+	SYM_LOOKUP(proc_fdlist);
 
 	// Process Misc
 	SYM_LOOKUP(proc_get_darwinbgstate);

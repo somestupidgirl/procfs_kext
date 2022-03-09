@@ -151,14 +151,19 @@ extern int (*_proc_gettty)(proc_t p, vnode_t *vp);
 extern int (*_proc_gettty_dev)(proc_t p, dev_t *dev);
 
 #pragma mark -
-#pragma mark Private KPI Symbols (kern/ipc_tt.h)
+#pragma mark Private KPI Symbols (sys/proc_info.h)
 
-/* Convert from a port to a thread */
-extern thread_t (*_convert_port_to_thread)(ipc_port_t port);
+extern int (*_proc_fdlist)(proc_t p, struct proc_fdinfo *buf, size_t *count);
 
 #pragma mark -
 #pragma mark Other proc
 extern int (*_proc_get_darwinbgstate)(task_t task, uint32_t * flagsp);
+
+#pragma mark -
+#pragma mark Private KPI Symbols (kern/ipc_tt.h)
+
+/* Convert from a port to a thread */
+extern thread_t (*_convert_port_to_thread)(ipc_port_t port);
 
 #pragma mark -
 #pragma mark Missing Public KPI Symbols (mach/task.h)
