@@ -11,7 +11,17 @@
 
 #include <miscfs/procfs/procfs_node.h>
 
+/*
+ * Copies data from the local buffer "data" into the area described
+ * by a uio structure. The first byte of "data" is assumed to 
+ * correspond to a zero offset, so if the uio structure has its
+ * uio_offset set to N, the first byte of data that will be copied
+ * is at data[N].
+ */
+extern int procfs_copy_data(char *data, int data_len, uio_t uio);
+
 // Functions that copy procfsnode_t data to a buffer described by a uio_t structure.
+extern int procfs_read_cmdline_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_pid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_ppid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);

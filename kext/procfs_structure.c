@@ -140,6 +140,7 @@ procfs_structure_init(void)
 
         // Files that returns the process's pid, parent pid, process group id,
         // session id and controlling terminal name.
+        add_file(one_proc_dir, "cmdline", next_node_id++, PSN_FLAG_PROCESS, sizeof(pid_t), NULL, procfs_read_cmdline_data);
         add_file(one_proc_dir, "pid", next_node_id++, PSN_FLAG_PROCESS, sizeof(pid_t), NULL, procfs_read_pid_data);
         add_file(one_proc_dir, "ppid", next_node_id++, PSN_FLAG_PROCESS, sizeof(pid_t), NULL, procfs_read_ppid_data);
         add_file(one_proc_dir, "pgid", next_node_id++, PSN_FLAG_PROCESS, sizeof(pid_t), NULL, procfs_read_pgid_data);

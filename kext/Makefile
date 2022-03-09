@@ -81,6 +81,7 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			-nostdlib \
 			-Xlinker -kext \
 			-Xlinker -object_path_lto main.o \
+			-Xlinker -object_path_lto procfs_cmdline.o \
 			-Xlinker -object_path_lto procfs_data.o \
 			-Xlinker -object_path_lto procfs_info.o \
 			-Xlinker -object_path_lto procfs_node.o \

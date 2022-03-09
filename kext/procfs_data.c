@@ -600,7 +600,7 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
  * uio_offset set to N, the first byte of data that will be copied
  * is at data[N].
  */
-STATIC int
+int
 procfs_copy_data(char *data, int data_len, uio_t uio)
 {
     int error = 0;
