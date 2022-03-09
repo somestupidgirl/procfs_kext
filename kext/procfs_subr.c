@@ -42,7 +42,7 @@ procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp)
     procfs_structure_node_t *snode = procfs_node->node_structure_node;
     procfs_structure_node_type_t node_type = snode->psn_node_type;
 
-    pid_t pid = procfsnode_to_pid(procfs_node);
+    int pid = procfsnode_to_pid(procfs_node);
     proc_t p = pid == PRNODE_NO_PID ? NULL : proc_find(pid); // Process for the vnode, if there is one.
     if (p == NULL && procfs_node_type_has_pid(node_type)) {
         // Process must have gone -- return an error
@@ -87,7 +87,7 @@ procfs_get_node_fileid(procfsnode_t *pnp)
  * id. It should, however, be good enough.
  */
 uint64_t
-procfs_get_fileid(pid_t pid, uint64_t objectid, procfs_base_node_id_t base_id)
+procfs_get_fileid(int pid, uint64_t objectid, procfs_base_node_id_t base_id)
 {
     uint64_t id = base_id;
     if (pid != PRNODE_NO_PID) {
@@ -127,7 +127,7 @@ struct procfs_pidlist_data
     int num_procs;
     int max_procs;
     kauth_cred_t creds;     // Credential to use for access check, or NULL
-    pid_t *pids;
+    int *pids;
 };
 
 /*

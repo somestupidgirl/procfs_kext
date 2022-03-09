@@ -239,7 +239,7 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
         uint64_t threadid = pnp->node_id.nodeid_objectid;
         
         // Get the task info and copy it out.
-        error  = procfs_proc_pidthreadinfo(p, threadid, TRUE, &info);
+        error = procfs_proc_pidthreadinfo(p, threadid, TRUE, &info);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         }
@@ -261,7 +261,8 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
  * vnode and the file itself.
  */
 int
-procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx) {
+procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
+{
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     int pid = pnp->node_id.nodeid_pid;
@@ -270,7 +271,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx) {
     int error = 0;
     proc_t p = proc_find(pid);
     if (p != NULL) {
-        struct fileproc *fp = NULL;
+        struct fileproc *fp;
         vnode_t vp;
         uint32_t vid;
         
@@ -285,9 +286,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx) {
                 // a vnode_fdinfowithpath structure.
                 struct vnode_fdinfowithpath info;
                 bzero(&info, sizeof(info));
-                //fill_fileinfo(fp, p, fd, &info.pfi);
                 procfs_fill_fileinfo(fp, p, fd, &info.pfi);
-                //error = fill_vnodeinfo(vp, &info.pvip.vip_vi);
                 error = procfs_fill_vnodeinfo(vp, &info.pvip.vip_vi, ctx);
                 // If all is well, add in the file path and copy the data
                 // out to user space.
@@ -303,7 +302,6 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx) {
             }
             
             // Release the hold on the fileproc structure
-            //fp_drop(p, fd, fp, FALSE); // can't be resolved
             file_drop(fd);
         }
         proc_rele(p);
@@ -326,9 +324,10 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     int fd = (int)pnp->node_id.nodeid_objectid;
 
     int error = 0;
+
     proc_t p = proc_find(pid);
     if (p != NULL) {
-        struct fileproc *fp = NULL;
+        struct fileproc *fp;
         socket_t so;
 
         // Get the socket and fileproc structures for the file. If the
@@ -345,7 +344,6 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
             }
 
             // Release the hold on the fileproc structure
-            //fp_drop(p, fd, fp, FALSE); // can't be resolved
             file_drop(fd);
         }
         proc_rele(p);
@@ -355,6 +353,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     } else {
         error = ESRCH;
     }
+
     return error;
 }
 

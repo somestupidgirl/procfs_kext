@@ -86,7 +86,7 @@ vnode_to_procfsnode(vnode_t vp)
 #pragma mark Inline Convenience Functions
 
 // Gets the pid_t for the process corresponding to a procfsnode_t
-static inline pid_t
+static inline int
 procfsnode_to_pid(procfsnode_t *procfsnode)
 {
     return procfsnode->node_id.nodeid_pid;

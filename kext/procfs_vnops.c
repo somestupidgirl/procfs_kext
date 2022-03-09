@@ -895,13 +895,13 @@ procfs_vnop_readlink(struct vnop_readlink_args *ap)
         // and copy it out to the caller's buffer.
         char pid_buffer[PROCESS_NAME_SIZE];
         proc_t p = current_proc();
-        pid_t pid = proc_pid(p);
+        int pid = proc_pid(p);
         snprintf(pid_buffer, PROCESS_NAME_SIZE, "%d", pid);
         error = uiomove(pid_buffer, (int)strlen(pid_buffer), ap->a_uio);
     } else if (snode->psn_node_type == PROCFS_PROCNAME_DIR) {
         // A link from the process name to the process id. Create a target
         // of the form "../123" and copy it out to the caller's buffer.
-        pid_t pid = pnp->node_id.nodeid_pid;
+        int pid = pnp->node_id.nodeid_pid;
         char pid_buffer[PROCESS_NAME_SIZE];
         snprintf(pid_buffer, PROCESS_NAME_SIZE, "../%d", pid);
         error = uiomove(pid_buffer, (int)strlen(pid_buffer), ap->a_uio);
@@ -986,7 +986,7 @@ procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp, vnode_t *v
 STATIC void
 procfs_construct_process_dir_name(proc_t p, char *buffer)
 {
-    pid_t pid = proc_pid(p);
+    int pid = proc_pid(p);
     int len = snprintf(buffer, PROCESS_NAME_SIZE, "%d ", pid);
     _proc_name(pid, buffer + len, MAXCOMLEN + 1);
 }
