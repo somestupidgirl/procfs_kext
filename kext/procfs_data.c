@@ -178,6 +178,8 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     // Get the process id from the node id in the procfsnode and locate
     // the process.
     int error = 0;
+    char smallname[128];
+    char *filename = NULL;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
@@ -192,8 +194,36 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         if (p != NULL) {
             p = NULL;
         }
-    }
 
+        uint32_t pid = info.pbsi_pid;
+        uint32_t ppid = info.pbsi_ppid;
+        uint32_t pgid = info.pbsi_pgid;
+        uint32_t status = info.pbsi_status;
+        char comm = info.pbsi_comm[0];
+        uint32_t flags = info.pbsi_flags;
+        uid_t uid = info.pbsi_uid;
+        gid_t gid = info.pbsi_gid;
+        uid_t ruid = info.pbsi_ruid;
+        gid_t rgid = info.pbsi_rgid;
+        uid_t svuid = info.pbsi_svuid;
+        gid_t svgid = info.pbsi_svgid;
+
+        filename = &smallname[0];
+        snprintf(filename, sizeof(smallname),
+                "pid\t\t: %u\n", pid,
+                "ppid\t\t: %u\n", ppid,
+                "pgid\t\t: %u\n", pgid,
+                "status\t\t: %u\n", status,
+                "comm\t\t: %s\n", comm,
+                "flags\t\t: %u\n", flags,
+                "uid\t\t: %u\n", uid,
+                "gid\t\t: %u\n", gid,
+                "ruid\t\t: %u\n", ruid,
+                "rgid\t\t: %u\n", rgid,
+                "svuid\t\t: %u\n", svuid,
+                "svgid\t\t: %u\n", svgid);
+    }
+    
     return error;
 }
 
@@ -208,6 +238,8 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     // Get the process id from the node id in the procfsnode and locate
     // the process.
     int error = 0;
+    char smallname[128];
+    char *filename = NULL;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
@@ -222,6 +254,46 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         if (p != NULL) {
             p = NULL;
         }
+
+        uint64_t virtual_size = info.pti_virtual_size;
+        uint64_t resident_size = info.pti_resident_size;
+        uint64_t total_user = info.pti_total_user;
+        uint64_t total_system = info.pti_total_system;
+        uint64_t threads_user = info.pti_threads_user;
+        uint64_t threads_system = info.pti_threads_system;
+        int32_t policy = info.pti_policy;
+        int32_t faults = info.pti_faults;
+        int32_t pageins = info.pti_pageins;
+        int32_t cow_faults = info.pti_cow_faults;
+        int32_t messages_sent = info.pti_messages_sent;
+        int32_t messages_received = info.pti_messages_received;
+        int32_t syscalls_mach = info.pti_syscalls_mach;
+        int32_t syscalls_unix = info.pti_syscalls_unix;
+        int32_t csw = info.pti_csw;
+        int32_t threadnum = info.pti_threadnum;
+        int32_t numrunning = info.pti_numrunning;
+        int32_t priority = info.pti_priority;
+
+        filename = &smallname[0];
+        snprintf(filename, sizeof(smallname),
+                "virtual size\t\t: %llu\n", virtual_size,
+                "resident size\t\t: %llu\n", resident_size,
+                "total user\t\t: %llu\n", total_user,
+                "total system\t\t: %llu\n", total_system,
+                "threads user\t\t: %llu\n", threads_user,
+                "threads system\t\t: %llu\n", threads_system,
+                "policy\t\t: %d\n", policy,
+                "faults\t\t: %d\n", faults,
+                "pageins\t\t: %d\n", pageins,
+                "cow faults\t\t: %d\n", cow_faults,
+                "messages sent\t\t: %d\n", messages_sent,
+                "messages received\t\t: %d\n", messages_received,
+                "syscalls mach\t\t: %d\n", syscalls_mach,
+                "syscalls unix\t\t: %d\n", syscalls_unix,
+                "csw\t\t: %d\n", csw,
+                "threadnum\t\t: %d\n", threadnum,
+                "numrunning\t\t: %d\n", numrunning,
+                "priority\t\t: %d\n", priority);
     }
 
     return error;
@@ -237,6 +309,8 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     // Get the process id and thread from the node id in the procfsnode and locate
     // the process.
     int error = 0;
+    char smallname[128];
+    char *filename = NULL;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
@@ -252,6 +326,32 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
         if (p != NULL) {
             p = NULL;
         }
+
+        uint64_t user_time = info.pth_user_time;
+        uint64_t system_time = info.pth_system_time;
+        int32_t cpu_usage = info.pth_cpu_usage;
+        int32_t policy = info.pth_policy;
+        int32_t run_state = info.pth_run_state;
+        int32_t flags = info.pth_flags;
+        int32_t sleep_time = info.pth_sleep_time;
+        int32_t curpri = info.pth_curpri;
+        int32_t priority = info.pth_priority;
+        int32_t maxpriority = info.pth_maxpriority;
+        char name = info.pth_name[0];
+
+        filename = &smallname[0];
+        snprintf(filename, sizeof(smallname),
+                "user time\t\t: %llu\n", user_time,
+                "system time\t\t: %llu\n", system_time,
+                "cpu usage\t\t: %d\n", cpu_usage,
+                "policy\t\t: %d\n", policy,
+                "run state\t\t: %d\n", run_state,
+                "flags\t\t: %d\n", flags,
+                "sleep time\t\t: %d\n", sleep_time,
+                "curpri\t\t: %d\n", curpri,
+                "priority\t\t: %d\n", priority,
+                "maxpriority\t\t: %d\n", maxpriority,
+                "name\t\t: %s\n", name);
     }
 
     return error;
