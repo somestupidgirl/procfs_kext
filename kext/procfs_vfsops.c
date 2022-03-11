@@ -6,18 +6,14 @@
 //
 //
 #include <kern/locks.h>
-
 #include <libkern/libkern.h>
 #include <libkern/OSAtomic.h>
 #include <libkern/OSMalloc.h>
-
+#include <libkext/libkext.h>
 #include <sys/mount.h>
 #include <sys/vnode.h>
 
 #include <miscfs/procfs/procfs.h>
-#include <miscfs/procfs/procfs_node.h>
-
-#include <libkext/libkext.h>
 
 #pragma mark Local Definitions
 

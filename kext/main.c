@@ -1,28 +1,13 @@
-#include <IOKit/IOLib.h>
-
-#include <kern/clock.h>
-
-#include <mach/kern_return.h>
-#include <mach/kmod.h>
-#include <mach/mach_types.h>
-
-#include <mach-o/loader.h>
-#include <mach-o/nlist.h>
-
 #include <libkern/libkern.h>
 #include <libkern/version.h>
-
-#include <sys/kernel_types.h>
-#include <sys/systm.h>
-#include <sys/types.h>
-
-#include <vm/vm_kern.h>
+#include <libkext/libkext.h>
+#include <mach/kmod.h>
+#include <mach/mach_types.h>
+#include <sys/mount.h>
 
 #include <miscfs/procfs/procfs.h>
 
-#include <libkext/libkext.h>
-
-#include "procfs_symbols.h"
+#include "symbols.h"
 
 #pragma mark -
 #pragma mark External References

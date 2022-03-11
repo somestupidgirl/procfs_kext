@@ -24,13 +24,8 @@
 #include <sys/vnode.h>
 
 #include <miscfs/procfs/procfs.h>
-#include <miscfs/procfs/procfs_data.h>
-#include <miscfs/procfs/procfs_node.h>
-#include <miscfs/procfs/procfs_structure.h>
-#include <miscfs/procfs/procfs_subr.h>
 
-#include "procfs_info.h"
-#include "procfs_internal.h"
+#include "symdecls.h"
 
 #pragma mark -
 #pragma mark Process and Thread Node Data
@@ -54,19 +49,17 @@ procfs_read_pid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_ppid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    int error;
+    int error = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         int ppid = proc_ppid(p);
         error = procfs_copy_data((char *)&ppid, sizeof(ppid), uio);
-        proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
-        }
     } else {
         error = ESRCH;
     }
+    proc_rele(p);
+
     return error;
 }
 
@@ -77,19 +70,17 @@ procfs_read_ppid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    int error;
+    int error = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         pid_t pgrpid = proc_pgrpid(p);
         error = procfs_copy_data((char *)&pgrpid, sizeof(pgrpid), uio);
-        proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
-        }
     } else {
         error = ESRCH;
     }
+    proc_rele(p);
+
     return error;
 }
 
@@ -99,7 +90,7 @@ procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
  */
 int
 procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
-    int error;
+    int error = 0;
     pid_t session_id = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
@@ -115,10 +106,11 @@ procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
         _proc_list_unlock();
 
         error = procfs_copy_data((char *)&session_id, sizeof(session_id), uio);
-        proc_rele(p);
     } else {
         error = ESRCH;
     }
+    proc_rele(p);
+
     return error;
 }
 
@@ -153,14 +145,111 @@ procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             }
         }
         _proc_list_unlock();
-        proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
-        }
     } else {
         error = ESRCH;
     }
+    proc_rele(p);
+
     return error;
+}
+
+/*
+ * Recreation of proc_pidshortbsdinfo from bsd/kern/proc_info.c
+ */
+STATIC int
+procfs_pidshortbsdinfo(proc_t p, struct proc_bsdshortinfo * pbsd_shortp, int zombie)
+{
+    unsigned int proc_flag = p->p_flag;
+    uint32_t proc_status = (uint32_t)p->p_stat;
+
+    bzero(pbsd_shortp, sizeof(struct proc_bsdshortinfo));
+    pbsd_shortp->pbsi_pid = (uint32_t)proc_pid(p);
+    pbsd_shortp->pbsi_ppid = (uint32_t)proc_ppid(p);
+    pbsd_shortp->pbsi_pgid = (uint32_t)proc_pgrpid(p);
+    pbsd_shortp->pbsi_status = proc_status;
+
+    bcopy(&p->p_comm, &pbsd_shortp->pbsi_comm[0], MAXCOMLEN);
+    pbsd_shortp->pbsi_comm[MAXCOMLEN - 1] = '\0';
+
+    kauth_cred_t my_cred = kauth_cred_proc_ref(p);
+    pbsd_shortp->pbsi_uid = kauth_cred_getuid(my_cred);
+    pbsd_shortp->pbsi_gid = kauth_cred_getgid(my_cred);
+    pbsd_shortp->pbsi_ruid = kauth_cred_getruid(my_cred);
+    pbsd_shortp->pbsi_rgid = kauth_cred_getrgid(my_cred);
+    pbsd_shortp->pbsi_svuid = kauth_cred_getsvuid(my_cred);
+    pbsd_shortp->pbsi_svgid = kauth_cred_getsvgid(my_cred);
+    kauth_cred_unref(&my_cred);
+
+    pbsd_shortp->pbsi_flags = 0;
+
+    if ((proc_flag & P_SYSTEM) == P_SYSTEM) {
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_SYSTEM;
+    }
+
+    if ((proc_flag & P_LTRACED) == P_LTRACED) {
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_TRACED;
+    }
+
+    if (proc_exiting(p) != 0) {
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_INEXIT;
+    }
+
+    if ((proc_flag & P_LPPWAIT) == P_LPPWAIT) {
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_PPWAIT;
+    }
+
+    if (proc_is64bit(p) != 0) {
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_LP64;
+    }
+
+    if ((proc_flag & P_CONTROLT) == P_CONTROLT) {
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_CONTROLT;
+    }
+
+    if ((proc_flag & P_THCWD) == P_THCWD) {
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_THCWD;
+    }
+
+    if (_proc_issetugid(p) != 0)  {
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_PSUGID;
+    }
+
+    if ((proc_flag & P_EXEC) == P_EXEC) {
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_EXEC;
+    }
+
+    if ((proc_flag & P_DELAYIDLESLEEP) == P_DELAYIDLESLEEP) {
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_DELAYIDLESLEEP;
+    }
+
+    switch (PROC_CONTROL_STATE(p)) {
+    case P_PCTHROTTLE:
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_PC_THROTTLE;
+        break;
+    case P_PCSUSP:
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_PC_SUSP;
+        break;
+    case P_PCKILL:
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_PC_KILL;
+        break;
+    };
+
+    switch (PROC_ACTION_STATE(p)) {
+    case P_PCTHROTTLE:
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_PA_THROTTLE;
+        break;
+    case P_PCSUSP:
+        pbsd_shortp->pbsi_flags |= PROC_FLAG_PA_SUSP;
+        break;
+    };
+
+    /* if process is a zombie skip bg state */
+    // FIXME:
+    if ((zombie == 0) && (proc_status != SZOMB) && (_proc_task(p) != TASK_NULL)) {
+        _proc_get_darwinbgstate(_proc_task(p), &pbsd_shortp->pbsi_flags);
+    }
+
+    return 0;
 }
 
 /*
@@ -179,17 +268,28 @@ procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         struct proc_bsdshortinfo info; // Mac OS X >= 10.7 has proc_bsdshortinfo
 
         // Get the BSD-centric process info and copy it out.
-        error = procfs_proc_pidshortbsdinfo(p, &info, 0);
+        error = procfs_pidshortbsdinfo(p, &info, 0);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
-        }
-        proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
-        }
+        } else {
+            error = ESRCH;
+        } 
     }
+    proc_rele(p);
 
     return error;
+}
+
+/*
+ * Recreation of proc_pidtaskinfo from bsd/kern/proc_info.c
+ */
+STATIC int
+procfs_pidtaskinfo(proc_t p, struct proc_taskinfo * ptinfo)
+{
+    bzero(ptinfo, sizeof(struct proc_taskinfo));
+    _fill_taskprocinfo(_proc_task(p), (struct proc_taskinfo_internal *)ptinfo);
+
+    return 0;
 }
 
 /*
@@ -209,17 +309,28 @@ procfs_read_task_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         struct proc_taskinfo info;
 
         // Get the task info and copy it out.
-        error = procfs_proc_pidtaskinfo(p, &info);
+        error = procfs_pidtaskinfo(p, &info);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
-        }
-        proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
+        } else {
+            error = ESRCH;
         }
     }
+    proc_rele(p);
 
     return error;
+}
+
+/*
+ * Recreation of proc_pidthreadinfo from bsd/kern/proc_info.c
+ */
+STATIC int
+procfs_pidthreadinfo(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo)
+{
+    bzero(pthinfo, sizeof(struct proc_threadinfo));
+    _fill_taskthreadinfo(_proc_task(p), (uint64_t)arg, thuniqueid, (struct proc_threadinfo_internal *)pthinfo, NULL, NULL);
+
+    return 0;
 }
 
 /*
@@ -239,15 +350,14 @@ procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
         uint64_t threadid = pnp->node_id.nodeid_objectid;
         
         // Get the task info and copy it out.
-        error = procfs_proc_pidthreadinfo(p, threadid, TRUE, &info);
+        error = procfs_pidthreadinfo(p, threadid, TRUE, &info);
         if (error == 0) {
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
-        }
-        proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
-        }
+        } else {
+            error = ESRCH;
+        } 
     }
+    proc_rele(p);
 
     return error;
 }
@@ -266,11 +376,12 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     int pid = pnp->node_id.nodeid_pid;
-    int fd = (int)pnp->node_id.nodeid_objectid;
+    //uint64_t fd = (int)pnp->node_id.nodeid_objectid;
     
     int error = 0;
     proc_t p = proc_find(pid);
     if (p != NULL) {
+#if 0
         struct fileproc *fp;
         vnode_t vp;
         uint32_t vid;
@@ -286,7 +397,7 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                 // a vnode_fdinfowithpath structure.
                 struct vnode_fdinfowithpath info;
                 bzero(&info, sizeof(info));
-                procfs_fill_fileinfo(fp, p, fd, &info.pfi);
+                fill_fileinfo(fp, p, fd, &info.pfi);
                 error = procfs_fill_vnodeinfo(vp, &info.pvip.vip_vi, ctx);
                 // If all is well, add in the file path and copy the data
                 // out to user space.
@@ -304,10 +415,12 @@ procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
             // Release the hold on the fileproc structure
             file_drop(fd);
         }
-        proc_rele(p);
+#endif
+        error = ENOTSUP;
     } else {
         error = ESRCH;
     }
+    proc_rele(p);
     
     return error;
 }
@@ -321,12 +434,13 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     int pid = pnp->node_id.nodeid_pid;
-    int fd = (int)pnp->node_id.nodeid_objectid;
+    //uint64_t fd = (int)pnp->node_id.nodeid_objectid;
 
     int error = 0;
 
     proc_t p = proc_find(pid);
     if (p != NULL) {
+#if 0
         struct fileproc *fp;
         socket_t so;
 
@@ -338,7 +452,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
             struct socket_fdinfo info;
 
             bzero(&info, sizeof(info));
-            procfs_fill_fileinfo(fp, p, fd, &info.pfi);
+            fill_fileinfo(fp, p, fd, &info.pfi);
             if ((error = _fill_socketinfo(so, &info.psi)) == 0) {
                 error = procfs_copy_data((char *)&info, sizeof(info), uio);
             }
@@ -346,13 +460,12 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
             // Release the hold on the fileproc structure
             file_drop(fd);
         }
-        proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
-        }
+#endif
+        error = ENOTSUP;
     } else {
         error = ESRCH;
     }
+    proc_rele(p);
 
     return error;
 }
@@ -422,9 +535,6 @@ procfs_process_node_size(procfsnode_t *pnp, kauth_cred_t creds)
             size += sizeof(procfs_get_process_count(creds));
         }
         proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
-        }
     }
 
     return size;
@@ -449,9 +559,6 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
             size += sizeof(procfs_get_task_thread_count(task));
         }
         proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
-        }
     }
     return size;
 }
@@ -463,27 +570,23 @@ procfs_thread_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 size_t
 procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 {
+    size_t count = 0;
+    struct fileproc *fp;
+
     int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
 
     if (p == NULL) {
-        return 0;
+        count = 0;
+    } else {
+        _proc_fdlock_spin(p);
+
+        _fdt_foreach(fp, p) {
+            count++;
+        }
+        _proc_fdunlock(p);
     }
-
-    size_t count = 0;
-
-    _proc_fdlock_spin(p);
-
-    struct fileproc *iter;
-    _fdt_foreach(iter, p) {
-        count++;
-    }
-
-    _proc_fdunlock(p);
     proc_rele(p);
-    if (p != NULL) {
-        p = NULL;
-    }
 
     return count;
 }
@@ -500,7 +603,7 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
  * is at data[N].
  */
 int
-procfs_copy_data(char *data, int data_len, uio_t uio)
+procfs_copy_data(const char *data, int data_len, uio_t uio)
 {
     int error = 0;
     off_t start_offset = uio_offset(uio);
@@ -510,5 +613,3 @@ procfs_copy_data(char *data, int data_len, uio_t uio)
     }
     return error;
 }
-
-

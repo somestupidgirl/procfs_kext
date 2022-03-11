@@ -82,13 +82,12 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			-Xlinker -kext \
 			-Xlinker -object_path_lto main.o \
 			-Xlinker -object_path_lto procfs_data.o \
-			-Xlinker -object_path_lto procfs_info.o \
 			-Xlinker -object_path_lto procfs_node.o \
 			-Xlinker -object_path_lto procfs_structure.o \
 			-Xlinker -object_path_lto procfs_subr.o \
-			-Xlinker -object_path_lto procfs_symbols.o \
 			-Xlinker -object_path_lto procfs_vfsops.o \
 			-Xlinker -object_path_lto procfs_vnops.o \
+			-Xlinker -object_path_lto symbols.o \
 			-Xlinker -export_dynamic
 
 # libraries

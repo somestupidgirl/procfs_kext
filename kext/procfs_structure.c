@@ -6,19 +6,16 @@
 //
 //
 #include <string.h>
-
 #include <kern/assert.h>
 #include <kern/debug.h>
-
 #include <libkern/OSMalloc.h>
-
 #include <mach/boolean.h>
-
 #include <sys/proc_info.h>
 #include <sys/vnode.h>
 
-#include <miscfs/procfs/procfs_data.h>
-#include <miscfs/procfs/procfs_structure.h>
+#include <miscfs/procfs/procfs.h>
+
+#include "symdecls.h"
 
 /*
  * Definition and management of the file system layout. The
@@ -294,7 +291,7 @@ add_file(procfs_structure_node_t *parent,
  * memory. This happens only when the last instance of the file
  * system is unmounted.
  */
-STATIC void
+void
 release_node(procfs_structure_node_t *snode)
 {
     // Remove from its parent's children list, if it has one.

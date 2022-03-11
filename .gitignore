@@ -1,3 +1,5 @@
+bin/
+wip/
 **/.DS_Store
 .DS_Store
 **/*.kext
@@ -6,3 +8,4 @@
 *.o
 **/Info.plist~
 Info.plist~
+**/*/*.a

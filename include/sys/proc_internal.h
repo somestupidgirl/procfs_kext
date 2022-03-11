@@ -78,10 +78,11 @@
 #include <libkern/OSAtomic.h>
 #include <mach/resource_monitors.h>
 #include <os/refcnt.h>
+#include <sys/filedesc.h>
 #include <sys/kauth.h>
 #include <sys/proc.h>
 #include <sys/resource.h>
-//#include <sys/sysproto.h>
+#include <sys/sysproto.h>
 
 __BEGIN_DECLS
 #include <kern/locks.h>
@@ -394,5 +395,88 @@ struct  proc {
     lck_rw_t                                p_dirs_lock;                    /* keeps fd_cdir and fd_rdir stable across a lookup */
     pid_t                                   p_sessionid;
 };
+
+struct proclist {
+    struct proc *lh_first;
+};
+
+#define PROC_NULL               (struct proc *)NULL
+#define PGRP_NULL               (struct pgrp *)NULL
+#define SESSION_NULL            (struct session *)NULL
+#define FILEPROC_NULL           (struct fileproc *)0
+#define TASK_NULL               ((task_t) NULL)
+
+/*
+ * We use process IDs <= PID_MAX; PID_MAX + 1 must also fit in a pid_t,
+ * as it is used to represent "no process group".
+ */
+
+#define PID_MAX                 99999
+#define NO_PID                  100000
+
+/*
+ * These are the only valid return values of `callout` functions provided to
+ * process iterators.
+ *
+ * CLAIMED returns expect the caller to call proc_rele on the proc.  DONE
+ * returns stop iterating processes early.
+ */
+#define PROC_RETURNED           (0)
+#define PROC_RETURNED_DONE      (1)
+#define PROC_CLAIMED            (2)
+#define PROC_CLAIMED_DONE       (3)
+
+/*
+ * pgrp_iterate walks the provided process group, calling `filterfn` with
+ * `filterarg` for each process.  For processes where `filterfn` returned
+ * non-zero, `callout` is called with `arg`.  If `PGRP_DROPREF` is supplied in
+ * `flags`, a reference will be dropped from the process group after obtaining
+ * the list of processes to call `callout` on.
+ *
+ * `PGMEMBERS_FOREACH` might also be used under the pgrp_lock to achieve a
+ * similar effect.
+ */
+#define PGRP_DROPREF (1)
+
+/*
+ * proc_iterate walks the `allproc` and/or `zombproc` lists, calling `filterfn`
+ * with `filterarg` for each process.  For processes where `filterfn` returned
+ * non-zero, `callout` is called with `arg`.  If the `PROC_NOWAITTRANS` flag is
+ * set, this function waits for transitions.
+ *
+ * `ALLPROC_FOREACH` or `ZOMBPROC_FOREACH` might also be used under the
+ * `proc_list_lock` to achieve a similar effect.
+ */
+#define PROC_ALLPROCLIST        (1U << 0) /* walk the allproc list (processes not yet exited) */
+#define PROC_ZOMBPROCLIST       (1U << 1) /* walk the zombie list */
+#define PROC_NOWAITTRANS        (1U << 2) /* do not wait for transitions (checkdirs only) */
+
+#define P_CONTROLT      0x00000002      /* Has a controlling terminal */
+#define P_SUGID         0x00000100      /* Has set privileges since last exec */
+#define P_SYSTEM        0x00000200      /* System process: no sigs, stats or swap */
+#define P_LTRACED       0x00000400      /* process currently being traced, possibly by gdb */
+#define P_TRACED        0x00000800      /* Debugged process being traced */
+#define P_LPPWAIT       0x00002000      /* */
+#define P_EXEC          0x00004000      /* Process called exec. */
+#define P_DELAYIDLESLEEP 0x00040000     /* Process is marked to delay idle sleep on disk IO */
+#define P_THCWD         0x01000000      /* process has thread cwd  */
+
+/* Process control state for resource starvation */
+#define P_PCTHROTTLE    1
+#define P_PCSUSP        2
+#define P_PCKILL        3
+#define P_PCMAX         3
+
+/* Process control action state on resrouce starvation */
+#define PROC_ACTION_MASK 0xffff0000;
+#define PROC_CONTROL_STATE(p) (p->p_pcaction & P_PCMAX)
+#define PROC_ACTION_STATE(p) ((p->p_pcaction >> 16) & P_PCMAX)
+
+/* Status values. */
+#define SIDL    1               /* Process being created by fork. */
+#define SRUN    2               /* Currently runnable. */
+#define SSLEEP  3               /* Sleeping on an address. */
+#define SSTOP   4               /* Process debugging or suspension. */
+#define SZOMB   5               /* Awaiting collection by parent. */
 
 #endif	/* !_SYS_PROC_INTERNAL_H_ */

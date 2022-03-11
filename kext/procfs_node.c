@@ -6,16 +6,13 @@
 //
 
 #include <kern/assert.h>
-
 #include <libkern/OSMalloc.h>
-
 #include <sys/malloc.h>
 #include <sys/systm.h>
 #include <sys/types.h>
 #include <sys/vnode.h>
 
 #include <miscfs/procfs/procfs.h>
-#include <miscfs/procfs/procfs_node.h>
 
 #pragma mark -
 #pragma mark Global Definitions
@@ -392,5 +389,3 @@ procfs_get_parent_node_id(procfsnode_t *pnp, procfsnode_id_t *return_idp)
     return_idp->nodeid_pid = pid_node ? pnp->node_id.nodeid_pid : PRNODE_NO_PID;
     return_idp->nodeid_objectid = thread_node ? pnp->node_id.nodeid_objectid : PRNODE_NO_OBJECTID;
 }
-
-

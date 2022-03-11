@@ -14,8 +14,8 @@
 // "procperms" (which is secure).
 //
 
-#ifndef FSBUNDLE
-#define FSBUNDLE
+#ifndef __FSBUNDLE__
+#define __FSBUNDLE__
 #endif
 
 #include <sys/mount.h>

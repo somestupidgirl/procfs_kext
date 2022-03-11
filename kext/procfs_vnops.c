@@ -6,7 +6,7 @@
 //
 //
 #include <libkern/libkern.h>
-
+#include <libkext/libkext.h>
 #include <sys/dirent.h>
 #include <sys/errno.h>
 #include <sys/filedesc.h>
@@ -20,11 +20,8 @@
 #include <sys/vm.h>
 
 #include <miscfs/procfs/procfs.h>
-#include <miscfs/procfs/procfs_data.h>
-#include <miscfs/procfs/procfs_node.h>
-#include <miscfs/procfs/procfs_subr.h>
 
-#include "procfs_internal.h"
+#include "symdecls.h"
 
 #pragma mark -
 #pragma mark Local Definitions
@@ -378,10 +375,6 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
 
         if (target_proc != NULL) {
             proc_rele(target_proc);
-
-            if (target_proc != NULL) {
-                target_proc = NULL;
-            }
         }
 
         // We have a match if match_node is not NULL.
@@ -564,9 +557,6 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         }
                         procfs_construct_process_dir_name(p, name_buffer);
                         proc_rele(p);
-                        if (p != NULL) {
-                            p = NULL;
-                        }
                     }
                     int size = procfs_calc_dirent_size(name_buffer);
 
@@ -618,15 +608,12 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                             thread_ids = NULL;
                         }
                     }
-                    proc_rele(p);
-                    if (p != NULL) {
-                        p = NULL;
-                    }
                     break;   // Exit from the outer loop.
                 } else {
                     // No process for the current pid.
                     error = ENOENT;
                 }
+                proc_rele(p);
 
                 if (error != 0) {
                     break;
@@ -637,14 +624,13 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 // until we fill up the space or run out of threads.
                 proc_t p = proc_find(pid);
                 if (p != NULL) {
+                    struct fileproc *iter;
                     char fd_buffer[PROCESS_NAME_SIZE];
+                    int i = 0;
 
                     _proc_fdlock_spin(p);
 
-                    int i = 0;
-                    struct fileproc *iter;
                     _fdt_foreach(iter, p) {
-                        _proc_fdunlock(p);
 
                         snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
                         int size = procfs_calc_dirent_size(fd_buffer);
@@ -659,21 +645,15 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         }
                         nextpos += size;
                         i++;
-
-                        _proc_fdlock_spin(p);
                     }
-
                     _proc_fdunlock(p);
 
-                    proc_rele(p);
-                    if (p != NULL) {
-                        p = NULL;
-                    }
                     break;   // Exit from the outer loop.
                 } else {
                     // No process for the current pid.
                     error = ENOENT;
                 }
+                proc_rele(p);
 
                 if (error != 0) {
                     break;
@@ -731,6 +711,8 @@ procfs_calc_dirent_size(const char *name)
 STATIC int
 procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, int *sizep)
 {
+    int error = 0;
+
     struct dirent entry;
     entry.d_type = type;
     entry.d_ino = (ino_t)file_id;
@@ -739,7 +721,6 @@ procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, i
 
     int size = *sizep;
     entry.d_reclen = size;
-    int error = 0;
 
     if (size <= uio_resid(uio)) {
         error = uiomove((const char * )&entry, (int)size, uio);
@@ -748,6 +729,7 @@ procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, i
         // No room to copy out.
         *sizep = 0;
     }
+
     return error;
 }
 
@@ -867,9 +849,6 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
         gid = kauth_cred_getgid(proc_cred);
 
         proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
-        }
     }
     kauth_cred_unref(&proc_cred);
     VATTR_RETURN(vap, va_uid, uid);

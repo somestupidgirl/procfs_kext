@@ -39,13 +39,9 @@
 
 #include <sys/appleapiopts.h>
 
-#if defined(MACH_KERNEL_PRIVATE) && !defined(ASSEMBLER)
 #include <i386/hw_defs.h>
 #include <i386/pio.h>
 #include <i386/machine_routines.h>
-#endif
-
-#ifdef __APPLE_API_PRIVATE
 
 #define CPUID_VID_INTEL         "GenuineIntel"
 #define CPUID_VID_AMD           "AuthenticAMD"
@@ -314,7 +310,6 @@
 #endif /* DEBUG || DEVELOPMENT */
 
 
-#ifndef ASSEMBLER
 #include <stdint.h>
 #include <mach/mach_types.h>
 #include <kern/kern_types.h>
@@ -360,18 +355,11 @@ typedef struct {
 	cache_type_t    type;           /* Cache type */
 	unsigned int    size;           /* Cache size */
 	unsigned int    linesize;       /* Cache line size */
-#ifdef KERNEL
 	const char      *description;   /* Cache description */
-#endif /* KERNEL */
 } cpuid_cache_desc_t;
 
-#ifdef KERNEL
 #define CACHE_DESC(value, type, size, linesize, text) \
 	{ value, type, size, linesize, text }
-#else
-#define CACHE_DESC(value, type, size, linesize, text) \
-	{ value, type, size, linesize }
-#endif /* KERNEL */
 
 /* Monitor/mwait Leaf: */
 typedef struct {
@@ -498,7 +486,6 @@ typedef struct i386_cpu_info {
 	cpuid_xsave_leaf_t      cpuid_xsave_leaf[2];
 } i386_cpu_info_t;
 
-#if defined(MACH_KERNEL_PRIVATE) && !defined(ASSEMBLER)
 /* Only for 32bit values */
 #define bit32(n)                (1U << (n))
 #define bitmask32(h, l)          ((bit32(h)|(bit32(h)-1)) & ~(bit32(l)-1))
@@ -549,8 +536,6 @@ is_xeon_sp(uint8_t platid)
 
 extern int force_tecs_at_idle;
 
-#endif /* defined(MACH_KERNEL_PRIVATE) && !defined(ASSEMBLER) */
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -584,18 +569,13 @@ extern uint32_t         cpuid_vmm_family(void);
 extern uint64_t         cpuid_vmm_get_applepv_features(void);
 #endif /* DEBUG || DEVELOPMENT */
 
-#ifdef MACH_KERNEL_PRIVATE
 extern i386_vmm_info_t  *cpuid_vmm_info(void);
 extern cwa_classifier_e cpuid_wa_required(cpu_wa_e wa);
 extern void cpuid_do_was(void);
 extern const char       *cpuid_vmm_family_string(void);
-#endif
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* ASSEMBLER */
-
-#endif /* __APPLE_API_PRIVATE */
 #endif /* _MACHINE_CPUID_H_ */

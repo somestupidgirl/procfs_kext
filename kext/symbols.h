@@ -1,9 +1,9 @@
-#ifndef _procfs_symbols_h
-#define _procfs_symbols_h
+#ifndef _symbols_h
+#define _symbols_h
 
 #include <libklookup/klookup.h>
 
-#include "procfs_internal.h"
+#include "symdecls.h"
 
 extern kern_return_t resolve_symbols(void);
 
@@ -15,4 +15,4 @@ extern kern_return_t resolve_symbols(void);
     } \
 }
 
-#endif /* _procfs_symbols_h */
+#endif /* _symbols_h */

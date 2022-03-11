@@ -9,24 +9,20 @@
  * Utility functions for procfs.
  */
 #include <kern/thread.h>
-
 #include <libkern/OSMalloc.h>
-
 #include <mach/mach_types.h>
 #include <mach/message.h>
 #include <mach/task.h>
 #include <mach/thread_act.h>
 #include <mach/thread_info.h>
-
 #include <sys/kauth.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/ucred.h>
 
-#include <miscfs/procfs/procfs_node.h>
-#include <miscfs/procfs/procfs_subr.h>
+#include <miscfs/procfs/procfs.h>
 
-#include "procfs_internal.h"
+#include "symdecls.h"
 
 /*
  * Given a vnode that corresponds to a procfsnode_t, returns the corresponding
@@ -118,17 +114,6 @@ procfs_atoi(const char *p, const char **end_ptr)
     // Invalid if the first character was not a digit.
     return next == p + 1 ? -1 : value;
 }
-
-/*
- * Structure used to keep track of pid collection.
- */
-struct procfs_pidlist_data
-{
-    int num_procs;
-    int max_procs;
-    kauth_cred_t creds;     // Credential to use for access check, or NULL
-    int *pids;
-};
 
 /*
  * Function used to iterate the process list to collect
@@ -310,11 +295,13 @@ procfs_release_thread_ids(uint64_t *thread_ids, int thread_count)
 int
 procfs_get_task_thread_count(task_t task)
 {
-    uint64_t *thread_ids;
     int thread_count = 0;
+    uint64_t *thread_ids;
+
     if (procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count) == 0) {
         procfs_release_thread_ids(thread_ids, thread_count);
     }
+
     return thread_count;
 }
 
@@ -349,7 +336,6 @@ procfs_check_can_access_process(kauth_cred_t creds, proc_t p)
     return EACCES;
 }
 
-
 /*
  * Determines whether an entity with given credentials can
  * access the process with a given process id. The determination
@@ -360,15 +346,16 @@ procfs_check_can_access_process(kauth_cred_t creds, proc_t p)
 int
 procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid)
 {
-    int error = ESRCH;
+    int error = 0;
+
     proc_t p = proc_find(pid);
     if (p != NULL) {
         error = procfs_check_can_access_process(creds, p);
-        proc_rele(p);
-        if (p != NULL) {
-            p = NULL;
-        }
+    } else {
+        error = ESRCH;
     }
+    proc_rele(p);
+
     return error;
 }
 

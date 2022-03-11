@@ -11,10 +11,16 @@
 #ifndef procfs_h
 #define procfs_h
 
-#ifndef FSBUNDLE
-#include <libkern/OSMalloc.h>
-#include <sys/mount.h>
-#endif /* FSBUNDLE */
+#pragma mark -
+#pragma mark Debug
+
+// Make STATIC do nothing in debug mode, so that all static
+// functions and variables are available in the debugger.
+#if DEBUG
+#define STATIC
+#else /* DEBUG */
+#define STATIC static
+#endif /* DEBUG */
 
 #pragma mark -
 #pragma mark Common Definitions
@@ -26,15 +32,6 @@
 #define PROCFS_VERSION       "1.0.0"
 #define PROCFS_LCK_GRP_NAME  PROCFS_BUNDLEID ".lckgrp"
 #define PROCFS_NOTYPENUM     0
-
-#define PROCFS_VFS_FLAGS  ( \
-        VFS_TBL64BITREADY   | \
-        VFS_TBLFSNODELOCK   | \
-        VFS_TBLLOCALVOL     | \
-        VFS_TBLNOTYPENUM    | \
-        VFS_TBLNOMACLABEL   | \
-        0                     \
-)
 
 // Mount option flags.
 // Do not apply process permissions to the pid entries in /proc.
@@ -48,62 +45,359 @@ typedef struct procfs_mount_args {
     int mnt_options;      // The procfs mount options.
 } procfs_mount_args_t;
 
-typedef struct procfsnode procfsnode_t;
-
 #pragma mark -
 #pragma mark Internel Definitions - Kernel Only
 
-/* -- Internal definitions. -- */
+#ifndef __FSBUNDLE__
 
-#ifndef FSBUNDLE
+#include <libkern/OSMalloc.h>
+#include <mach/task.h>
+#include <sys/kernel_types.h>
+#include <sys/mount.h>
+#include <sys/queue.h>
+#include <sys/vnode.h>
 
-/* -- Global functions and data -- */
 // Tag used for memory allocation.
 extern OSMallocTag procfs_osmalloc_tag;
 
-/* -- Macros and data. -- */
+#pragma mark -
+#pragma mark Common Definitions
 
-// Make STATIC do nothing in debug mode, so that all static
-// functions and variables are available in the debugger.
-#if DEBUG
-#define STATIC
-#else /* DEBUG */
-#define STATIC static
-#endif /* DEBUG */
+// VFS flags
+#define PROCFS_VFS_FLAGS  ( \
+        VFS_TBL64BITREADY   | \
+        VFS_TBLFSNODELOCK   | \
+        VFS_TBLLOCALVOL     | \
+        VFS_TBLNOTYPENUM    | \
+        VFS_TBLNOMACLABEL   | \
+        0                     \
+)
+
+// Bit values for the psn_flags field.
+#define PSN_FLAG_PROCESS    (1 << 0)
+#define PSN_FLAG_THREAD     (1 << 1)
+
+// Special values for the nodeid_pid and nodeid_objectid fields.
+#define PRNODE_NO_PID       ((int)-1)
+#define PRNODE_NO_OBJECTID  ((uint64_t)0)
+
+// Root node id value.
+#define PROCFS_ROOT_NODE_BASE_ID ((procfs_base_node_id_t)1)
+
+// Largest name of a structure node.
+#define MAX_STRUCT_NODE_NAME_LEN 16
+
+#pragma mark -
+#pragma mark Type Definitions
+
+typedef struct procfsnode procfsnode_t;
+typedef struct procfsnode_id procfsnode_id_t;
+typedef struct procfs_mount procfs_mount_t;
+typedef struct procfs_structure_node procfs_structure_node_t;
+typedef enum procfs_structure_node_type procfs_structure_node_type_t;
+
+// Callback function used to create vnodes, called from within the
+// procfsnode_find() function. "params" is used to pass the details that
+// the function needs in order to create the correct vnode. It is obtained
+// from the "create_vnode_params" argument passed to procfsnode_find(),
+// "pnp" is a pointer to the procfsnode_t that the vnode should be linked to
+// and "vpp" is where the created vnode will be stored, if the call was successful.
+// Returns 0 on success or an error code (from errno.h) if not.
+typedef int (*create_vnode_func)(void *params, procfsnode_t *pnp, vnode_t *vpp);
+
+// Type for the base node id field of a structure node.
+typedef uint16_t procfs_base_node_id_t;
+
+// Type of a function that reports the size for a procfs node.
+typedef size_t (*procfs_node_size_fn)(procfsnode_t *pnp, kauth_cred_t creds);
+
+// Type of a function that reads the data for a procfs node.
+typedef int (*procfs_read_data_fn)(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+
+#pragma mark -
+#pragma mark Structure Definitions
+
+/*
+ * Definitions for the data structures that determine the
+ * layout of nodes in the procfs file system.
+ * The layout is constructed by building a tree of
+ * structures of type procfs_structure_node_t. The layout
+ * is the same for each file system instance and is created
+ * when the first instance of the file system is mounted.
+ */
+
+enum vtype;
+
+/*
+ * Enumeration of the different types of structure nodes in a procfs file system.
+ */
+enum procfs_structure_node_type {
+    PROCFS_ROOT = 0,        // The root node.
+    PROCFS_PROCDIR,         // The directory for a process.
+    PROCFS_THREADDIR,       // The directory for a thread.
+    PROCFS_DIR,             // An ordinary directory.
+    PROCFS_FILE,            // A file.
+    PROCFS_DIR_THIS,        // Representation of ".".
+    PROCFS_DIR_PARENT,      // Representation of "..".
+    PROCFS_CURPROC,         // The symlink to the current process.
+    PROCFS_PROCNAME_DIR,    // The directory for a process labeled with its command line
+    PROCFS_FD_DIR,          // The directory for a file descriptor for a process.
+};
+
+/*
+ * An entry in the procfs file system layout. All fields of this
+ * structure are set on creation and do not change, so no locking
+ * is required to access them.
+ *
+ * The psn_node_type field is the type of the structure node. These types
+ * are mapped to the usual vnode types by the file system when getting
+ * node attributes and are used during node lookup and other vnode operations.
+ *
+ * The psn_name field is the name that should be used for the node in the
+ * file system. For nodes of type PROCFS_PROCDIR and PROCFS_PROCNAME_DIR,
+ * the process id of the associated process is used and for PROCFS_THREADDIR, 
+ * the associated thread's id is used.
+ *
+ * The psn_base_node_id field is a unique value that becomes part of the
+ * full id of any procfsnode_t that is created from this structure node.
+ * 
+ * The PSN_FLAG_PROCESS and PSN_FLAG_THREAD flag values of a node are propagated
+ * to all descendent nodes, so it is always possible to determine whether a
+ * node is process- and/or thread-related just by examining the psn_flags
+ * field of its procfs_structure_node.
+ */
+struct procfs_structure_node {
+    procfs_structure_node_type_t            psn_node_type;
+    char                                    psn_name[MAX_STRUCT_NODE_NAME_LEN];
+    procfs_base_node_id_t                   psn_base_node_id;   // Base node id - unique.
+    uint16_t                                psn_flags;          // Flags - PSN_XXX (see below)
+
+    // Structure linkage. Immutable once set.
+    struct procfs_structure_node          *psn_parent;                          // The parent node in the structure
+    TAILQ_ENTRY(procfs_structure_node)     psn_next;                            // Next sibling node within structure parent.
+    TAILQ_HEAD(procfs_structure_children,  procfs_structure_node) psn_children; // Children of this structure node.
+
+    // --- Function hooks. Set to null to use the defaults.
+    // The node's size value. This is the size value for the node itself.
+    // For directory nodes, the sum of the size values of all of its children is
+    // used as the actual size, so this value has meaning only for nodes of type
+    // PROCFS_FILE. It is not used if the procfs_node_size_fn field is set.
+    size_t                                  psn_node_size;
+
+    // Gets the value for the node's size attribute. If NULL, psn_node_size
+    // is used instead.
+    procfs_node_size_fn                     psn_getsize_fn;
+
+    // Reads the file content.
+    procfs_read_data_fn                     psn_read_data_fn;
+};
+
+/*
+ * Composite identifier for a node in the procfs file system.
+ * There must only ever be one node for each unique identifier
+ * in any given instance of the file system (i.e. per mount).
+ */
+struct procfsnode_id {
+    int                     nodeid_pid;         // The owning process, or PRNODE_NO_PID if not process-linked
+    uint64_t                nodeid_objectid;    // The owning object within the process, or PRNODE_NO_OBJECTID if none.
+    procfs_base_node_id_t   nodeid_base_id;     // The id of the structure node to which this node is linked.
+};
 
 /*
  * Procfs per-moount data structure. Typically, there is only one
  * instance of this file system, but the implementation does not
  * preclude multiple mounts.
  */
-typedef struct procfs_mount {
-    int32_t         pmnt_id;            // A unique identifier for this mount. Shared by all nodes.
-    int             pmnt_flags;         // Flags, set from the mount command (PROCFS_MOPT_XXX).
-    struct mount    *pmnt_mp;           // VFS-level mount structure.
-    struct timespec pmnt_mount_time;    // Time at which the file system was mounted.
-} procfs_mount_t;
+struct procfs_mount {
+    int32_t                 pmnt_id;            // A unique identifier for this mount. Shared by all nodes.
+    int                     pmnt_flags;         // Flags, set from the mount command (PROCFS_MOPT_XXX).
+    struct mount           *pmnt_mp;            // VFS-level mount structure.
+    struct timespec         pmnt_mount_time;    // Time at which the file system was mounted.
+};
 
-// Convert from procfs mount pointer to VFS mount structure
+/*
+ * The filesystem-dependent vnode private data for procfs.
+ * There is one insance of this structure for each active node.
+ */
+struct procfsnode {
+    // Linkage for the node hash. Protected by the node hash lock.
+    LIST_ENTRY(procfsnode)  node_hash;
+
+    // Pointer to the associated vnode. Protected by the node hash lock.
+    vnode_t                 node_vnode;
+
+    // Records whether this node is currently being attached to a vnode.
+    // Only one thread can be allowed to link the node to a vnode. If a
+    // thread that wants to create a procfsnode and link it to a vnode
+    // finds this field set to true, it must release the node hash lock
+    // and wait until the field is reset to false, then check again whether
+    // some or all of the work that it needed to do has been completed.
+    // Protected by the node hash lock.
+    boolean_t               node_attaching_vnode;
+
+    // Records whether a thread is awaiting the outcome of vnode attachment.
+    // Protected by the node hash lock.
+    boolean_t               node_thread_waiting_attach;
+
+    // node_mnt_id and node_id taken together uniquely identify a node. There
+    // must only ever be one procnfsnode instance (and hence one vnode) for each
+    // (node_mnt_id, node_id) combination. The node_mnt_id value can be obtained
+    // from the pmnt_id field of the procfs_mount structure for the owning mount.
+    int32_t                 node_mnt_id;            // Identifier of the owning mount.
+    procfsnode_id_t         node_id;                // The identifer of this node.
+
+    // Pointer to the procfs_structure_node_t for this node.
+    procfs_structure_node_t *node_structure_node;   // Set when allocated, never changes.
+
+    // Open flags
+    u_long                  node_flags;
+};
+
+/*
+ * Structure used to keep track of pid collection.
+ */
+struct procfs_pidlist_data
+{
+    int             num_procs;
+    int             max_procs;
+    kauth_cred_t    creds;     // Credential to use for access check, or NULL
+    int            *pids;
+};
+
+#pragma mark -
+#pragma mark Inline Conversion Functions
+
+/* Convert from procfs vnode pointer to VFS vnode pointer. */
+static inline vnode_t
+procfsnode_to_vnode(procfsnode_t *pnp)
+{
+    return pnp->node_vnode;
+}
+
+/* Convert from VFS vnode pointer to procfs vnode pointer. */
+static inline procfsnode_t *
+vnode_to_procfsnode(vnode_t vp)
+{
+    return (procfsnode_t *)vnode_fsnode(vp);
+}
+
+/* Convert from procfs mount pointer to VFS mount pointer. */
 static inline struct mount *
 procfs_mp_to_vfs_mp(procfs_mount_t *pmp)
 {
     return pmp->pmnt_mp;
 }
 
-// Convert from VFS mount pointer to procfs mount pointer.
+/* Convert from VFS mount pointer to procfs mount pointer. */
 static inline procfs_mount_t *
 vfs_mp_to_procfs_mp(struct mount *vmp)
 {
     return(procfs_mount_t *)vfs_fsprivate(vmp);
 }
 
-// Returns whether access checks should apply to the vnodes on a given mount point.
+#pragma mark -
+#pragma mark Inline Convenience Functions
+
+/* Returns whether access checks should apply to the vnodes on a given mount point. */
 static inline boolean_t
 procfs_should_access_check(procfs_mount_t *pmp)
 {
     return (pmp->pmnt_flags & PROCFS_MOPT_NOPROCPERMS) == 0;
 }
 
-#endif /* FSBUNDLE */
+/* Returns whether a given node type represents a directory. */
+static inline boolean_t
+procfs_is_directory_type(procfs_structure_node_type_t type)
+{
+    return type != PROCFS_FILE && type != PROCFS_CURPROC;
+}
+
+/* Gets the pid_t for the process corresponding to a procfsnode_t. */
+static inline int
+procfsnode_to_pid(procfsnode_t *procfsnode)
+{
+    return procfsnode->node_id.nodeid_pid;
+}
+
+#pragma mark -
+#pragma mark Global Definitions
+
+/* Identifier for the root node of the file system. */
+extern const procfsnode_id_t PROCFS_ROOT_NODE_ID;
+
+/* Public API */
+extern void procfsnode_start_init(void);
+extern void procfsnode_complete_init(void);
+extern int procfsnode_find(procfs_mount_t *pmp,
+                           procfsnode_id_t node_id,
+                           procfs_structure_node_t *snode,
+                           procfsnode_t **pnpp, vnode_t *vnpp,
+                           create_vnode_func create_vnode_func,
+                           void *create_vnode_params);
+extern void procfsnode_reclaim(vnode_t vp);
+extern void procfs_get_parent_node_id(procfsnode_t *pnp, procfsnode_id_t *idp);
+
+/* Gets the root node of the file system structure. */
+extern procfs_structure_node_t *procfs_structure_root_node(void);
+
+/*
+ * Initializes the procfs structures. Should only be called
+ * while mounting a file system.
+ */
+extern void procfs_structure_init(void);
+
+/*
+ * Frees the memory for the procfs structures. Should only be called
+ * while unmounting the last instance of the file system.
+*/
+extern void procfs_structure_free(void);
+
+/* Gets the vnode type that is appropriate for a given structure node type. */
+extern enum vtype vnode_type_for_structure_node_type(procfs_structure_node_type_t);
+
+/*
+ * Copies data from the local buffer "data" into the area described
+ * by a uio structure. The first byte of "data" is assumed to 
+ * correspond to a zero offset, so if the uio structure has its
+ * uio_offset set to N, the first byte of data that will be copied
+ * is at data[N].
+ */
+extern int procfs_copy_data(const char *data, int data_len, uio_t uio);
+
+/* Functions that copy procfsnode_t data to a buffer described by a uio_t structure. */
+extern int procfs_read_pid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_ppid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_task_info(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+
+/* Functions that return the data size for a node. */
+extern size_t procfs_get_node_size_attr(procfsnode_t *pnp, kauth_cred_t creds);
+extern size_t procfs_process_node_size(procfsnode_t *pnp, kauth_cred_t creds);
+extern size_t procfs_thread_node_size(procfsnode_t *pnp, kauth_cred_t creds);
+extern size_t procfs_fd_node_size(procfsnode_t *pnp, kauth_cred_t creds);
+
+/* Subroutine functions. */
+extern boolean_t procfs_node_type_has_pid(procfs_structure_node_type_t node_type);
+extern int procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp);
+extern uint64_t procfs_get_node_fileid(procfsnode_t *pnp);
+extern uint64_t procfs_get_fileid(pid_t pid, uint64_t objectid, procfs_base_node_id_t base_id);
+extern int procfs_atoi(const char *p, const char **end_ptr);
+extern void procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds);
+extern void procfs_release_pids(pid_t *pidp, uint32_t size);
+extern int procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_count);
+extern void procfs_release_thread_ids(uint64_t *thread_ids, int thread_count);
+extern int procfs_check_can_access_process(kauth_cred_t creds, proc_t p);
+extern int procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid);
+extern int procfs_issuser(kauth_cred_t creds);
+extern int procfs_get_process_count(kauth_cred_t creds);
+extern int procfs_get_task_thread_count(task_t task);
+
+#endif /* __FSBUNDLE__ */
 
 #endif /* procfs_h */
