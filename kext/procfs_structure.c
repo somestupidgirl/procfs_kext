@@ -9,6 +9,7 @@
 #include <kern/assert.h>
 #include <kern/debug.h>
 #include <libkern/OSMalloc.h>
+#include <libkext/libkext.h>
 #include <mach/boolean.h>
 #include <sys/proc_info.h>
 #include <sys/vnode.h>
@@ -151,6 +152,8 @@ procfs_structure_init(void)
         // --- Per file descriptor files.
         add_file(one_fd_dir, "details", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_threadinfo), NULL, procfs_read_fd_data);
         add_file(one_fd_dir, "socket", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_socket_data);
+
+        add_file(one_proc_dir, "cpuinfo", next_node_id++, PSN_FLAG_PROCESS, (LBFSZ * 4), NULL, procfs_docpuinfo);
     }
 }
 

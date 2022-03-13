@@ -1,6 +1,7 @@
 #ifndef _symdecls_h
 #define _symdecls_h
 
+#include <i386/cpuid.h>
 #include <sys/filedesc.h>
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
@@ -29,6 +30,8 @@ extern int (*_nprocs);
 extern int (*_maxproc);
 extern int (*_maxprocperuid);
 extern int (*_hard_maxproc);
+extern unsigned int (*_processor_count);
+extern uint64_t (*_tscFreq);
 
 #pragma mark -
 #pragma mark Function Declarations
@@ -68,6 +71,17 @@ extern kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_o
 extern kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
 
 extern int (*_vn_stat)(struct vnode *vp, void * sb, kauth_filesec_t *xsec, int isstat64, int needsrealdev, vfs_context_t ctx);
+
+extern int (*_cpu_number)(void);
+extern i386_cpu_info_t *(*_cpuid_info)(void);
+extern uint64_t (*_cpuid_features)(void);
+extern uint64_t (*_cpuid_extfeatures)(void);
+extern uint64_t (*_cpuid_leaf7_features)(void);
+extern uint64_t (*_cpuid_leaf7_extfeatures)(void);
+extern char * (*_cpuid_get_feature_names)(uint64_t, char *, unsigned);
+extern char * (*_cpuid_get_extfeature_names)(uint64_t, char *, unsigned);
+extern char * (*_cpuid_get_leaf7_feature_names)(uint64_t, char *, unsigned);
+extern char * (*_cpuid_get_leaf7_extfeature_names)(uint64_t, char *, unsigned);
 
 #pragma mark -
 #pragma mark Macros

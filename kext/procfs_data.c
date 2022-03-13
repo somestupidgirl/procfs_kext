@@ -13,7 +13,7 @@
 //
 
 #include <libkern/libkern.h>
-
+#include <libkext/libkext.h>
 #include <sys/file.h>
 #include <sys/filedesc.h>
 #include <sys/proc.h>

@@ -9,6 +9,8 @@ SYM_INIT(nprocs);
 SYM_INIT(maxproc);
 SYM_INIT(maxprocperuid);
 SYM_INIT(hard_maxproc);
+SYM_INIT(processor_count);
+SYM_INIT(tscFreq);
 
 // Process Locks
 SYM_INIT(proc_lock);
@@ -65,6 +67,18 @@ SYM_INIT(convert_port_to_thread);
 SYM_INIT(task_threads);
 SYM_INIT(thread_info);
 
+// CPU
+SYM_INIT(cpuid_info);
+SYM_INIT(cpu_number);
+SYM_INIT(cpuid_features);
+SYM_INIT(cpuid_extfeatures);
+SYM_INIT(cpuid_leaf7_features);
+SYM_INIT(cpuid_leaf7_extfeatures);
+SYM_INIT(cpuid_get_feature_names);
+SYM_INIT(cpuid_get_extfeature_names);
+SYM_INIT(cpuid_get_leaf7_feature_names);
+SYM_INIT(cpuid_get_leaf7_extfeature_names);
+
 // Vnode
 SYM_INIT(vn_stat);
 
@@ -78,6 +92,8 @@ resolve_symbols()
 	SYM_LOOKUP(maxproc);
 	SYM_LOOKUP(maxprocperuid);
 	SYM_LOOKUP(hard_maxproc);
+	SYM_LOOKUP(processor_count);
+	SYM_LOOKUP(tscFreq);
 
 	// Process Locks
 	SYM_LOOKUP(proc_lock);
@@ -133,6 +149,18 @@ resolve_symbols()
 	SYM_LOOKUP(convert_port_to_thread);
 	SYM_LOOKUP(task_threads);
 	SYM_LOOKUP(thread_info);
+
+	// CPU ID
+	SYM_LOOKUP(cpu_number);
+	SYM_LOOKUP(cpuid_info);
+	SYM_LOOKUP(cpuid_features);
+	SYM_LOOKUP(cpuid_extfeatures);
+	SYM_LOOKUP(cpuid_leaf7_features);
+	SYM_LOOKUP(cpuid_leaf7_extfeatures);
+	SYM_LOOKUP(cpuid_get_feature_names);
+	SYM_LOOKUP(cpuid_get_extfeature_names);
+	SYM_LOOKUP(cpuid_get_leaf7_feature_names);
+	SYM_LOOKUP(cpuid_get_leaf7_extfeature_names);
 
 	// Vnode
 	SYM_LOOKUP(vn_stat);

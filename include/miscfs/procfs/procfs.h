@@ -12,17 +12,6 @@
 #define procfs_h
 
 #pragma mark -
-#pragma mark Debug
-
-// Make STATIC do nothing in debug mode, so that all static
-// functions and variables are available in the debugger.
-#if DEBUG
-#define STATIC
-#else /* DEBUG */
-#define STATIC static
-#endif /* DEBUG */
-
-#pragma mark -
 #pragma mark Common Definitions
 
 // File system type name.
@@ -51,6 +40,7 @@ typedef struct procfs_mount_args {
 #ifndef __FSBUNDLE__
 
 #include <libkern/OSMalloc.h>
+#include <libkext/libkext.h>
 #include <mach/task.h>
 #include <sys/kernel_types.h>
 #include <sys/mount.h>
@@ -375,6 +365,8 @@ extern int procfs_read_task_info(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx
 extern int procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+
+extern int procfs_docpuinfo(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* Functions that return the data size for a node. */
 extern size_t procfs_get_node_size_attr(procfsnode_t *pnp, kauth_cred_t creds);

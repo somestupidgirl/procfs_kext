@@ -11,6 +11,16 @@
 #include <sys/types.h>
 #include <uuid/uuid.h>
 
+/*
+ * Make STATIC do nothing in debug mode, so that all static
+ * functions and variables are available in the debugger.
+ */
+#if DEBUG
+#define STATIC
+#else /* DEBUG */
+#define STATIC static
+#endif /* DEBUG */
+
 #define readonly_extern     extern  /* Cheap annotation */
 
 /*
@@ -135,6 +145,12 @@
  * XXX: should only used for `char[]'  NOT `char *'
  */
 #define QSTRLEN(s)          (sizeof(s) - 1)
+
+/* calculates the length of an array in number of items. */
+#define nitems(x)           ((int)sizeof((x)) / (int)sizeof((x)[0]))
+
+// A large buffer size for general usage.
+#define LBFSZ       (8 * 1024)
 
 void *libkext_malloc(size_t, int);
 void *libkext_realloc(void *, size_t, size_t, int);

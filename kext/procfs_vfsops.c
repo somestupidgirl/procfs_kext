@@ -7,8 +7,10 @@
 //
 #include <kern/locks.h>
 #include <libkern/libkern.h>
+#include <libkext/libkext.h>
 #include <libkern/OSAtomic.h>
 #include <libkern/OSMalloc.h>
+#include <libkext/libkext.h>
 #include <libkext/libkext.h>
 #include <sys/mount.h>
 #include <sys/vnode.h>
