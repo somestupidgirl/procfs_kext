@@ -2,23 +2,12 @@
 #define _symdecls_h
 
 #include <i386/cpuid.h>
+#include <sys/bsdtask_info.h>
+#include <sys/file_internal.h>
 #include <sys/filedesc.h>
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
-
-struct proc;
-struct pgrp;
-struct session;
-struct fileproc;
-struct vnode_attr;
-struct tty;
-struct proc_threadinfo_internal;
-struct proc_taskinfo_internal;
-
-#pragma mark -
-#pragma mark Type Definitions
-
-typedef int (*proc_iterate_fn_t)(proc_t, void *);
+#include <sys/vnode.h>
 
 #pragma mark -
 #pragma mark Global Variables
@@ -55,7 +44,6 @@ extern void (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void
 extern int (*_proc_starttime)(proc_t p, struct timeval *tv);
 extern task_t (*_proc_task)(proc_t proc);
 extern int (*_proc_issetugid)(proc_t p);
-extern void (*_proc_name)(int pid, char * buf, int size);
 extern int (*_proc_gettty)(proc_t p, vnode_t *vp);
 extern int (*_proc_gettty_dev)(proc_t p, dev_t *dev);
 extern int (*_proc_get_darwinbgstate)(task_t task, uint32_t * flagsp);

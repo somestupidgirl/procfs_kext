@@ -36,9 +36,6 @@ SYM_INIT(proc_session);
 // UID/GID
 SYM_INIT(proc_issetugid);
 
-// Process Name
-SYM_INIT(proc_name);
-
 // Process TTY
 SYM_INIT(proc_gettty);
 SYM_INIT(proc_gettty_dev);
@@ -118,9 +115,6 @@ resolve_symbols()
 
 	// UID/GID
 	SYM_LOOKUP(proc_issetugid);
-
-	// Process Name
-	SYM_LOOKUP(proc_name);
 
 	// Process TTY
 	SYM_LOOKUP(proc_gettty);

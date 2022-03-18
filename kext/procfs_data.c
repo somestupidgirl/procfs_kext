@@ -14,8 +14,10 @@
 
 #include <libkern/libkern.h>
 #include <libkext/libkext.h>
+#include <sys/bsdtask_info.h>
 #include <sys/file.h>
 #include <sys/filedesc.h>
+#include <sys/kauth.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>

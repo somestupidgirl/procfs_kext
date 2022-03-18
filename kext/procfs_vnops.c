@@ -17,7 +17,6 @@
 #include <sys/proc_internal.h>
 #include <sys/stat.h>
 #include <sys/vnode.h>
-#include <sys/vm.h>
 
 #include <miscfs/procfs/procfs.h>
 
@@ -967,6 +966,6 @@ procfs_construct_process_dir_name(proc_t p, char *buffer)
 {
     int pid = proc_pid(p);
     int len = snprintf(buffer, PROCESS_NAME_SIZE, "%d ", pid);
-    _proc_name(pid, buffer + len, MAXCOMLEN + 1);
+    proc_name(pid, buffer + len, MAXCOMLEN + 1);
 }
 
