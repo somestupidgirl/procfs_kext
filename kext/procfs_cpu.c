@@ -105,14 +105,12 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
     }
 
     /*
-     * Get the CPU flags.
+     * Fetch the CPU flags.
      */
-    char *cpuflags, *cpuextflags, *leaf7flags, *leaf7extflags;
-
-    cpuflags = get_cpu_flags();
-    cpuextflags = get_cpu_ext_flags();
-    leaf7flags = get_leaf7_flags();
-    leaf7extflags = get_leaf7_ext_flags();
+    char *cpuflags = get_cpu_flags();
+    char *cpuextflags = get_cpu_ext_flags();
+    char *leaf7flags = get_leaf7_flags();
+    char *leaf7extflags = get_leaf7_ext_flags();
 
     /*
      * Check for CPU write protection.
@@ -166,7 +164,7 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
                 "fpu_exception\t\t: %s\n"
                 "cpuid level\t\t: %u\n"
                 "wp\t\t\t: %s\n"
-                "flags\t\t\t: %s %s %s %s\n"
+                "flags\t\t\t: %s%s%s%s\n"
                 "bugs\t\t\t: %s\n"
                 "bogomips\t\t: %d.%02d\n"
                 "TLB size\t\t: %u 4K pages\n"
@@ -587,57 +585,41 @@ const char *bug_flags[] = {
     /* 10 */ "swapgs"
 };
 
-/*
- * Array sizes:
- *
- * sizeof(feature_flags)            = 480
- * sizeof(feature_ext_flags)        = 64
- * sizeof(leaf7_feature_flags)      = 368
- * sizeof(leaf7_feature_ext_flags)  = 96
- */
-
 STATIC char *
 get_cpu_flags(void)
 {
     int i = 0;
     int size = 0;
-    char *flags;
-    static char *ret;
 
-    size = sizeof(feature_flags);
-    flags = _MALLOC(size, M_TEMP, M_WAITOK);
+    if (_cpuid_info()->cpuid_features) {
+        size = (sizeof(feature_flags) * 2);
 
-    do {
-        /* 
-         * If the CPU supports a feature in the feature_list[]...
-         */
-        if (_cpuid_info()->cpuid_features & feature_list[i]) {
-            /*
-             * ...amend its flag to 'flags'.
+        char *flags[size];
+
+        while (i < nitems(feature_flags)) {
+            /* 
+             * If the CPU supports a feature in the feature_list[]...
              */
-            strlcat(flags, feature_flags[i], sizeof(flags));
+            if (_cpuid_info()->cpuid_features & feature_list[i]) {
+                /*
+                 * ...amend its flag to 'flags'.
+                 */
+                strlcat(flags, feature_flags[i], sizeof(flags));
+                strlcat(flags, " ", sizeof(flags));
+            }
+            /*
+             * Add 1 to the counter for each iteration.
+             */
+            i++;
         }
+        return flags;
 
-        ret = flags;
-
-        /*
-         * Add 1 to the counter for each iteration.
-         */
-        i++;
-
-        /* 
-         * If the counter exceeds the number of items in the array,
-         * break the loop.
-         */ 
-        if (i > nitems(feature_flags)) {
-            _FREE(&flags, M_TEMP);
-            break;
-        } else {
-            continue;
-        }
-    } while (i < nitems(feature_flags));
-
-    return ret;
+    } else {
+        size = 8;
+        char *flags[size];
+        strlcat(flags,"", sizeof(flags));
+        return flags;
+    }
 }
 
 STATIC char *
@@ -645,43 +627,38 @@ get_cpu_ext_flags(void)
 {
     int i = 0;
     int size = 0;
-    char *flags;
-    static char *ret;
 
-    size = sizeof(feature_ext_flags);
-    flags = _MALLOC(size, M_TEMP, M_WAITOK);
+    if (_cpuid_info()->cpuid_extfeatures) {
+        size = (sizeof(feature_ext_flags) * 2);
 
-    do {
-        /* 
-         * If the CPU supports a feature in the feature_ext_list[]...
-         */
-        if (_cpuid_info()->cpuid_extfeatures & feature_ext_list[i]) {
-            /*
-             * ...amend its flag to 'flags'.
+        char *flags[size];
+
+        while (i < nitems(feature_ext_flags)) {
+            /* 
+             * If the CPU supports a feature in the feature_ext_list[]...
              */
-            strlcat(flags, feature_ext_flags[i], sizeof(flags));
+            if (_cpuid_info()->cpuid_extfeatures & feature_ext_list[i]) {
+                /*
+                 * ...amend its flag to 'flags'.
+                 */
+                strlcat(flags, feature_ext_flags[i], sizeof(flags));
+                strlcat(flags, " ", sizeof(flags));
+            }
+            /*
+             * Add 1 to the counter for each iteration.
+             */
+            i++;
         }
+        return flags;
 
-        ret = flags;
+    } else {
+        size = 8;
+        char *flags[size];
 
-        /*
-         * Add 1 to the counter for each iteration.
-         */
-        i++;
+        strlcat(flags,"", sizeof(flags));
 
-        /* 
-         * If the counter exceeds the number of items in the array,
-         * break the loop.
-         */ 
-        if (i > nitems(feature_ext_flags)) {
-            _FREE(&flags, M_TEMP);
-            break;
-        } else {
-            continue;
-        }
-    } while (i < nitems(feature_ext_flags));
-
-    return ret;
+        return flags;
+    }
 }
 
 STATIC char*
@@ -689,43 +666,37 @@ get_leaf7_flags(void)
 {
     int i = 0;
     int size = 0;
-    char *flags;
-    static char *ret;
 
-    size = sizeof(leaf7_feature_flags);
-    flags = _MALLOC(size, M_TEMP, M_WAITOK);
+    if (_cpuid_info()->cpuid_leaf7_features) {
+        size = (sizeof(leaf7_feature_flags) * 2);
+        char *flags[size];
 
-    do {
-        /* 
-         * If the CPU supports a feature in the leaf7_feature_list[]...
-         */
-        if (_cpuid_info()->cpuid_leaf7_features & leaf7_feature_list[i]) {
-            /*
-             * ...amend its flag to 'flags'.
+        while (i < nitems(leaf7_feature_flags)) {
+            /* 
+             * If the CPU supports a feature in the leaf7_feature_list[]...
              */
-            strlcat(flags, leaf7_feature_flags[i], sizeof(flags));
+            if (_cpuid_info()->cpuid_leaf7_features & leaf7_feature_list[i]) {
+                /*
+                 * ...amend its flag to 'flags'.
+                 */
+                strlcat(flags, leaf7_feature_flags[i], sizeof(flags));
+                strlcat(flags, " ", sizeof(flags));
+            }
+            /*
+             * Add 1 to the counter for each iteration.
+             */
+            i++;
         }
+        return flags;
 
-        ret = flags;
+    } else {
+        size = 8;
+        char *flags[size];
 
-        /*
-         * Add 1 to the counter for each iteration.
-         */
-        i++;
+        strlcat(flags,"", sizeof(flags));
 
-        /* 
-         * If the counter exceeds the number of items in the array,
-         * break the loop.
-         */ 
-        if (i > nitems(leaf7_feature_flags)) {
-            _FREE(&flags, M_TEMP);
-            break;
-        } else {
-            continue;
-        }
-    } while (i < nitems(leaf7_feature_flags));
-
-    return ret;
+        return flags;
+    }
 }
 
 STATIC char *
@@ -733,41 +704,35 @@ get_leaf7_ext_flags(void)
 {
     int i = 0;
     int size = 0;
-    char *flags;
-    static char *ret;
 
-    size = sizeof(leaf7_feature_ext_flags);
-    flags = _MALLOC(size, M_TEMP, M_WAITOK);
+    if (_cpuid_info()->cpuid_leaf7_extfeatures) {
+        size = (sizeof(leaf7_feature_ext_flags) * 2);
+        char *flags[size];
 
-    do {
-        /* 
-         * If the CPU supports a feature in the leaf7_feature_ext_list[]...
-         */
-        if (_cpuid_info()->cpuid_leaf7_extfeatures & leaf7_feature_ext_list[i]) {
-            /*
-             * ...amend its flag to 'flags'.
+        while (i < nitems(leaf7_feature_ext_flags)) {
+            /* 
+             * If the CPU supports a feature in the leaf7_feature_ext_list[]...
              */
-            strlcat(flags, leaf7_feature_ext_flags[i], sizeof(flags));
+            if (_cpuid_info()->cpuid_leaf7_extfeatures & leaf7_feature_ext_list[i]) {
+                /*
+                 * ...amend its flag to 'flags'.
+                 */
+                strlcat(flags[size], leaf7_feature_ext_flags[i], sizeof(flags));
+                strlcat(flags, " ", sizeof(flags));
+            }
+            /*
+             * Add 1 to the counter for each iteration.
+             */
+            i++;
         }
+        return flags;
 
-        ret = flags;
+    } else {
+        size = 8;
+        char *flags[size];
 
-        /*
-         * Add 1 to the counter for each iteration.
-         */
-        i++;
+        strlcat(flags,"", sizeof(flags));
 
-        /* 
-         * If the counter exceeds the number of items in the array,
-         * break the loop.
-         */ 
-        if (i > nitems(leaf7_feature_ext_flags)) {
-            _FREE(&flags, M_TEMP);
-            break;
-        } else {
-            continue;
-        }
-    } while (i < nitems(leaf7_feature_ext_flags));
-
-    return ret;
+        return flags;
+    }
 }
