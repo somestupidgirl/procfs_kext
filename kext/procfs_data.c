@@ -486,15 +486,15 @@ size_t
 procfs_get_node_size_attr(procfsnode_t *pnp, kauth_cred_t creds)
 {
     procfs_structure_node_t *snode = pnp->node_structure_node;
-    procfs_structure_node_type_t node_type = snode->psn_node_type;
+    pfstype node_type = snode->psn_node_type;
 
     // In the special cases of "." and "..", we need to first move up
     // to the parent and grandparent structure node to get the correct result.
-    if (node_type == PROCFS_DIR_THIS) {
+    if (node_type == PFSdirthis) {
         snode = snode->psn_parent;
-    } else if (node_type == PROCFS_DIR_PARENT) {
+    } else if (node_type == PFSdirparent) {
         snode = snode->psn_parent;
-        if (snode != NULL && snode->psn_node_type != PROCFS_ROOT) {
+        if (snode != NULL && snode->psn_node_type != PFSroot) {
             snode = snode->psn_parent;
         }
     }
@@ -592,7 +592,6 @@ procfs_fd_node_size(procfsnode_t *pnp, __unused kauth_cred_t creds)
 
     return count;
 }
-
 
 #pragma mark -
 #pragma mark Helper Functions

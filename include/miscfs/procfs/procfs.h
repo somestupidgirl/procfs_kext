@@ -53,6 +53,24 @@ extern OSMallocTag procfs_osmalloc_tag;
 #pragma mark -
 #pragma mark Common Definitions
 
+enum vtype;
+
+/*
+ * The different types of node in a procfs filesystem
+ */
+typedef enum {
+    PFSroot,        /* the filesystem root */
+    PFSproc,        /* a process-specific sub-directory */
+    PFSthread,      /* the thread dir */
+    PFSdir,         /* an ordinary directory */
+    PFSfile,        /* a file */
+    PFSdirthis,     /* representation of "." */
+    PFSdirparent,   /* representation of ".." */
+    PFScurproc,     /* symbolic link for curproc */
+    PFSprocnamedir, /* directory for a process labeled with its command line */
+    PFSfd,          /* a directory containing the processes open fd's */
+} pfstype;
+
 // VFS flags
 #define PROCFS_VFS_FLAGS  ( \
         VFS_TBL64BITREADY   | \
@@ -84,7 +102,6 @@ typedef struct procfsnode procfsnode_t;
 typedef struct procfsnode_id procfsnode_id_t;
 typedef struct procfs_mount procfs_mount_t;
 typedef struct procfs_structure_node procfs_structure_node_t;
-typedef enum procfs_structure_node_type procfs_structure_node_type_t;
 
 // Callback function used to create vnodes, called from within the
 // procfsnode_find() function. "params" is used to pass the details that
@@ -116,24 +133,6 @@ typedef int (*procfs_read_data_fn)(procfsnode_t *pnp, uio_t uio, vfs_context_t c
  * when the first instance of the file system is mounted.
  */
 
-enum vtype;
-
-/*
- * Enumeration of the different types of structure nodes in a procfs file system.
- */
-enum procfs_structure_node_type {
-    PROCFS_ROOT = 0,        // The root node.
-    PROCFS_PROCDIR,         // The directory for a process.
-    PROCFS_THREADDIR,       // The directory for a thread.
-    PROCFS_DIR,             // An ordinary directory.
-    PROCFS_FILE,            // A file.
-    PROCFS_DIR_THIS,        // Representation of ".".
-    PROCFS_DIR_PARENT,      // Representation of "..".
-    PROCFS_CURPROC,         // The symlink to the current process.
-    PROCFS_PROCNAME_DIR,    // The directory for a process labeled with its command line
-    PROCFS_FD_DIR,          // The directory for a file descriptor for a process.
-};
-
 /*
  * An entry in the procfs file system layout. All fields of this
  * structure are set on creation and do not change, so no locking
@@ -157,7 +156,7 @@ enum procfs_structure_node_type {
  * field of its procfs_structure_node.
  */
 struct procfs_structure_node {
-    procfs_structure_node_type_t            psn_node_type;
+    pfstype                                 psn_node_type;
     char                                    psn_name[MAX_STRUCT_NODE_NAME_LEN];
     procfs_base_node_id_t                   psn_base_node_id;   // Base node id - unique.
     uint16_t                                psn_flags;          // Flags - PSN_XXX (see below)
@@ -171,7 +170,7 @@ struct procfs_structure_node {
     // The node's size value. This is the size value for the node itself.
     // For directory nodes, the sum of the size values of all of its children is
     // used as the actual size, so this value has meaning only for nodes of type
-    // PROCFS_FILE. It is not used if the procfs_node_size_fn field is set.
+    // PFSfile. It is not used if the procfs_node_size_fn field is set.
     size_t                                  psn_node_size;
 
     // Gets the value for the node's size attribute. If NULL, psn_node_size
@@ -297,9 +296,9 @@ procfs_should_access_check(procfs_mount_t *pmp)
 
 /* Returns whether a given node type represents a directory. */
 static inline boolean_t
-procfs_is_directory_type(procfs_structure_node_type_t type)
+procfs_is_directory_type(pfstype type)
 {
-    return type != PROCFS_FILE && type != PROCFS_CURPROC;
+    return type != PFSfile && type != PFScurproc;
 }
 
 /* Gets the pid_t for the process corresponding to a procfsnode_t. */
@@ -342,8 +341,12 @@ extern void procfs_structure_init(void);
 */
 extern void procfs_structure_free(void);
 
-/* Gets the vnode type that is appropriate for a given structure node type. */
-extern enum vtype vnode_type_for_structure_node_type(procfs_structure_node_type_t);
+/* 
+ * Gets the vnode type that is appropriate for a given structure node type.
+ * This function serves a similar purpose as 'procfs_allocvp' from NetBSD's
+ * procfs_subr.c file.
+ */
+extern enum vtype vnode_type_for_structure_node_type(pfstype);
 
 /*
  * Copies data from the local buffer "data" into the area described
@@ -375,7 +378,7 @@ extern size_t procfs_thread_node_size(procfsnode_t *pnp, kauth_cred_t creds);
 extern size_t procfs_fd_node_size(procfsnode_t *pnp, kauth_cred_t creds);
 
 /* Subroutine functions. */
-extern boolean_t procfs_node_type_has_pid(procfs_structure_node_type_t node_type);
+extern boolean_t procfs_node_type_has_pid(pfstype node_type);
 extern int procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp);
 extern uint64_t procfs_get_node_fileid(procfsnode_t *pnp);
 extern uint64_t procfs_get_fileid(pid_t pid, uint64_t objectid, procfs_base_node_id_t base_id);

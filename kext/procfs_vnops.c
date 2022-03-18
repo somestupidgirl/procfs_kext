@@ -245,7 +245,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
         proc_t target_proc = NULL;
         TAILQ_FOREACH(match_node, &dir_snode->psn_children, psn_next) {
             assert(error == 0);
-            procfs_structure_node_type_t node_type = match_node->psn_node_type;
+            pfstype node_type = match_node->psn_node_type;
             if (strcmp(name, match_node->psn_name) == 0) {
                 // Name matched. This is the droid we are looking for. Construct the
                 // node_id from the matched node and the pid and object id of the
@@ -254,7 +254,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                 match_node_id.nodeid_pid = dir_pnp->node_id.nodeid_pid;
                 match_node_id.nodeid_objectid = dir_pnp->node_id.nodeid_objectid;
                 break;
-            } else if (node_type == PROCFS_FD_DIR) {
+            } else if (node_type == PFSfd) {
                 // Entries in this directory must be numeric and must correspond to
                 // an open file descriptor in the process.
                 const char *endp;
@@ -280,14 +280,14 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                     error = ENOENT;
                 }
                 break;
-            } else if (node_type == PROCFS_PROCDIR || node_type == PROCFS_PROCNAME_DIR
-                       || node_type == PROCFS_THREADDIR) {
-                // Process or thread directory entry marker. For PROCFS_PROCDIR and
-                // PROCFS_THREADDIR, this can match only if "name" is a valid integer.
-                // For PROCFS_PROCNAME_DIR, it has to be something like "1: launchd".
+            } else if (node_type == PFSproc || node_type == PFSprocnamedir
+                       || node_type == PFSthread) {
+                // Process or thread directory entry marker. For PFSproc and
+                // PFSthread, this can match only if "name" is a valid integer.
+                // For PFSthread, it has to be something like "1: launchd".
                 const char *endp;
                 int id = procfs_atoi(name, &endp);
-                if (node_type != PROCFS_PROCNAME_DIR && *endp != (char)0) {
+                if (node_type != PFSprocnamedir && *endp != (char)0) {
                     // Non-numeric before the end of the name -- this is invalid
                     // so skip this entry.
                     continue;
@@ -299,8 +299,8 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                     // with the value constructed from the name being looked up.
                     match_node_id.nodeid_base_id = match_node->psn_base_node_id;
                     match_node_id.nodeid_pid = node_type ==
-                            PROCFS_PROCDIR || node_type == PROCFS_PROCNAME_DIR ? id : dir_pnp->node_id.nodeid_pid;
-                    match_node_id.nodeid_objectid = node_type == PROCFS_THREADDIR ? id : dir_pnp->node_id.nodeid_objectid;
+                            PFSproc || node_type == PFSprocnamedir ? id : dir_pnp->node_id.nodeid_pid;
+                    match_node_id.nodeid_objectid = node_type == PFSthread ? id : dir_pnp->node_id.nodeid_objectid;
 
                     // The pid must match an existing process.
                     target_proc = proc_find(match_node_id.nodeid_pid);
@@ -310,10 +310,10 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                         break;
                     }
 
-                    // For the case of PROCFS_PROCNAME_DIR, the name must be a complete
+                    // For the case of PFSprocnamedir, the name must be a complete
                     // and literal match to the full name that corresponds to the process
                     // id from the first part of the name.
-                    if (node_type == PROCFS_PROCNAME_DIR) {
+                    if (node_type == PFSprocnamedir) {
                         char name_buffer[PROCESS_NAME_SIZE];
                         procfs_construct_process_dir_name(target_proc, name_buffer);
                         if (strcmp(name, name_buffer) != 0) {
@@ -337,7 +337,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                         break;
                     } else {
                         // If we have a thread id, it must match a thread of the process.
-                        if (node_type == PROCFS_THREADDIR) {
+                        if (node_type == PFSthread) {
                             uint64_t *thread_ids;
                             int thread_count;
                             
@@ -472,19 +472,19 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
             boolean_t fddir = FALSE;
             int type = VREG;
             switch (snode->psn_node_type) {
-            case PROCFS_ROOT: // Indicates structure error - skip it.
+            case PFSroot: // Indicates structure error - skip it.
                 printf("procfs_vnop_readdir: ERROR: found PROCFS_ROOT\n");
                 continue;
 
-           case PROCFS_DIR:
+           case PFSdir:
                 type = DT_DIR;
                 break;
 
-            case PROCFS_FILE:
+            case PFSfile:
                 type = DT_REG;
                 break;
 
-            case PROCFS_DIR_THIS:
+            case PFSdirthis:
                 type = DT_DIR;
 
                 // We need to use the node id of the directory node for this case.
@@ -493,7 +493,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 base_node_id = dir_pnp->node_id.nodeid_base_id;
                 break;
 
-            case PROCFS_DIR_PARENT:
+            case PFSdirparent:
                 type = DT_DIR;
 
                 // We need to use the node id of the directory's parent node for this case.
@@ -504,24 +504,24 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 base_node_id = parent_node_id.nodeid_base_id;
                 break;
 
-            case PROCFS_CURPROC:
+            case PFScurproc:
                 type = DT_LNK;
                 break;
 
             // We handle these cases separately.
-            case PROCFS_PROCDIR:
+            case PFSproc:
                 procdir = TRUE;
                 break;
 
-            case PROCFS_PROCNAME_DIR:
+            case PFSprocnamedir:
                 procnamedir = TRUE;
                 break;
 
-            case PROCFS_THREADDIR:
+            case PFSthread:
                 threaddir = TRUE;
                 break;
 
-            case PROCFS_FD_DIR:
+            case PFSfd:
                 fddir = TRUE;
                 break;
             }
@@ -749,7 +749,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     vnode_t vp = ap->a_vp;
     procfsnode_t *procfs_node = vnode_to_procfsnode(vp);
     procfs_structure_node_t *snode = procfs_node->node_structure_node;
-    procfs_structure_node_type_t node_type = snode->psn_node_type;
+    pfstype node_type = snode->psn_node_type;
 
     pid_t pid;  // pid of the process for this node.
     proc_t p;   // proc_t for the process - NULL for the root node.
@@ -772,41 +772,41 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
 
     struct vnode_attr *vap = ap->a_vap;
     switch (node_type) {
-    case PROCFS_ROOT:
+    case PFSroot:
         // Root directory is accessible to everyone.
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL);
         break;
 
-    case PROCFS_PROCDIR:
+    case PFSproc:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
 
-    case PROCFS_THREADDIR:
+    case PFSthread:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
 
-    case PROCFS_DIR:
+    case PFSdir:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
 
-    case PROCFS_FILE:
+    case PFSfile:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
 
-    case PROCFS_DIR_THIS:
+    case PFSdirthis:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
 
-    case PROCFS_DIR_PARENT:
+    case PFSdirparent:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
 
-    case PROCFS_FD_DIR:
+    case PFSfd:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL);
         break;
 
-    case PROCFS_CURPROC:        // Symbolic link to the calling process (FALLTHRU)
-    case PROCFS_PROCNAME_DIR:   // Symbolic link to a process directory
+    case PFScurproc:        // Symbolic link to the calling process (FALLTHRU)
+    case PFSprocnamedir:    // Symbolic link to a process directory
         VATTR_RETURN(vap, va_mode, ALL_ACCESS_ALL);   // All access - target will determine actual access.
         break;
     }
@@ -868,7 +868,7 @@ procfs_vnop_readlink(struct vnop_readlink_args *ap)
     vnode_t vp = ap->a_vp;
     procfsnode_t *pnp = vnode_to_procfsnode(vp);
     procfs_structure_node_t *snode = pnp->node_structure_node;
-    if (snode->psn_node_type == PROCFS_CURPROC) {
+    if (snode->psn_node_type == PFScurproc) {
         // The link is "curproc". Get the pid of the current process
         // and copy it out to the caller's buffer.
         char pid_buffer[PROCESS_NAME_SIZE];
@@ -876,7 +876,7 @@ procfs_vnop_readlink(struct vnop_readlink_args *ap)
         int pid = proc_pid(p);
         snprintf(pid_buffer, PROCESS_NAME_SIZE, "%d", pid);
         error = uiomove(pid_buffer, (int)strlen(pid_buffer), ap->a_uio);
-    } else if (snode->psn_node_type == PROCFS_PROCNAME_DIR) {
+    } else if (snode->psn_node_type == PFSprocnamedir) {
         // A link from the process name to the process id. Create a target
         // of the form "../123" and copy it out to the caller's buffer.
         int pid = pnp->node_id.nodeid_pid;
@@ -968,4 +968,3 @@ procfs_construct_process_dir_name(proc_t p, char *buffer)
     int len = snprintf(buffer, PROCESS_NAME_SIZE, "%d ", pid);
     proc_name(pid, buffer + len, MAXCOMLEN + 1);
 }
-

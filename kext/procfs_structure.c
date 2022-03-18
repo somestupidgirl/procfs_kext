@@ -37,7 +37,7 @@
 
 STATIC procfs_structure_node_t *add_node(procfs_structure_node_t *parent,
                                          const char *name,
-                                         procfs_structure_node_type_t type,
+                                         pfstype type,
                                          procfs_base_node_id_t node_id,
                                          uint16_t flags,
                                          size_t size,
@@ -45,7 +45,7 @@ STATIC procfs_structure_node_t *add_node(procfs_structure_node_t *parent,
                                          procfs_read_data_fn node_read_data_fn);
 STATIC procfs_structure_node_t *add_directory(procfs_structure_node_t *parent,
                                          const char *name,
-                                         procfs_structure_node_type_t type,
+                                         pfstype type,
                                          procfs_base_node_id_t node_id,
                                          uint16_t flags,
                                          boolean_t raw,
@@ -94,45 +94,45 @@ procfs_structure_init(void)
     if (root_node == NULL) {
         // The root directory of the file system. This happens to be the only node
         // that has the same node id on all instance of this file system.
-        root_node = add_directory(NULL, "/", PROCFS_ROOT, PROCFS_ROOT_NODE_BASE_ID, 0, 0, NULL, NULL);
+        root_node = add_directory(NULL, "/", PFSroot, PROCFS_ROOT_NODE_BASE_ID, 0, 0, NULL, NULL);
 
         // A link in the root node to the current process entry. This will become a symbolic link.
-        add_node(root_node, "curproc", PROCFS_CURPROC, next_node_id++, 0, 0, NULL, NULL);
+        add_node(root_node, "curproc", PFScurproc, next_node_id++, 0, 0, NULL, NULL);
 
         // A directory that contains all of the visible processes, listed by command name.
         // Each entry in this directory is a symbolic link to the process entry in root (e.g. "../123).
         procfs_structure_node_t *proc_by_name_dir = add_directory(root_node, "byname",
-                        PROCFS_DIR, next_node_id++, 0, 0, NULL, NULL);
+                        PFSdir, next_node_id++, 0, 0, NULL, NULL);
 
         // A pseudo-entry below "byname" that is replaced by nodes for all of the visible processes.
         // NOTE: this must be the last child entry for the "byname" node.
         add_directory(proc_by_name_dir, "__Process_N__",
-                      PROCFS_PROCNAME_DIR, next_node_id++, PSN_FLAG_PROCESS, 0, procfs_process_node_size, NULL);
+                        PFSprocnamedir, next_node_id++, PSN_FLAG_PROCESS, 0, procfs_process_node_size, NULL);
 
         // A pseudo-entry below "/" that is replaced by nodes for all of the visible processes.
         // NOTE: this must be the last child entry for the root node.
         procfs_structure_node_t *one_proc_dir = add_directory(root_node, "__Process__",
-                       PROCFS_PROCDIR, next_node_id++, PSN_FLAG_PROCESS, 0, procfs_process_node_size, NULL);
+                       PFSproc, next_node_id++, PSN_FLAG_PROCESS, 0, procfs_process_node_size, NULL);
 
         // A directory below the node for a process to hold all the file descriptors for that process.
         procfs_structure_node_t *fd_dir = add_directory(one_proc_dir, "fd",
-                       PROCFS_DIR, next_node_id++, PSN_FLAG_PROCESS, 0, NULL, NULL);
+                       PFSdir, next_node_id++, PSN_FLAG_PROCESS, 0, NULL, NULL);
 
         // A pseudo-entry below the "fd" node that is replaced by nodes for all the open files of
         // the current process.
         // NOTE: this must be the last child entry for the "fd" node.
         procfs_structure_node_t *one_fd_dir = add_directory(fd_dir, "__File__",
-                      PROCFS_FD_DIR, next_node_id++, PSN_FLAG_PROCESS, 0, procfs_fd_node_size, NULL);
+                      PFSfd, next_node_id++, PSN_FLAG_PROCESS, 0, procfs_fd_node_size, NULL);
 
         // A directory below the node for a process to hold all the threads for that process.
         procfs_structure_node_t *threads_dir = add_directory(one_proc_dir, "threads",
-                       PROCFS_DIR, next_node_id++, PSN_FLAG_PROCESS, 0, NULL, NULL);
+                       PFSdir, next_node_id++, PSN_FLAG_PROCESS, 0, NULL, NULL);
 
         // A pseudo-entry below the "threads" node that is replaced by nodes for all the threads of
         // the current process.
         // NOTE: this must be the last child entry for the threads node.
         procfs_structure_node_t *one_thread_dir = add_directory(threads_dir, "__Thread__",
-                      PROCFS_THREADDIR, next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, 0, procfs_thread_node_size, NULL);
+                      PFSthread, next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, 0, procfs_thread_node_size, NULL);
 
         // --- Per-proccess sub-directories and files.
 
@@ -172,25 +172,29 @@ procfs_structure_free()
     }
 }
 
-// Gets the vnode type that is appropriate for a given structure node type.
+/* 
+ * Gets the vnode type that is appropriate for a given structure node type.
+ * This function serves a similar purpose as 'procfs_allocvp' in NetBSD's
+ * procfs_subr.c file.
+ */
 enum vtype
-vnode_type_for_structure_node_type(procfs_structure_node_type_t snode_type)
+vnode_type_for_structure_node_type(pfstype pfs_type)
 {
-    switch (snode_type) {
-    case PROCFS_ROOT:       // FALLTHRU
-    case PROCFS_PROCDIR:    // FALLTHRU
-    case PROCFS_THREADDIR:  // FALLTHRU
-    case PROCFS_DIR:        // FALLTHRU
-    case PROCFS_DIR_THIS:   // FALLTHRU
-    case PROCFS_DIR_PARENT: // FALLTHRU
-    case PROCFS_FD_DIR:     // FALLTHRU
+    switch (pfs_type) {
+    case PFSroot:           /* FALLTHROUGH */
+    case PFSproc:           /* FALLTHROUGH */
+    case PFSthread:         /* FALLTHROUGH */
+    case PFSdir:            /* FALLTHROUGH */
+    case PFSdirthis:        /* FALLTHROUGH */
+    case PFSdirparent:      /* FALLTHROUGH */
+    case PFSfd:             /* FALLTHROUGH */
         return VDIR;
 
-    case PROCFS_FILE:
+    case PFSfile:           /* FALLTHROUGH */
         return VREG;
 
-    case PROCFS_PROCNAME_DIR:   // FALLTHRU
-    case PROCFS_CURPROC:
+    case PFSprocnamedir:    /* FALLTHROUGH */
+    case PFScurproc:        /* FALLTHROUGH */
         return VLNK;
     }
 
@@ -209,7 +213,7 @@ vnode_type_for_structure_node_type(procfs_structure_node_type_t snode_type)
 STATIC procfs_structure_node_t *
 add_node(procfs_structure_node_t *parent,
          const char *name,
-         procfs_structure_node_type_t type,
+         pfstype type,
          procfs_base_node_id_t node_id,
          uint16_t flags,
          size_t size,
@@ -250,7 +254,7 @@ add_node(procfs_structure_node_t *parent,
 STATIC procfs_structure_node_t *
 add_directory(procfs_structure_node_t *parent,
               const char *name,
-              procfs_structure_node_type_t type,
+              pfstype type,
               procfs_base_node_id_t node_id,
               uint16_t flags,
               boolean_t raw,
@@ -264,8 +268,8 @@ add_directory(procfs_structure_node_t *parent,
     // the node is process- and/or thread-specific. The "raw" argument is used to stop
     // this being a recursive process.
     if (!raw) {
-        add_directory(snode, ".", PROCFS_DIR_THIS, next_node_id++, flags & (PSN_FLAG_PROCESS | PSN_FLAG_THREAD), 1, NULL, NULL);
-        add_directory(snode, "..", PROCFS_DIR_PARENT, next_node_id++, flags & (PSN_FLAG_PROCESS | PSN_FLAG_THREAD), 1, NULL, NULL);
+        add_directory(snode, ".", PFSdirthis, next_node_id++, flags & (PSN_FLAG_PROCESS | PSN_FLAG_THREAD), 1, NULL, NULL);
+        add_directory(snode, "..", PFSdirparent, next_node_id++, flags & (PSN_FLAG_PROCESS | PSN_FLAG_THREAD), 1, NULL, NULL);
     }
     return snode;
 }
@@ -283,7 +287,7 @@ add_file(procfs_structure_node_t *parent,
          procfs_node_size_fn node_size_fn,
          procfs_read_data_fn node_read_data_fn)
 {
-    return add_node(parent, name, PROCFS_FILE, node_id, flags, size, node_size_fn, node_read_data_fn);
+    return add_node(parent, name, PFSfile, node_id, flags, size, node_size_fn, node_read_data_fn);
 }
 
 #pragma mark -

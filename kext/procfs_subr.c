@@ -37,7 +37,7 @@ procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp)
 {
     procfsnode_t *procfs_node = vnode_to_procfsnode(vp);
     procfs_structure_node_t *snode = procfs_node->node_structure_node;
-    procfs_structure_node_type_t node_type = snode->psn_node_type;
+    pfstype node_type = snode->psn_node_type;
 
     int pid = procfsnode_to_pid(procfs_node);
     proc_t p = pid == PRNODE_NO_PID ? NULL : proc_find(pid); // Process for the vnode, if there is one.
@@ -56,10 +56,10 @@ procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp)
  * associated process id.
  */
 boolean_t
-procfs_node_type_has_pid(procfs_structure_node_type_t node_type)
+procfs_node_type_has_pid(pfstype node_type)
 {
-    return node_type != PROCFS_ROOT && node_type != PROCFS_CURPROC
-                    && node_type != PROCFS_DIR;
+    return node_type != PFSroot && node_type != PFScurproc
+                    && node_type != PFSdir;
 }
 
 /*
