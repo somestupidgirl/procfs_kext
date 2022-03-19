@@ -96,6 +96,10 @@ procfs_structure_init(void)
         // that has the same node id on all instance of this file system.
         root_node = add_directory(NULL, "/", PFSroot, PROCFS_ROOT_NODE_BASE_ID, 0, 0, NULL, NULL);
 
+        // A file that displays information about the CPU, emulating Linux the /proc/cpuinfo feature.
+        procfs_structure_node_t *cpuinfo = add_node(root_node, "cpuinfo",
+                        PFScpuinfo, next_node_id++, PSN_FLAG_PROCESS, (LBFSZ * 4), NULL, procfs_docpuinfo);
+
         // A link in the root node to the current process entry. This will become a symbolic link.
         add_node(root_node, "curproc", PFScurproc, next_node_id++, 0, 0, NULL, NULL);
 
@@ -152,8 +156,6 @@ procfs_structure_init(void)
         // --- Per file descriptor files.
         add_file(one_fd_dir, "details", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_threadinfo), NULL, procfs_read_fd_data);
         add_file(one_fd_dir, "socket", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_socket_data);
-
-        add_file(one_proc_dir, "cpuinfo", next_node_id++, PSN_FLAG_PROCESS, (LBFSZ * 4), NULL, procfs_docpuinfo);
     }
 }
 
@@ -191,6 +193,7 @@ vnode_type_for_structure_node_type(pfstype pfs_type)
         return VDIR;
 
     case PFSfile:           /* FALLTHROUGH */
+    case PFScpuinfo:        /* FALLTHROUGH */
         return VREG;
 
     case PFSprocnamedir:    /* FALLTHROUGH */

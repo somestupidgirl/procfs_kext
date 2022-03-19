@@ -69,6 +69,7 @@ typedef enum {
     PFScurproc,     /* symbolic link for curproc */
     PFSprocnamedir, /* directory for a process labeled with its command line */
     PFSfd,          /* a directory containing the processes open fd's */
+    PFScpuinfo,     /* /proc/cpuinfo */
 } pfstype;
 
 // VFS flags

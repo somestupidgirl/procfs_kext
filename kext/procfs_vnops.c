@@ -481,6 +481,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 break;
 
             case PFSfile:
+            case PFScpuinfo:
                 type = DT_REG;
                 break;
 
@@ -790,6 +791,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
         break;
 
     case PFSfile:
+    case PFScpuinfo:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
 
