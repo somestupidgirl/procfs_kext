@@ -106,6 +106,12 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
 
     /*
      * Fetch the CPU flags.
+     *
+     * Bug note: not all of the flag variables stick
+     * after the first iteration of the main loop, likely
+     * due to a memory-related issue that has been pointed
+     * out, though I'm still unsure on how to go about
+     * fixing it.
      */
     char *cpuflags = get_cpu_flags();
     char *cpuextflags = get_cpu_ext_flags();
@@ -123,14 +129,16 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
     }
 
     /* TODO */
-    //char *bugs = get_cpu_bugs();
-    char *bugs = "";
-    //char *pm = get_cpu_pm();
+    //char *pm = get_power_flags();
     char *pm = "";
+    //char *x86_bugs = get_x86_bug_flags();
+    char *x86_bugs = "";
+    //char *x86_64_bugs = get_x86_64_bug_flags();
+    char *x86_64_bugs = "";
 
 
     /*
-     * Set up the variables required to move our data into userspace.
+     * Set up the variables required for moving our data into userspace.
      */
     kva = VM_MIN_KERNEL_ADDRESS;                                        // kernel virtual address
     uva = uio_offset(uio);                                              // user virtual address
@@ -139,7 +147,18 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
     buffer_size = (LBFSZ * 4);                                          // buffer size
     buffer = _MALLOC(buffer_size, M_TEMP, M_WAITOK);                    // buffer
 
-    do {
+    /*
+     * The main loop iterates over each processor number stored in the
+     * max_cpus variable and prints out a list of data for each processor.
+     *
+     * For example:
+     *
+     * If your CPU only has one processor, it should print only a single list.
+     * If your CPU has two processors, it will print out a set of two lists,
+     * and so on and so forth. My CPU processor number is 32 so I get 32 lists
+     * with processor numbers starting from 0 - 31.
+     */
+    while (cnt_cpus < max_cpus) {
         if (cnt_cpus <= max_cpus) {
             /* 
              * The data which to copy over to userspace.
@@ -165,7 +184,7 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
                 "cpuid level\t\t: %u\n"
                 "wp\t\t\t: %s\n"
                 "flags\t\t\t: %s%s%s%s\n"
-                "bugs\t\t\t: %s\n"
+                "bugs\t\t\t: %s%s\n"
                 "bogomips\t\t: %d.%02d\n"
                 "TLB size\t\t: %u 4K pages\n"
                 "clflush_size\t\t: %u\n"
@@ -195,7 +214,8 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
                 cpuextflags,            // flags
                 leaf7flags,             // flags
                 leaf7extflags,          // flags
-                bugs,                   // bugs
+                x86_bugs,               // bugs
+                x86_64_bugs,            // bugs
                 fqmhz * 2, fqkhz,       // bogomips
                 tlb_size,               // TLB size
                 clflush_size,           // clflush_size
@@ -224,14 +244,6 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
             }
 
             /*
-             * Reset the max_cpus variable at the end of each loop.
-             * Otherwise it tends to behave erratically.
-             */
-            if (max_cpus != *_processor_count) {
-                max_cpus = *_processor_count;
-            }
-
-            /*
              * Increase by 2 for each loop.
              */
             apicid += 2;
@@ -246,28 +258,30 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
             initial_apicid = apicid;
 
             /*
-             * Update the CPU counter.
+             * Add 1 to the CPU counter for each iteration.
              */
             cnt_cpus++;
 
             /*
-             * Update the core_id.
+             * Add 1 to the core_id counter for each iteration.
              */
             core_id++;
 
             /*
-             * The core_id should never exceed the number of cores.
-             * Start over if it does.
+             * Reset the core_id counter if it exceeds the maximum number of cores.
              */
             if (core_id > cpu_cores - 1) {
                 core_id = 0;
             }
 
             /*
-             * Continue unless the counter exceeds the
-             * available processor count.
+             * Reset the max_cpus variable at the end of each loop.
+             * An unknown bug is causing the variable to reduce the
+             * count down to 23 unless we do this.
              */
-            continue;
+            if (max_cpus != *_processor_count) {
+                max_cpus = *_processor_count;
+            }
         } else if (cnt_cpus > max_cpus) {
             /*
              * If the counter exceeds the processor count,
@@ -276,7 +290,7 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
             _FREE(&buffer, M_TEMP);
             break;
         }
-    } while (cnt_cpus < max_cpus);
+    }
 
     return 0;
 }
