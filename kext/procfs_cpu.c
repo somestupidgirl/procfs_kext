@@ -292,6 +292,9 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
             /*
              * If the counter exceeds the processor count,
              * free the associated memory and break the loop.
+             *
+             * Note: Freeing the memory after breaking the loop
+             * results in a kernel panic for some reason.
              */
             _FREE(&buffer, M_TEMP);
             break;
