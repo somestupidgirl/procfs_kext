@@ -105,20 +105,6 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
     }
 
     /*
-     * Fetch the CPU flags.
-     *
-     * Bug note: not all of the flag variables stick
-     * after the first iteration of the main loop, likely
-     * due to a memory-related issue that has been pointed
-     * out, though I'm still unsure on how to go about
-     * fixing it.
-     */
-    char *cpuflags = get_cpu_flags();
-    char *cpuextflags = get_cpu_ext_flags();
-    char *leaf7flags = get_leaf7_flags();
-    char *leaf7extflags = get_leaf7_ext_flags();
-
-    /*
      * Check for CPU write protection.
      */
     char *wp;
@@ -128,6 +114,19 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
         wp = "no";
     }
 
+    /*
+     * CPU flags.
+     *
+     * Bug note: not all of the flag variables stick
+     * after the first iteration of the main loop if we,
+     * define them here, likely due to a memory-related
+     * issue that has been pointed out to me, though I'm
+     * still unsure on how to go about fixing it.
+     * For now, we'll declare the pointer variables here
+     * and fetch the flags inside the loop.
+     */
+    char *cpuflags, *cpuextflags, *leaf7flags, *leaf7extflags;
+
     /* TODO */
     //char *pm = get_power_flags();
     char *pm = "";
@@ -135,7 +134,6 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
     char *x86_bugs = "";
     //char *x86_64_bugs = get_x86_64_bug_flags();
     char *x86_64_bugs = "";
-
 
     /*
      * Set up the variables required for moving our data into userspace.
@@ -159,6 +157,14 @@ procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
      * with processor numbers starting from 0 - 31.
      */
     while (cnt_cpus < max_cpus) {
+        /*
+         * Fetch the CPU flags.
+         */
+        cpuflags = get_cpu_flags();
+        cpuextflags = get_cpu_ext_flags();
+        leaf7flags = get_leaf7_flags();
+        leaf7extflags = get_leaf7_ext_flags();
+
         if (cnt_cpus <= max_cpus) {
             /* 
              * The data which to copy over to userspace.
