@@ -407,6 +407,71 @@ uint64_t feature_list[] = {
     /* 60 */ CPUID_FEATURE_VMM,
 };
 
+const char *pm_flags[] = {
+    /* 1 */  "ts",
+    /* 2 */  "fid",
+    /* 3 */  "vid",
+    /* 4 */  "ttp",
+    /* 5 */  "tm",
+    /* 6 */  "stc",
+    /* 7 */  "100mhzsteps",
+    /* 8 */  "hwpstate",
+    /* 9 */  "cpb",
+    /* 10 */ "eff_freq_ro",
+    /* 11 */ "proc_feedback",
+    /* 12 */ "acc_power"
+};
+
+const char *bug_flags[] = {
+    /* 1 */  "fxsave_leak",
+    /* 2 */  "sysret_ss_attrs",
+    /* 3 */  "null_seg",
+    /* 4 */  "cpu_meltdown",
+    /* 5 */  "spectre_v1",
+    /* 6 */  "spectre_v2",
+    /* 7 */  "spec_store_bypass",
+    /* 8 */  "l1tf",
+    /* 9 */  "mds",
+    /* 10 */ "swapgs"
+};
+
+STATIC char *
+get_cpu_flags(void)
+{
+    int i = 0;
+    int size = 0;
+
+    if (_cpuid_info()->cpuid_features) {
+        size = (sizeof(feature_flags) * 2);
+
+        char *flags[size];
+
+        while (i < nitems(feature_flags)) {
+            /* 
+             * If the CPU supports a feature in the feature_list[]...
+             */
+            if (_cpuid_info()->cpuid_features & feature_list[i]) {
+                /*
+                 * ...amend its flag to 'flags'.
+                 */
+                strlcat(flags, feature_flags[i], sizeof(flags));
+                strlcat(flags, " ", sizeof(flags));
+            }
+            /*
+             * Add 1 to the counter for each iteration.
+             */
+            i++;
+        }
+        return flags;
+
+    } else {
+        size = 8;
+        char *flags[size];
+        strlcat(flags,"", sizeof(flags));
+        return flags;
+    }
+}
+
 const char *feature_ext_flags[] = {
     /* 1 */ "syscall",
     /* 2 */ "xd",
@@ -428,6 +493,45 @@ uint64_t feature_ext_list[] = {
     /* 7 */ CPUID_EXTFEATURE_LZCNT,
     /* 8 */ CPUID_EXTFEATURE_PREFETCHW
 };
+
+STATIC char *
+get_cpu_ext_flags(void)
+{
+    int i = 0;
+    int size = 0;
+
+    if (_cpuid_info()->cpuid_extfeatures) {
+        size = (sizeof(feature_ext_flags) * 2);
+
+        char *flags[size];
+
+        while (i < nitems(feature_ext_flags)) {
+            /* 
+             * If the CPU supports a feature in the feature_ext_list[]...
+             */
+            if (_cpuid_info()->cpuid_extfeatures & feature_ext_list[i]) {
+                /*
+                 * ...amend its flag to 'flags'.
+                 */
+                strlcat(flags, feature_ext_flags[i], sizeof(flags));
+                strlcat(flags, " ", sizeof(flags));
+            }
+            /*
+             * Add 1 to the counter for each iteration.
+             */
+            i++;
+        }
+        return flags;
+
+    } else {
+        size = 8;
+        char *flags[size];
+
+        strlcat(flags,"", sizeof(flags));
+
+        return flags;
+    }
+}
 
 const char *leaf7_feature_flags[] = {
     /* 1 */  "rdwrfsgs",
@@ -527,140 +631,6 @@ uint64_t leaf7_feature_list[] = {
     /* 46 */ CPUID_LEAF7_FEATURE_SGXLC
 };
 
-const char *leaf7_feature_ext_flags[] = {
-    /* 1 */  "avx5124vnniw",
-    /* 2 */  "avx5124fmaps",
-    /* 3 */  "fsrepmov",
-    /* 4 */  "srbds_ctlr",
-    /* 5 */  "mdclear",
-    /* 6 */  "tsxfa",
-    /* 7 */  "ibrs",
-    /* 8 */  "stibp",
-    /* 9 */  "l1d",
-    /* 10 */ "acapmsr",
-    /* 11 */ "ccapmsr",
-    /* 12 */ "ssbd"
-};
-
-uint64_t leaf7_feature_ext_list[] = {
-    /* 1 */  CPUID_LEAF7_EXTFEATURE_AVX5124VNNIW,
-    /* 2 */  CPUID_LEAF7_EXTFEATURE_AVX5124FMAPS,
-    /* 3 */  CPUID_LEAF7_EXTFEATURE_FSREPMOV,
-    /* 4 */  CPUID_LEAF7_EXTFEATURE_SRBDS_CTRL,
-    /* 5 */  CPUID_LEAF7_EXTFEATURE_MDCLEAR,
-    /* 6 */  CPUID_LEAF7_EXTFEATURE_TSXFA,
-    /* 6 */  CPUID_LEAF7_EXTFEATURE_IBRS,
-    /* 8 */  CPUID_LEAF7_EXTFEATURE_STIBP,
-    /* 9 */  CPUID_LEAF7_EXTFEATURE_L1DF,
-    /* 10 */ CPUID_LEAF7_EXTFEATURE_ACAPMSR,
-    /* 11 */ CPUID_LEAF7_EXTFEATURE_CCAPMSR,
-    /* 12 */ CPUID_LEAF7_EXTFEATURE_SSBD
-};
-
-const char *pm_flags[] = {
-    /* 1 */  "ts",
-    /* 2 */  "fid",
-    /* 3 */  "vid",
-    /* 4 */  "ttp",
-    /* 5 */  "tm",
-    /* 6 */  "stc",
-    /* 7 */  "100mhzsteps",
-    /* 8 */  "hwpstate",
-    /* 9 */  "cpb",
-    /* 10 */ "eff_freq_ro",
-    /* 11 */ "proc_feedback",
-    /* 12 */ "acc_power"
-};
-
-const char *bug_flags[] = {
-    /* 1 */  "fxsave_leak",
-    /* 2 */  "sysret_ss_attrs",
-    /* 3 */  "null_seg",
-    /* 4 */  "cpu_meltdown",
-    /* 5 */  "spectre_v1",
-    /* 6 */  "spectre_v2",
-    /* 7 */  "spec_store_bypass",
-    /* 8 */  "l1tf",
-    /* 9 */  "mds",
-    /* 10 */ "swapgs"
-};
-
-STATIC char *
-get_cpu_flags(void)
-{
-    int i = 0;
-    int size = 0;
-
-    if (_cpuid_info()->cpuid_features) {
-        size = (sizeof(feature_flags) * 2);
-
-        char *flags[size];
-
-        while (i < nitems(feature_flags)) {
-            /* 
-             * If the CPU supports a feature in the feature_list[]...
-             */
-            if (_cpuid_info()->cpuid_features & feature_list[i]) {
-                /*
-                 * ...amend its flag to 'flags'.
-                 */
-                strlcat(flags, feature_flags[i], sizeof(flags));
-                strlcat(flags, " ", sizeof(flags));
-            }
-            /*
-             * Add 1 to the counter for each iteration.
-             */
-            i++;
-        }
-        return flags;
-
-    } else {
-        size = 8;
-        char *flags[size];
-        strlcat(flags,"", sizeof(flags));
-        return flags;
-    }
-}
-
-STATIC char *
-get_cpu_ext_flags(void)
-{
-    int i = 0;
-    int size = 0;
-
-    if (_cpuid_info()->cpuid_extfeatures) {
-        size = (sizeof(feature_ext_flags) * 2);
-
-        char *flags[size];
-
-        while (i < nitems(feature_ext_flags)) {
-            /* 
-             * If the CPU supports a feature in the feature_ext_list[]...
-             */
-            if (_cpuid_info()->cpuid_extfeatures & feature_ext_list[i]) {
-                /*
-                 * ...amend its flag to 'flags'.
-                 */
-                strlcat(flags, feature_ext_flags[i], sizeof(flags));
-                strlcat(flags, " ", sizeof(flags));
-            }
-            /*
-             * Add 1 to the counter for each iteration.
-             */
-            i++;
-        }
-        return flags;
-
-    } else {
-        size = 8;
-        char *flags[size];
-
-        strlcat(flags,"", sizeof(flags));
-
-        return flags;
-    }
-}
-
 STATIC char*
 get_leaf7_flags(void)
 {
@@ -699,6 +669,36 @@ get_leaf7_flags(void)
     }
 }
 
+const char *leaf7_feature_ext_flags[] = {
+    /* 1 */  "avx5124vnniw",
+    /* 2 */  "avx5124fmaps",
+    /* 3 */  "fsrepmov",
+    /* 4 */  "srbds_ctlr",
+    /* 5 */  "mdclear",
+    /* 6 */  "tsxfa",
+    /* 7 */  "ibrs",
+    /* 8 */  "stibp",
+    /* 9 */  "l1d",
+    /* 10 */ "acapmsr",
+    /* 11 */ "ccapmsr",
+    /* 12 */ "ssbd"
+};
+
+uint64_t leaf7_feature_ext_list[] = {
+    /* 1 */  CPUID_LEAF7_EXTFEATURE_AVX5124VNNIW,
+    /* 2 */  CPUID_LEAF7_EXTFEATURE_AVX5124FMAPS,
+    /* 3 */  CPUID_LEAF7_EXTFEATURE_FSREPMOV,
+    /* 4 */  CPUID_LEAF7_EXTFEATURE_SRBDS_CTRL,
+    /* 5 */  CPUID_LEAF7_EXTFEATURE_MDCLEAR,
+    /* 6 */  CPUID_LEAF7_EXTFEATURE_TSXFA,
+    /* 6 */  CPUID_LEAF7_EXTFEATURE_IBRS,
+    /* 8 */  CPUID_LEAF7_EXTFEATURE_STIBP,
+    /* 9 */  CPUID_LEAF7_EXTFEATURE_L1DF,
+    /* 10 */ CPUID_LEAF7_EXTFEATURE_ACAPMSR,
+    /* 11 */ CPUID_LEAF7_EXTFEATURE_CCAPMSR,
+    /* 12 */ CPUID_LEAF7_EXTFEATURE_SSBD
+};
+
 STATIC char *
 get_leaf7_ext_flags(void)
 {
@@ -736,3 +736,50 @@ get_leaf7_ext_flags(void)
         return flags;
     }
 }
+
+const char *power_flags[] = {
+    /* 1 */  "ts",                  /* temperature sensor */
+    /* 2 */  "fid",                 /* frequency id control */
+    /* 3 */  "vid",                 /* voltage id control */
+    /* 4 */  "ttp",                 /* thermal trip */
+    /* 5 */  "tm",                  /* hardware thermal control */
+    /* 6 */  "stc",                 /* software thermal control */
+    /* 7 */  "100mhzsteps",         /* 100 MHz multiplier control */
+    /* 8 */  "hwpstate",            /* hardware P-state control */
+    /* 10 */ "",                    /* tsc invariant mapped to constant_tsc */
+    /* 11 */ "cpb",                 /* core performance boost */
+    /* 12 */ "eff_freq_ro",         /* readonly aperf/mperf */
+    /* 13 */ "proc_feedback",       /* processor feedback interface */
+    /* 14 */ "acc_power"            /* accumulated power mechanism */
+};
+
+const char *x86_bug_flags[] = {
+    /* 1 */ "f00f",                 /* Intel F00F */
+    /* 2 */ "fdiv",                 /* FPU FDIV */
+    /* 3 */ "coma",                 /* Cyrix 6x86 coma */
+    /* 4 */ "tlb_mmatch",           /* "tlb_mmatch" AMD Erratum 383 */
+    /* 5 */ "apic_c1e",             /* "apic_c1e" AMD Erratum 400 */
+    /* 6 */ "11ap",                 /* Bad local APIC aka 11AP */
+    /* 7 */ "fxsave_leak",          /* FXSAVE leaks FOP/FIP/FOP */
+    /* 8 */ "clflush_monitor",      /* AAI65, CLFLUSH required before MONITOR */
+    /* 9 */ "sysret_ss_attrs",      /* SYSRET doesn't fix up SS attrs */
+    /* 10 */ "espfix"               /* "" IRET to 16-bit SS corrupts ESP/RSP high bits */
+};
+
+const char *x86_64_bug_flags = {
+    /* 1 */  "null_seg",            /* Nulling a selector preserves the base */
+    /* 2 */  "swapgs_fence",        /* SWAPGS without input dep on GS */
+    /* 3 */  "monitor",             /* IPI required to wake up remote CPU */
+    /* 4 */  "amd_e400",            /* CPU is among the affected by Erratum 400 */
+    /* 5 */  "cpu_meltdown",        /* CPU is affected by meltdown attack and needs kernel page table isolation */
+    /* 6 */  "spectre_v1",          /* CPU is affected by Spectre variant 1 attack with conditional branches */
+    /* 7 */  "spectre_v2",          /* CPU is affected by Spectre variant 2 attack with indirect branches */
+    /* 8 */  "spec_store_bypass",   /* CPU is affected by speculative store bypass attack */
+    /* 9 */  "l1tf",                /* CPU is affected by L1 Terminal Fault */
+    /* 10 */ "mds",                 /* CPU is affected by Microarchitectural data sampling */
+    /* 11 */ "msdbs_only",          /* CPU is only affected by the  MSDBS variant of BUG_MDS */
+    /* 12 */ "swapgs",              /* CPU is affected by speculation through SWAPGS */
+    /* 13 */ "taa",                 /* CPU is affected by TSX Async Abort(TAA) */
+    /* 14 */ "itlb_multihit",       /* CPU may incur MCE during certain page attribute changes */
+    /* 15 */ "srbds"                /* CPU may leak RNG bits if not mitigated */
+};
