@@ -13,20 +13,13 @@ SYM_INIT(processor_count);
 SYM_INIT(tscFreq);
 
 // Process Locks
-SYM_INIT(proc_lock);
-SYM_INIT(proc_unlock);
-SYM_INIT(proc_spinlock);
-SYM_INIT(proc_spinunlock);
 SYM_INIT(proc_list_lock);
 SYM_INIT(proc_list_unlock);
-SYM_INIT(proc_fdlock);
 SYM_INIT(proc_fdlock_spin);
 SYM_INIT(proc_fdunlock);
-SYM_INIT(proc_fdlock_assert);
 
-// Iteration
+// Process Iteration
 SYM_INIT(proc_iterate);
-SYM_INIT(pgrp_iterate);
 
 // Process Group and Session
 SYM_INIT(proc_pgrp);
@@ -53,7 +46,6 @@ SYM_INIT(fill_taskthreadinfo);
 
 // Process Misc
 SYM_INIT(proc_get_darwinbgstate);
-SYM_INIT(proc_reparentlocked);
 
 // File Descriptor
 SYM_INIT(proc_fdlist);
@@ -66,15 +58,6 @@ SYM_INIT(thread_info);
 
 // CPU
 SYM_INIT(cpuid_info);
-SYM_INIT(cpu_number);
-SYM_INIT(cpuid_features);
-SYM_INIT(cpuid_extfeatures);
-SYM_INIT(cpuid_leaf7_features);
-SYM_INIT(cpuid_leaf7_extfeatures);
-SYM_INIT(cpuid_get_feature_names);
-SYM_INIT(cpuid_get_extfeature_names);
-SYM_INIT(cpuid_get_leaf7_feature_names);
-SYM_INIT(cpuid_get_leaf7_extfeature_names);
 
 // Vnode
 SYM_INIT(vn_stat);
@@ -93,20 +76,13 @@ resolve_symbols()
 	SYM_LOOKUP(tscFreq);
 
 	// Process Locks
-	SYM_LOOKUP(proc_lock);
-	SYM_LOOKUP(proc_unlock);
-	SYM_LOOKUP(proc_spinlock);
-	SYM_LOOKUP(proc_spinunlock);
 	SYM_LOOKUP(proc_list_lock);
 	SYM_LOOKUP(proc_list_unlock);
-	SYM_LOOKUP(proc_fdlock);
 	SYM_LOOKUP(proc_fdlock_spin);
 	SYM_LOOKUP(proc_fdunlock);
-	SYM_LOOKUP(proc_fdlock_assert);
 
 	// Process Iteration
 	SYM_LOOKUP(proc_iterate);
-	SYM_LOOKUP(pgrp_iterate);
 
 	// Process Group and Session
 	SYM_LOOKUP(proc_pgrp);
@@ -133,7 +109,6 @@ resolve_symbols()
 
 	// Process Misc
 	SYM_LOOKUP(proc_get_darwinbgstate);
-	SYM_LOOKUP(proc_reparentlocked);
 
 	// File Descriptor
 	SYM_LOOKUP(proc_fdlist);
@@ -145,16 +120,7 @@ resolve_symbols()
 	SYM_LOOKUP(thread_info);
 
 	// CPU ID
-	SYM_LOOKUP(cpu_number);
 	SYM_LOOKUP(cpuid_info);
-	SYM_LOOKUP(cpuid_features);
-	SYM_LOOKUP(cpuid_extfeatures);
-	SYM_LOOKUP(cpuid_leaf7_features);
-	SYM_LOOKUP(cpuid_leaf7_extfeatures);
-	SYM_LOOKUP(cpuid_get_feature_names);
-	SYM_LOOKUP(cpuid_get_extfeature_names);
-	SYM_LOOKUP(cpuid_get_leaf7_feature_names);
-	SYM_LOOKUP(cpuid_get_leaf7_extfeature_names);
 
 	// Vnode
 	SYM_LOOKUP(vn_stat);
