@@ -430,34 +430,6 @@ uint64_t feature_list[] = {
     /* 60 */ CPUID_FEATURE_VMM,
 };
 
-const char *pm_flags[] = {
-    /* 1 */  "ts",
-    /* 2 */  "fid",
-    /* 3 */  "vid",
-    /* 4 */  "ttp",
-    /* 5 */  "tm",
-    /* 6 */  "stc",
-    /* 7 */  "100mhzsteps",
-    /* 8 */  "hwpstate",
-    /* 9 */  "cpb",
-    /* 10 */ "eff_freq_ro",
-    /* 11 */ "proc_feedback",
-    /* 12 */ "acc_power"
-};
-
-const char *bug_flags[] = {
-    /* 1 */  "fxsave_leak",
-    /* 2 */  "sysret_ss_attrs",
-    /* 3 */  "null_seg",
-    /* 4 */  "cpu_meltdown",
-    /* 5 */  "spectre_v1",
-    /* 6 */  "spectre_v2",
-    /* 7 */  "spec_store_bypass",
-    /* 8 */  "l1tf",
-    /* 9 */  "mds",
-    /* 10 */ "swapgs"
-};
-
 STATIC char *
 get_cpu_flags(void)
 {
@@ -789,7 +761,7 @@ const char *x86_bug_flags[] = {
     /* 10 */ "espfix"               /* "" IRET to 16-bit SS corrupts ESP/RSP high bits */
 };
 
-const char *x86_64_bug_flags = {
+const char *x86_64_bug_flags[] = {
     /* 1 */  "null_seg",            /* Nulling a selector preserves the base */
     /* 2 */  "swapgs_fence",        /* SWAPGS without input dep on GS */
     /* 3 */  "monitor",             /* IPI required to wake up remote CPU */
