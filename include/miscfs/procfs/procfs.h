@@ -99,7 +99,7 @@ typedef enum {
 #pragma mark -
 #pragma mark Type Definitions
 
-typedef struct procfsnode procfsnode_t;
+typedef struct pfsnode pfsnode_t;
 typedef struct pfsid pfsid_t;
 typedef struct pfsmount pfsmount_t;
 typedef struct pfssnode pfssnode_t;
@@ -108,19 +108,19 @@ typedef struct pfssnode pfssnode_t;
 // procfsnode_find() function. "params" is used to pass the details that
 // the function needs in order to create the correct vnode. It is obtained
 // from the "create_vnode_params" argument passed to procfsnode_find(),
-// "pnp" is a pointer to the procfsnode_t that the vnode should be linked to
+// "pnp" is a pointer to the pfsnode_t that the vnode should be linked to
 // and "vpp" is where the created vnode will be stored, if the call was successful.
 // Returns 0 on success or an error code (from errno.h) if not.
-typedef int (*create_vnode_func)(void *params, procfsnode_t *pnp, vnode_t *vpp);
+typedef int (*create_vnode_func)(void *params, pfsnode_t *pnp, vnode_t *vpp);
 
 // Type for the base node id field of a structure node.
 typedef uint16_t procfs_base_node_id_t;
 
 // Type of a function that reports the size for a procfs node.
-typedef size_t (*procfs_node_size_fn)(procfsnode_t *pnp, kauth_cred_t creds);
+typedef size_t (*procfs_node_size_fn)(pfsnode_t *pnp, kauth_cred_t creds);
 
 // Type of a function that reads the data for a procfs node.
-typedef int (*procfs_read_data_fn)(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+typedef int (*procfs_read_data_fn)(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 #pragma mark -
 #pragma mark Structure Definitions
@@ -149,7 +149,7 @@ typedef int (*procfs_read_data_fn)(procfsnode_t *pnp, uio_t uio, vfs_context_t c
  * the associated thread's id is used.
  *
  * The psn_base_node_id field is a unique value that becomes part of the
- * full id of any procfsnode_t that is created from this structure node.
+ * full id of any pfsnode_t that is created from this structure node.
  * 
  * The PSN_FLAG_PROCESS and PSN_FLAG_THREAD flag values of a node are propagated
  * to all descendent nodes, so it is always possible to determine whether a
@@ -209,16 +209,16 @@ struct pfsmount {
  * The filesystem-dependent vnode private data for procfs.
  * There is one insance of this structure for each active node.
  */
-struct procfsnode {
+struct pfsnode {
     // Linkage for the node hash. Protected by the node hash lock.
-    LIST_ENTRY(procfsnode)  node_hash;
+    LIST_ENTRY(pfsnode)  node_hash;
 
     // Pointer to the associated vnode. Protected by the node hash lock.
     vnode_t                 node_vnode;
 
     // Records whether this node is currently being attached to a vnode.
     // Only one thread can be allowed to link the node to a vnode. If a
-    // thread that wants to create a procfsnode and link it to a vnode
+    // thread that wants to create a pfsnode and link it to a vnode
     // finds this field set to true, it must release the node hash lock
     // and wait until the field is reset to false, then check again whether
     // some or all of the work that it needed to do has been completed.
@@ -259,16 +259,16 @@ struct procfs_pidlist_data
 
 /* Convert from procfs vnode pointer to VFS vnode pointer. */
 static inline vnode_t
-procfsnode_to_vnode(procfsnode_t *pnp)
+pfsnode_to_vnode(pfsnode_t *pnp)
 {
     return pnp->node_vnode;
 }
 
 /* Convert from VFS vnode pointer to procfs vnode pointer. */
-static inline procfsnode_t *
+static inline pfsnode_t *
 vnode_to_procfsnode(vnode_t vp)
 {
-    return (procfsnode_t *)vnode_fsnode(vp);
+    return (pfsnode_t *)vnode_fsnode(vp);
 }
 
 /* Convert from procfs mount pointer to VFS mount pointer. */
@@ -302,11 +302,11 @@ procfs_is_directory_type(pfstype type)
     return type != PFSfile && type != PFScurproc;
 }
 
-/* Gets the pid_t for the process corresponding to a procfsnode_t. */
+/* Gets the pid_t for the process corresponding to a pfsnode_t. */
 static inline int
-procfsnode_to_pid(procfsnode_t *procfsnode)
+procfsnode_to_pid(pfsnode_t *pfsnode)
 {
-    return procfsnode->node_id.nodeid_pid;
+    return pfsnode->node_id.nodeid_pid;
 }
 
 #pragma mark -
@@ -321,11 +321,11 @@ extern void procfsnode_complete_init(void);
 extern int procfsnode_find(pfsmount_t *pmp,
                            pfsid_t node_id,
                            pfssnode_t *snode,
-                           procfsnode_t **pnpp, vnode_t *vnpp,
+                           pfsnode_t **pnpp, vnode_t *vnpp,
                            create_vnode_func create_vnode_func,
                            void *create_vnode_params);
 extern void procfsnode_reclaim(vnode_t vp);
-extern void procfs_get_parent_node_id(procfsnode_t *pnp, pfsid_t *idp);
+extern void procfs_get_parent_node_id(pfsnode_t *pnp, pfsid_t *idp);
 
 /* Gets the root node of the file system structure. */
 extern pfssnode_t *procfs_structure_root_node(void);
@@ -358,30 +358,30 @@ extern enum vtype vnode_type_for_structure_node_type(pfstype);
  */
 extern int procfs_copy_data(const char *data, int data_len, uio_t uio);
 
-/* Functions that copy procfsnode_t data to a buffer described by a uio_t structure. */
-extern int procfs_read_pid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_read_ppid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_read_pgid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_read_sid_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_read_tty_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_read_proc_info(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_read_task_info(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_read_thread_info(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_read_fd_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+/* Functions that copy pfsnode_t data to a buffer described by a uio_t structure. */
+extern int procfs_read_pid_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_ppid_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_pgid_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_sid_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_proc_info(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_task_info(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
-extern int procfs_docpuinfo(procfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* Functions that return the data size for a node. */
-extern size_t procfs_get_node_size_attr(procfsnode_t *pnp, kauth_cred_t creds);
-extern size_t procfs_process_node_size(procfsnode_t *pnp, kauth_cred_t creds);
-extern size_t procfs_thread_node_size(procfsnode_t *pnp, kauth_cred_t creds);
-extern size_t procfs_fd_node_size(procfsnode_t *pnp, kauth_cred_t creds);
+extern size_t procfs_get_node_size_attr(pfsnode_t *pnp, kauth_cred_t creds);
+extern size_t procfs_process_node_size(pfsnode_t *pnp, kauth_cred_t creds);
+extern size_t procfs_thread_node_size(pfsnode_t *pnp, kauth_cred_t creds);
+extern size_t procfs_fd_node_size(pfsnode_t *pnp, kauth_cred_t creds);
 
 /* Subroutine functions. */
 extern boolean_t procfs_node_type_has_pid(pfstype node_type);
 extern int procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp);
-extern uint64_t procfs_get_node_fileid(procfsnode_t *pnp);
+extern uint64_t procfs_get_node_fileid(pfsnode_t *pnp);
 extern uint64_t procfs_get_fileid(pid_t pid, uint64_t objectid, procfs_base_node_id_t base_id);
 extern int procfs_atoi(const char *p, const char **end_ptr);
 extern void procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds);

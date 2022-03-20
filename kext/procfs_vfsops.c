@@ -44,8 +44,8 @@ extern struct vnodeopv_desc *procfs_vnodeops_list[1];
 extern int (**procfs_vnodeop_p)(void *);
 
 // See: procfs_node.c
-extern lck_grp_t *procfsnode_lck_grp;
-extern lck_mtx_t *procfsnode_hash_mutex;
+extern lck_grp_t *pfsnode_lck_grp;
+extern lck_mtx_t *pfsnode_hash_mutex;
 extern OSMallocTag procfs_osmalloc_tag;
 
 #pragma mark -
@@ -61,7 +61,7 @@ STATIC int procfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t
 
 STATIC void populate_statfs_info(struct mount *mp, struct vfsstatfs *statfsp);
 STATIC void populate_vfs_attr(struct mount *mp, struct vfs_attr *fsap);
-STATIC int procfs_create_root_vnode(mount_t mp, procfsnode_t *pnp, vnode_t *vpp);
+STATIC int procfs_create_root_vnode(mount_t mp, pfsnode_t *pnp, vnode_t *vpp);
 
 #pragma mark -
 #pragma mark VFS Operations and Entry Structures
@@ -120,7 +120,7 @@ procfs_init(__unused struct vfsconf *vfsconf)
             return ENOMEM;   // Plausible error code.
         }
 
-        // Initialize procfsnode data.
+        // Initialize pfsnode data.
         procfsnode_start_init();
     }
     return 0;
@@ -134,14 +134,14 @@ procfs_fini(void)
         procfs_osmalloc_tag = NULL;
     }
 
-    if (procfsnode_lck_grp != NULL) {
-        lck_grp_free(procfsnode_lck_grp);
-        procfsnode_lck_grp = NULL;
+    if (pfsnode_lck_grp != NULL) {
+        lck_grp_free(pfsnode_lck_grp);
+        pfsnode_lck_grp = NULL;
     }
 
-    if (procfsnode_hash_mutex != NULL) {
-        lck_mtx_free(procfsnode_hash_mutex, procfsnode_lck_grp);
-        procfsnode_hash_mutex = NULL;
+    if (pfsnode_hash_mutex != NULL) {
+        lck_mtx_free(pfsnode_hash_mutex, pfsnode_lck_grp);
+        pfsnode_hash_mutex = NULL;
     }
 
     return;
@@ -239,17 +239,17 @@ procfs_unmount(struct mount *mp, __unused int mntflags, __unused vfs_context_t c
  * Gets the root vnode for the file system. If the vnode has already been
  * created, it may be still be in the cache. If not, or if this is the
  * first call to this function after mount, the root vnode and its
- * accompanying procfsnode_t are created and added to the cache.
+ * accompanying pfsnode_t are created and added to the cache.
  */
 STATIC int
 procfs_root(struct mount *mp, vnode_t *vpp, __unused vfs_context_t context)
 {
     vnode_t root_vnode;
-    procfsnode_t *root_procfsnode;
+    pfsnode_t *root_pfsnode;
 
     // Find the root vnode in the cache, or create it if it does not exist.
     int error = procfsnode_find(vfs_mp_to_procfs_mp(mp), PROCFS_ROOT_NODE_ID, procfs_structure_root_node(),
-                                &root_procfsnode, &root_vnode,
+                                &root_pfsnode, &root_vnode,
                                 (create_vnode_func)&procfs_create_root_vnode, mp);
 
     // Return the root vnode pointer to the caller, if it was created.
@@ -276,11 +276,11 @@ procfs_getattr(struct mount *mp, struct vfs_attr *fsap, __unused vfs_context_t c
 
 /*
  * Creates the root vnode for an instance of the file system and
- * links it to its procfsnode_t. No internal locks are held when this
+ * links it to its pfsnode_t. No internal locks are held when this
  * function is called.
  */
 STATIC int
-procfs_create_root_vnode(mount_t mp, procfsnode_t *pnp, vnode_t *vpp)
+procfs_create_root_vnode(mount_t mp, pfsnode_t *pnp, vnode_t *vpp)
 {
     struct vnode_fsparam vnode_create_params;
 

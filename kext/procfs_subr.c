@@ -26,7 +26,7 @@
 #include "symdecls.h"
 
 /*
- * Given a vnode that corresponds to a procfsnode_t, returns the corresponding
+ * Given a vnode that corresponds to a pfsnode_t, returns the corresponding
  * process id and proc_t reference. If the node does not have a corresponding
  * process (i.e. it is the file system root node), the returned pid is 
  * PRNODE_NO_PID and the proc_t reference is NULL. If the process no longer
@@ -35,11 +35,11 @@
 int
 procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp)
 {
-    procfsnode_t *procfs_node = vnode_to_procfsnode(vp);
-    pfssnode_t *snode = procfs_node->node_structure_node;
+    pfsnode_t *pfsnode = vnode_to_procfsnode(vp);
+    pfssnode_t *snode = pfsnode->node_structure_node;
     pfstype node_type = snode->psn_node_type;
 
-    int pid = procfsnode_to_pid(procfs_node);
+    int pid = procfsnode_to_pid(pfsnode);
     proc_t p = pid == PRNODE_NO_PID ? NULL : proc_find(pid); // Process for the vnode, if there is one.
     if (p == NULL && procfs_node_type_has_pid(node_type)) {
         // Process must have gone -- return an error
@@ -72,7 +72,7 @@ procfs_node_type_has_pid(pfstype node_type)
  * It should, however, be good enough.
  */
 uint64_t
-procfs_get_node_fileid(procfsnode_t *pnp)
+procfs_get_node_fileid(pfsnode_t *pnp)
 {
     pfsid_t node_id = pnp->node_id;
     return procfs_get_fileid(node_id.nodeid_pid, node_id.nodeid_objectid, pnp->node_structure_node->psn_base_node_id);

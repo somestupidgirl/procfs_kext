@@ -44,7 +44,7 @@
 #define VOPFUNC int (*)(void *)
 
 // Structure used to hold the values needed to create a new vnode
-// corresponding to a procfsnode_t.
+// corresponding to a pfsnode_t.
 typedef struct {
     vnode_t vca_parentvp; // Parent vnode.
 } procfs_vnode_create_args;
@@ -72,7 +72,7 @@ STATIC int procfs_vnop_inactive(struct vnop_inactive_args *ap);
 
 STATIC inline int procfs_calc_dirent_size(const char *name);
 STATIC int procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, int *sizep);
-STATIC int procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp, vnode_t *vpp);
+STATIC int procfs_create_vnode(procfs_vnode_create_args *cap, pfsnode_t *pnp, vnode_t *vpp);
 STATIC void procfs_construct_process_dir_name(proc_t p, char *buffer);
 
 #pragma mark -
@@ -163,7 +163,7 @@ int procfs_vnop_default(__unused struct vnop_generic_args *arg)
  *
  * When asked to resolve a path, we are given the vnode of the 
  * path's directory and the path segment. The vnode will map to a
- * procfsnode_t, which we can use to get its pfssnode_t.
+ * pfsnode_t, which we can use to get its pfssnode_t.
  * Once we have the pfssnode_t, we know which level we 
  * are at in the file system and therefore which paths are valid.
  * In some cases, we can resolve the lookup by a simple comparison
@@ -195,9 +195,9 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
         goto out;
     }
 
-    // Get the procfsnode_t for the directory. This must
+    // Get the pfsnode_t for the directory. This must
     // not be NULL.
-    procfsnode_t *dir_pnp = vnode_to_procfsnode(dvp);
+    pfsnode_t *dir_pnp = vnode_to_procfsnode(dvp);
     if (dir_pnp == NULL) {
         error = EINVAL;
         goto out;
@@ -216,13 +216,13 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
         // node id would be.
         pfsid_t parent_node_id;
         procfs_get_parent_node_id(dir_pnp, &parent_node_id);
-        procfsnode_t *target_procfsnode;
+        pfsnode_t *target_pfsnode;
         vnode_t target_vnode;
         procfs_vnode_create_args create_args;
         create_args.vca_parentvp = NULLVP;
         error = procfsnode_find(mp, parent_node_id,
                                 dir_pnp->node_structure_node->psn_parent,
-                                &target_procfsnode,
+                                &target_pfsnode,
                                 &target_vnode,
                                 (create_vnode_func)&procfs_create_vnode,
                                 &create_args);
@@ -381,13 +381,13 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
             // We matched and match_node_id has been set to the node id of the
             // required node. Look for it in the cache, or create it if it is
             // not there. This also creates the vnode and increments its iocount.
-            procfsnode_t *target_procfsnode;
+            pfsnode_t *target_pfsnode;
             vnode_t target_vnode;
             procfs_vnode_create_args create_args;
             create_args.vca_parentvp = dvp;
             error = procfsnode_find(mp, match_node_id,
                                     match_node,
-                                    &target_procfsnode,
+                                    &target_pfsnode,
                                     &target_vnode,
                                     (create_vnode_func)&procfs_create_vnode,
                                     &create_args);
@@ -435,7 +435,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
         return ENOTDIR;
     }
 
-    procfsnode_t *dir_pnp = vnode_to_procfsnode(vp);
+    pfsnode_t *dir_pnp = vnode_to_procfsnode(vp);
     pfssnode_t *dir_snode = dir_pnp->node_structure_node;
 
     int numentries = 0;
@@ -748,7 +748,7 @@ STATIC int
 procfs_vnop_getattr(struct vnop_getattr_args *ap)
 {
     vnode_t vp = ap->a_vp;
-    procfsnode_t *procfs_node = vnode_to_procfsnode(vp);
+    pfsnode_t *procfs_node = vnode_to_procfsnode(vp);
     pfssnode_t *snode = procfs_node->node_structure_node;
     pfstype node_type = snode->psn_node_type;
 
@@ -837,7 +837,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     VATTR_RETURN(vap, va_modify_time, create_time);
 
     // Set the UID/GID from the credentials of the process that
-    // corresponds to the procfsnode_t, if there is one. There
+    // corresponds to the pfsnode_t, if there is one. There
     // is no process for the root node. For other nodes. the uid
     // and gid are the real ids for the current process.
     proc_t current = current_proc();
@@ -868,7 +868,7 @@ procfs_vnop_readlink(struct vnop_readlink_args *ap)
 {
     int error = 0;
     vnode_t vp = ap->a_vp;
-    procfsnode_t *pnp = vnode_to_procfsnode(vp);
+    pfsnode_t *pnp = vnode_to_procfsnode(vp);
     pfssnode_t *snode = pnp->node_structure_node;
     if (snode->psn_node_type == PFScurproc) {
         // The link is "curproc". Get the pid of the current process
@@ -902,7 +902,7 @@ STATIC int
 procfs_vnop_read(struct vnop_read_args *ap)
 {
     vnode_t vp = ap->a_vp;
-    procfsnode_t *pnp = vnode_to_procfsnode(vp);
+    pfsnode_t *pnp = vnode_to_procfsnode(vp);
     pfssnode_t *snode = pnp->node_structure_node;
     procfs_read_data_fn read_data_fn = snode->psn_read_data_fn;
 
@@ -916,7 +916,7 @@ procfs_vnop_read(struct vnop_read_args *ap)
 }
 
 /**
- * Reclaims a vnode and its associated procfsnode_t when it's
+ * Reclaims a vnode and its associated pfsnode_t when it's
  * no longer needed by the kernel file system code.
  */
 STATIC int
@@ -933,7 +933,7 @@ procfs_vnop_reclaim(struct vnop_reclaim_args *ap)
  * Creates a vnode with given properties, which depend on the vnode type.
  */
 STATIC int
-procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp, vnode_t *vpp)
+procfs_create_vnode(procfs_vnode_create_args *cap, pfsnode_t *pnp, vnode_t *vpp)
 {
     pfssnode_t *snode = pnp->node_structure_node;
     struct vnode_fsparam vnode_create_params;

@@ -20,7 +20,7 @@ STATIC char *get_leaf7_flags(void);
 STATIC char *get_leaf7_ext_flags(void);
 
 int
-procfs_docpuinfo(__unused procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     vm_offset_t pageno, uva, kva;
     int len = 0, xlen = 0;
