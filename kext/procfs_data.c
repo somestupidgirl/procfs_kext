@@ -9,7 +9,7 @@
 // file system and the size values for all procfs nodes, as seen in the
 // st_size field of the stat structure. Both the data and the size depend
 // on the node type. The correct function for each node is specified in
-// its procfs_structure_node_t.
+// its pfssnode_t.
 //
 
 #include <libkern/libkern.h>
@@ -485,7 +485,7 @@ procfs_read_socket_data(procfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx
 size_t
 procfs_get_node_size_attr(procfsnode_t *pnp, kauth_cred_t creds)
 {
-    procfs_structure_node_t *snode = pnp->node_structure_node;
+    pfssnode_t *snode = pnp->node_structure_node;
     pfstype node_type = snode->psn_node_type;
 
     // In the special cases of "." and "..", we need to first move up
@@ -508,7 +508,7 @@ procfs_get_node_size_attr(procfsnode_t *pnp, kauth_cred_t creds)
     size_t size = 0;
     if (procfs_is_directory_type(node_type)) {
         // Directory
-        procfs_structure_node_t *next_snode;
+        pfssnode_t *next_snode;
         TAILQ_FOREACH(next_snode, &snode->psn_children, psn_next) {
             procfs_node_size_fn node_size_fn = next_snode->psn_getsize_fn;
             size += node_size_fn == NULL ? 1 : node_size_fn(pnp, creds);

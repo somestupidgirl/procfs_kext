@@ -102,7 +102,7 @@ typedef enum {
 typedef struct procfsnode procfsnode_t;
 typedef struct pfsid pfsid_t;
 typedef struct procfs_mount procfs_mount_t;
-typedef struct procfs_structure_node procfs_structure_node_t;
+typedef struct pfssnode pfssnode_t;
 
 // Callback function used to create vnodes, called from within the
 // procfsnode_find() function. "params" is used to pass the details that
@@ -129,7 +129,7 @@ typedef int (*procfs_read_data_fn)(procfsnode_t *pnp, uio_t uio, vfs_context_t c
  * Definitions for the data structures that determine the
  * layout of nodes in the procfs file system.
  * The layout is constructed by building a tree of
- * structures of type procfs_structure_node_t. The layout
+ * structures of type pfssnode_t. The layout
  * is the same for each file system instance and is created
  * when the first instance of the file system is mounted.
  */
@@ -154,18 +154,18 @@ typedef int (*procfs_read_data_fn)(procfsnode_t *pnp, uio_t uio, vfs_context_t c
  * The PSN_FLAG_PROCESS and PSN_FLAG_THREAD flag values of a node are propagated
  * to all descendent nodes, so it is always possible to determine whether a
  * node is process- and/or thread-related just by examining the psn_flags
- * field of its procfs_structure_node.
+ * field of its pfssnode.
  */
-struct procfs_structure_node {
+struct pfssnode {
     pfstype                                 psn_node_type;
     char                                    psn_name[MAX_STRUCT_NODE_NAME_LEN];
     procfs_base_node_id_t                   psn_base_node_id;   // Base node id - unique.
     uint16_t                                psn_flags;          // Flags - PSN_XXX (see below)
 
     // Structure linkage. Immutable once set.
-    struct procfs_structure_node          *psn_parent;                          // The parent node in the structure
-    TAILQ_ENTRY(procfs_structure_node)     psn_next;                            // Next sibling node within structure parent.
-    TAILQ_HEAD(procfs_structure_children,  procfs_structure_node) psn_children; // Children of this structure node.
+    struct pfssnode                       *psn_parent;                          // The parent node in the structure
+    TAILQ_ENTRY(pfssnode)     psn_next;                            // Next sibling node within structure parent.
+    TAILQ_HEAD(procfs_structure_children,  pfssnode) psn_children; // Children of this structure node.
 
     // --- Function hooks. Set to null to use the defaults.
     // The node's size value. This is the size value for the node itself.
@@ -236,8 +236,8 @@ struct procfsnode {
     int32_t                 node_mnt_id;            // Identifier of the owning mount.
     pfsid_t         node_id;                // The identifer of this node.
 
-    // Pointer to the procfs_structure_node_t for this node.
-    procfs_structure_node_t *node_structure_node;   // Set when allocated, never changes.
+    // Pointer to the pfssnode_t for this node.
+    pfssnode_t *node_structure_node;   // Set when allocated, never changes.
 
     // Open flags
     u_long                  node_flags;
@@ -320,7 +320,7 @@ extern void procfsnode_start_init(void);
 extern void procfsnode_complete_init(void);
 extern int procfsnode_find(procfs_mount_t *pmp,
                            pfsid_t node_id,
-                           procfs_structure_node_t *snode,
+                           pfssnode_t *snode,
                            procfsnode_t **pnpp, vnode_t *vnpp,
                            create_vnode_func create_vnode_func,
                            void *create_vnode_params);
@@ -328,7 +328,7 @@ extern void procfsnode_reclaim(vnode_t vp);
 extern void procfs_get_parent_node_id(procfsnode_t *pnp, pfsid_t *idp);
 
 /* Gets the root node of the file system structure. */
-extern procfs_structure_node_t *procfs_structure_root_node(void);
+extern pfssnode_t *procfs_structure_root_node(void);
 
 /*
  * Initializes the procfs structures. Should only be called

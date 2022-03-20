@@ -110,7 +110,7 @@ procfsnode_complete_init(void)
  * which is called when the node's associated vnode is being reclaimed.
  */
 int
-procfsnode_find(procfs_mount_t *pmp, pfsid_t node_id, procfs_structure_node_t *snode,
+procfsnode_find(procfs_mount_t *pmp, pfsid_t node_id, pfssnode_t *snode,
                 procfsnode_t **pnpp, vnode_t *vnpp,
                 create_vnode_func create_vnode_func,
                 void *create_vnode_params)
@@ -372,8 +372,8 @@ procfsnode_free_node(procfsnode_t *procfsnode)
 void
 procfs_get_parent_node_id(procfsnode_t *pnp, pfsid_t *return_idp)
 {
-    procfs_structure_node_t *snode = pnp->node_structure_node;
-    procfs_structure_node_t *parent_snode = snode == NULL ? NULL : snode->psn_parent;
+    pfssnode_t *snode = pnp->node_structure_node;
+    pfssnode_t *parent_snode = snode == NULL ? NULL : snode->psn_parent;
     if (parent_snode == NULL) {
         // The root node is effectively its parent.
         parent_snode = snode;

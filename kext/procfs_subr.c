@@ -36,7 +36,7 @@ int
 procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp)
 {
     procfsnode_t *procfs_node = vnode_to_procfsnode(vp);
-    procfs_structure_node_t *snode = procfs_node->node_structure_node;
+    pfssnode_t *snode = procfs_node->node_structure_node;
     pfstype node_type = snode->psn_node_type;
 
     int pid = procfsnode_to_pid(procfs_node);

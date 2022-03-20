@@ -163,11 +163,11 @@ int procfs_vnop_default(__unused struct vnop_generic_args *arg)
  *
  * When asked to resolve a path, we are given the vnode of the 
  * path's directory and the path segment. The vnode will map to a
- * procfsnode_t, which we can use to get its procfs_structure_node_t.
- * Once we have the procfs_structure_node_t, we know which level we 
+ * procfsnode_t, which we can use to get its pfssnode_t.
+ * Once we have the pfssnode_t, we know which level we 
  * are at in the file system and therefore which paths are valid.
  * In some cases, we can resolve the lookup by a simple comparison
- * of the path name with the name of a procfs_structure_node_t. As
+ * of the path name with the name of a pfssnode_t. As
  * an exmaple, if the parent node is for a process, then the node
  * structure tells us that names like "ppid", "pgid" etc are valid.
  * In other cases, we have to do more work. In the root directory,
@@ -175,7 +175,7 @@ int procfs_vnop_default(__unused struct vnop_generic_args *arg)
  * to check whether the name component is numeric and whether it
  * corresponds to an active process.
  * 
- * The end result of the name check will be a procfs_structure_node_t.
+ * The end result of the name check will be a pfssnode_t.
  * From that, we can construct the node id of the node that the name
  * refers to and we can then use that to look up the vnode in the
  * vnode cache and create it if it's not there.
@@ -239,8 +239,8 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
         // against the child nodes of the directory's structure node.
         // If we find a process or thread  structure node, we try to
         // convert the name to an integer and match if successful.
-        procfs_structure_node_t *dir_snode = dir_pnp->node_structure_node;
-        procfs_structure_node_t *match_node;
+        pfssnode_t *dir_snode = dir_pnp->node_structure_node;
+        pfssnode_t *match_node;
         pfsid_t match_node_id;
         proc_t target_proc = NULL;
         TAILQ_FOREACH(match_node, &dir_snode->psn_children, psn_next) {
@@ -410,7 +410,7 @@ out:
  * a uio structure.
  * 
  * The content of a directory depends on its type, which is obtained from
- * its procfs_structure_node_t object. In the simplest case, the directory
+ * its pfssnode_t object. In the simplest case, the directory
  * entries are simply the children of the structure node. This is the case
  * for process directories (e.g. /proc/1), for example, where the directory
  * entries are fixed vy the node structure. In the case of the root directory
@@ -436,7 +436,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
     }
 
     procfsnode_t *dir_pnp = vnode_to_procfsnode(vp);
-    procfs_structure_node_t *dir_snode = dir_pnp->node_structure_node;
+    pfssnode_t *dir_snode = dir_pnp->node_structure_node;
 
     int numentries = 0;
     int error = 0;
@@ -452,7 +452,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
     boolean_t check_access = !suser && procfs_should_access_check(pmp);
     kauth_cred_t creds = vfs_context_ucred(ap->a_context);
 
-    procfs_structure_node_t *snode = TAILQ_FIRST(&dir_snode->psn_children);
+    pfssnode_t *snode = TAILQ_FIRST(&dir_snode->psn_children);
     while (snode != NULL && uio_resid(uio) > 0) {
         // We inherit the parent directory's pid and thread id for
         // most cases. This is overridden only for entries of type
@@ -749,7 +749,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
 {
     vnode_t vp = ap->a_vp;
     procfsnode_t *procfs_node = vnode_to_procfsnode(vp);
-    procfs_structure_node_t *snode = procfs_node->node_structure_node;
+    pfssnode_t *snode = procfs_node->node_structure_node;
     pfstype node_type = snode->psn_node_type;
 
     pid_t pid;  // pid of the process for this node.
@@ -869,7 +869,7 @@ procfs_vnop_readlink(struct vnop_readlink_args *ap)
     int error = 0;
     vnode_t vp = ap->a_vp;
     procfsnode_t *pnp = vnode_to_procfsnode(vp);
-    procfs_structure_node_t *snode = pnp->node_structure_node;
+    pfssnode_t *snode = pnp->node_structure_node;
     if (snode->psn_node_type == PFScurproc) {
         // The link is "curproc". Get the pid of the current process
         // and copy it out to the caller's buffer.
@@ -894,7 +894,7 @@ procfs_vnop_readlink(struct vnop_readlink_args *ap)
 
 /*
  * Reads a node's data. The read operation is delegated to a function
- * that's held in the node's procfs_structure_node_t. For nodes that
+ * that's held in the node's pfssnode_t. For nodes that
  * can't be read, the funtion is NULL and EINVAL will be returned,
  * except in the case of a directory, for which the error is EISDIR.
  */
@@ -903,7 +903,7 @@ procfs_vnop_read(struct vnop_read_args *ap)
 {
     vnode_t vp = ap->a_vp;
     procfsnode_t *pnp = vnode_to_procfsnode(vp);
-    procfs_structure_node_t *snode = pnp->node_structure_node;
+    pfssnode_t *snode = pnp->node_structure_node;
     procfs_read_data_fn read_data_fn = snode->psn_read_data_fn;
 
     int error = EINVAL;
@@ -935,7 +935,7 @@ procfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 STATIC int
 procfs_create_vnode(procfs_vnode_create_args *cap, procfsnode_t *pnp, vnode_t *vpp)
 {
-    procfs_structure_node_t *snode = pnp->node_structure_node;
+    pfssnode_t *snode = pnp->node_structure_node;
     struct vnode_fsparam vnode_create_params;
 
     memset(&vnode_create_params, 0, sizeof(vnode_create_params));
