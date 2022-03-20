@@ -53,6 +53,23 @@ extern OSMallocTag procfs_osmalloc_tag;
 #pragma mark -
 #pragma mark Type Definitions
 
+/*
+ * The different types of node in a procfs filesystem
+ */
+typedef enum {
+    PFSroot,        /* the filesystem root */
+    PFSproc,        /* a process-specific sub-directory */
+    PFSthread,      /* the thread dir */
+    PFSdir,         /* an ordinary directory */
+    PFSfile,        /* a file */
+    PFSdirthis,     /* representation of "." */
+    PFSdirparent,   /* representation of ".." */
+    PFScurproc,     /* symbolic link for curproc */
+    PFSprocnamedir, /* directory for a process labeled with its command line */
+    PFSfd,          /* a directory containing the processes open fd's */
+    PFScpuinfo,     /* /proc/cpuinfo */
+} pfstype;
+
 typedef struct pfsnode pfsnode_t;
 typedef struct pfsid pfsid_t;
 typedef struct pfsmount pfsmount_t;
@@ -78,23 +95,6 @@ typedef int (*procfs_read_data_fn)(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 
 #pragma mark -
 #pragma mark Common Definitions
-
-/*
- * The different types of node in a procfs filesystem
- */
-typedef enum {
-    PFSroot,        /* the filesystem root */
-    PFSproc,        /* a process-specific sub-directory */
-    PFSthread,      /* the thread dir */
-    PFSdir,         /* an ordinary directory */
-    PFSfile,        /* a file */
-    PFSdirthis,     /* representation of "." */
-    PFSdirparent,   /* representation of ".." */
-    PFScurproc,     /* symbolic link for curproc */
-    PFSprocnamedir, /* directory for a process labeled with its command line */
-    PFSfd,          /* a directory containing the processes open fd's */
-    PFScpuinfo,     /* /proc/cpuinfo */
-} pfstype;
 
 // VFS flags
 #define PROCFS_VFS_FLAGS  ( \
