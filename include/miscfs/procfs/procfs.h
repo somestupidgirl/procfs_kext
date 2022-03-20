@@ -30,9 +30,9 @@
  * The procfs mount structure, created by mount_procfs
  * and passed to the kernel by the mount(2) system call.
  */
-typedef struct procfs_mount_args {
+typedef struct pfsmount_args {
     int mnt_options;      // The procfs mount options.
-} procfs_mount_args_t;
+} pfsmount_args_t;
 
 #pragma mark -
 #pragma mark Internel Definitions - Kernel Only

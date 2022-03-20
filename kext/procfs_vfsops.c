@@ -162,7 +162,7 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
     pfsmount_t *procfs_mp = vfs_mp_to_procfs_mp(mp);
     if (procfs_mp == NULL) {
         // First mount. Get the mount options from user space.
-        procfs_mount_args_t mount_args;
+        pfsmount_args_t mount_args;
         int error = copyin(data, &mount_args, sizeof(mount_args));
         if (error != 0) {
             printf("procfs: failed to copyin mount options");

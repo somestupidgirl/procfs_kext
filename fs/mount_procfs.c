@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
     }
 
     /* -- Mount the file system -- */
-    procfs_mount_args_t mount_args;
+    pfsmount_args_t mount_args;
     mount_args.mnt_options = procfs_options;
 
     char *mntdir = argv[1];
