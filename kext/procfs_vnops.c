@@ -459,7 +459,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
         // PROCFS_PROCDIR and PROCFS_THREADDIR.
         pid_t pid = dir_pnp->node_id.nodeid_pid;
         uint64_t objectid = dir_pnp->node_id.nodeid_objectid;
-        procfs_base_node_id_t base_node_id = snode->psn_base_node_id;
+        pfsbaseid_t base_node_id = snode->psn_base_node_id;
         const char *name = snode->psn_name;
 
         // If there is a process id associated with this node, perform

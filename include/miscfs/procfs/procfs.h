@@ -91,7 +91,7 @@ typedef enum {
 #define PRNODE_NO_OBJECTID  ((uint64_t)0)
 
 // Root node id value.
-#define PROCFS_ROOT_NODE_BASE_ID ((procfs_base_node_id_t)1)
+#define PROCFS_ROOT_NODE_BASE_ID ((pfsbaseid_t)1)
 
 // Largest name of a structure node.
 #define MAX_STRUCT_NODE_NAME_LEN 16
@@ -114,7 +114,7 @@ typedef struct pfssnode pfssnode_t;
 typedef int (*create_vnode_func)(void *params, pfsnode_t *pnp, vnode_t *vpp);
 
 // Type for the base node id field of a structure node.
-typedef uint16_t procfs_base_node_id_t;
+typedef uint16_t pfsbaseid_t;
 
 // Type of a function that reports the size for a procfs node.
 typedef size_t (*procfs_node_size_fn)(pfsnode_t *pnp, kauth_cred_t creds);
@@ -159,7 +159,7 @@ typedef int (*procfs_read_data_fn)(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 struct pfssnode {
     pfstype                                 psn_node_type;
     char                                    psn_name[MAX_STRUCT_NODE_NAME_LEN];
-    procfs_base_node_id_t                   psn_base_node_id;   // Base node id - unique.
+    pfsbaseid_t                   psn_base_node_id;   // Base node id - unique.
     uint16_t                                psn_flags;          // Flags - PSN_XXX (see below)
 
     // Structure linkage. Immutable once set.
@@ -190,7 +190,7 @@ struct pfssnode {
 struct pfsid {
     int                     nodeid_pid;         // The owning process, or PRNODE_NO_PID if not process-linked
     uint64_t                nodeid_objectid;    // The owning object within the process, or PRNODE_NO_OBJECTID if none.
-    procfs_base_node_id_t   nodeid_base_id;     // The id of the structure node to which this node is linked.
+    pfsbaseid_t   nodeid_base_id;     // The id of the structure node to which this node is linked.
 };
 
 /*
@@ -382,7 +382,7 @@ extern size_t procfs_fd_node_size(pfsnode_t *pnp, kauth_cred_t creds);
 extern boolean_t procfs_node_type_has_pid(pfstype node_type);
 extern int procfs_get_process_info(vnode_t vp, pid_t *pidp, proc_t *procp);
 extern uint64_t procfs_get_node_fileid(pfsnode_t *pnp);
-extern uint64_t procfs_get_fileid(pid_t pid, uint64_t objectid, procfs_base_node_id_t base_id);
+extern uint64_t procfs_get_fileid(pid_t pid, uint64_t objectid, pfsbaseid_t base_id);
 extern int procfs_atoi(const char *p, const char **end_ptr);
 extern void procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds);
 extern void procfs_release_pids(pid_t *pidp, uint32_t size);

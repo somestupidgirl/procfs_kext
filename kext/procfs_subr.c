@@ -84,7 +84,7 @@ procfs_get_node_fileid(pfsnode_t *pnp)
  * id. It should, however, be good enough.
  */
 uint64_t
-procfs_get_fileid(int pid, uint64_t objectid, procfs_base_node_id_t base_id)
+procfs_get_fileid(int pid, uint64_t objectid, pfsbaseid_t base_id)
 {
     uint64_t id = base_id;
     if (pid != PRNODE_NO_PID) {
