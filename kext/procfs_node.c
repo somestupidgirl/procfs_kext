@@ -19,7 +19,7 @@
 #pragma mark Global Definitions
 
 // Node identifier for the root node of the file system.
-const procfsnode_id_t PROCFS_ROOT_NODE_ID = {
+const pfsid_t PROCFS_ROOT_NODE_ID = {
     .nodeid_pid =       PRNODE_NO_PID,
     .nodeid_objectid =  PRNODE_NO_OBJECTID,
     .nodeid_base_id =   PROCFS_ROOT_NODE_BASE_ID
@@ -110,7 +110,7 @@ procfsnode_complete_init(void)
  * which is called when the node's associated vnode is being reclaimed.
  */
 int
-procfsnode_find(procfs_mount_t *pmp, procfsnode_id_t node_id, procfs_structure_node_t *snode,
+procfsnode_find(procfs_mount_t *pmp, pfsid_t node_id, procfs_structure_node_t *snode,
                 procfsnode_t **pnpp, vnode_t *vnpp,
                 create_vnode_func create_vnode_func,
                 void *create_vnode_params)
@@ -366,11 +366,11 @@ procfsnode_free_node(procfsnode_t *procfsnode)
 /*
  * Given a procfs_node_t, returns the procfs_node_id for the node
  * that would be the parent of the given node. If the node is the
- * root node, returns its own node id. The caller passes the procfsnode_id_t
+ * root node, returns its own node id. The caller passes the pfsid_t
  * structure in which the node id is returned.
  */
 void
-procfs_get_parent_node_id(procfsnode_t *pnp, procfsnode_id_t *return_idp)
+procfs_get_parent_node_id(procfsnode_t *pnp, pfsid_t *return_idp)
 {
     procfs_structure_node_t *snode = pnp->node_structure_node;
     procfs_structure_node_t *parent_snode = snode == NULL ? NULL : snode->psn_parent;

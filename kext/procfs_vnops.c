@@ -214,7 +214,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
     if (cnp->cn_flags & ISDOTDOT) {
         // We need the parent of the directory in "dvp". Get that by figuring out what its
         // node id would be.
-        procfsnode_id_t parent_node_id;
+        pfsid_t parent_node_id;
         procfs_get_parent_node_id(dir_pnp, &parent_node_id);
         procfsnode_t *target_procfsnode;
         vnode_t target_vnode;
@@ -241,7 +241,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
         // convert the name to an integer and match if successful.
         procfs_structure_node_t *dir_snode = dir_pnp->node_structure_node;
         procfs_structure_node_t *match_node;
-        procfsnode_id_t match_node_id;
+        pfsid_t match_node_id;
         proc_t target_proc = NULL;
         TAILQ_FOREACH(match_node, &dir_snode->psn_children, psn_next) {
             assert(error == 0);
@@ -498,7 +498,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 type = DT_DIR;
 
                 // We need to use the node id of the directory's parent node for this case.
-                procfsnode_id_t parent_node_id;
+                pfsid_t parent_node_id;
                 procfs_get_parent_node_id(dir_pnp, &parent_node_id);
                 pid = parent_node_id.nodeid_pid;
                 objectid = parent_node_id.nodeid_objectid;

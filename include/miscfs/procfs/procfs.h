@@ -100,7 +100,7 @@ typedef enum {
 #pragma mark Type Definitions
 
 typedef struct procfsnode procfsnode_t;
-typedef struct procfsnode_id procfsnode_id_t;
+typedef struct pfsid pfsid_t;
 typedef struct procfs_mount procfs_mount_t;
 typedef struct procfs_structure_node procfs_structure_node_t;
 
@@ -187,7 +187,7 @@ struct procfs_structure_node {
  * There must only ever be one node for each unique identifier
  * in any given instance of the file system (i.e. per mount).
  */
-struct procfsnode_id {
+struct pfsid {
     int                     nodeid_pid;         // The owning process, or PRNODE_NO_PID if not process-linked
     uint64_t                nodeid_objectid;    // The owning object within the process, or PRNODE_NO_OBJECTID if none.
     procfs_base_node_id_t   nodeid_base_id;     // The id of the structure node to which this node is linked.
@@ -234,7 +234,7 @@ struct procfsnode {
     // (node_mnt_id, node_id) combination. The node_mnt_id value can be obtained
     // from the pmnt_id field of the procfs_mount structure for the owning mount.
     int32_t                 node_mnt_id;            // Identifier of the owning mount.
-    procfsnode_id_t         node_id;                // The identifer of this node.
+    pfsid_t         node_id;                // The identifer of this node.
 
     // Pointer to the procfs_structure_node_t for this node.
     procfs_structure_node_t *node_structure_node;   // Set when allocated, never changes.
@@ -313,19 +313,19 @@ procfsnode_to_pid(procfsnode_t *procfsnode)
 #pragma mark Global Definitions
 
 /* Identifier for the root node of the file system. */
-extern const procfsnode_id_t PROCFS_ROOT_NODE_ID;
+extern const pfsid_t PROCFS_ROOT_NODE_ID;
 
 /* Public API */
 extern void procfsnode_start_init(void);
 extern void procfsnode_complete_init(void);
 extern int procfsnode_find(procfs_mount_t *pmp,
-                           procfsnode_id_t node_id,
+                           pfsid_t node_id,
                            procfs_structure_node_t *snode,
                            procfsnode_t **pnpp, vnode_t *vnpp,
                            create_vnode_func create_vnode_func,
                            void *create_vnode_params);
 extern void procfsnode_reclaim(vnode_t vp);
-extern void procfs_get_parent_node_id(procfsnode_t *pnp, procfsnode_id_t *idp);
+extern void procfs_get_parent_node_id(procfsnode_t *pnp, pfsid_t *idp);
 
 /* Gets the root node of the file system structure. */
 extern procfs_structure_node_t *procfs_structure_root_node(void);

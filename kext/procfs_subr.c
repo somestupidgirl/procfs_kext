@@ -74,7 +74,7 @@ procfs_node_type_has_pid(pfstype node_type)
 uint64_t
 procfs_get_node_fileid(procfsnode_t *pnp)
 {
-    procfsnode_id_t node_id = pnp->node_id;
+    pfsid_t node_id = pnp->node_id;
     return procfs_get_fileid(node_id.nodeid_pid, node_id.nodeid_objectid, pnp->node_structure_node->psn_base_node_id);
 }
 
