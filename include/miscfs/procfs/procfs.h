@@ -155,29 +155,29 @@ typedef int (*procfs_read_data_fn)(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
  * field of its pfssnode.
  */
 struct pfssnode {
-    pfstype                                 psn_node_type;
-    char                                    psn_name[MAX_STRUCT_NODE_NAME_LEN];
-    pfsbaseid_t                   psn_base_node_id;   // Base node id - unique.
-    uint16_t                                psn_flags;          // Flags - PSN_XXX (see below)
+    pfstype                           psn_node_type;
+    char                              psn_name[MAX_STRUCT_NODE_NAME_LEN];
+    pfsbaseid_t                       psn_base_node_id;   // Base node id - unique.
+    uint16_t                          psn_flags;          // Flags - PSN_XXX (see below)
 
     // Structure linkage. Immutable once set.
-    struct pfssnode                       *psn_parent;                          // The parent node in the structure
-    TAILQ_ENTRY(pfssnode)     psn_next;                            // Next sibling node within structure parent.
-    TAILQ_HEAD(procfs_structure_children,  pfssnode) psn_children; // Children of this structure node.
+    struct pfssnode                  *psn_parent;                          // The parent node in the structure
+    TAILQ_ENTRY(pfssnode)             psn_next;                            // Next sibling node within structure parent.
+    TAILQ_HEAD(pfschildren, pfssnode) psn_children; // Children of this structure node.
 
     // --- Function hooks. Set to null to use the defaults.
     // The node's size value. This is the size value for the node itself.
     // For directory nodes, the sum of the size values of all of its children is
     // used as the actual size, so this value has meaning only for nodes of type
     // PFSfile. It is not used if the procfs_node_size_fn field is set.
-    size_t                                  psn_node_size;
+    size_t                            psn_node_size;
 
     // Gets the value for the node's size attribute. If NULL, psn_node_size
     // is used instead.
-    procfs_node_size_fn                     psn_getsize_fn;
+    procfs_node_size_fn               psn_getsize_fn;
 
     // Reads the file content.
-    procfs_read_data_fn                     psn_read_data_fn;
+    procfs_read_data_fn               psn_read_data_fn;
 };
 
 /*
@@ -186,8 +186,8 @@ struct pfssnode {
  * in any given instance of the file system (i.e. per mount).
  */
 struct pfsid {
-    int                     nodeid_pid;         // The owning process, or PRNODE_NO_PID if not process-linked
-    uint64_t                nodeid_objectid;    // The owning object within the process, or PRNODE_NO_OBJECTID if none.
+    int           nodeid_pid;         // The owning process, or PRNODE_NO_PID if not process-linked
+    uint64_t      nodeid_objectid;    // The owning object within the process, or PRNODE_NO_OBJECTID if none.
     pfsbaseid_t   nodeid_base_id;     // The id of the structure node to which this node is linked.
 };
 
@@ -197,10 +197,10 @@ struct pfsid {
  * preclude multiple mounts.
  */
 struct pfsmount {
-    int32_t                 pmnt_id;            // A unique identifier for this mount. Shared by all nodes.
-    int                     pmnt_flags;         // Flags, set from the mount command (PROCFS_MOPT_XXX).
-    struct mount           *pmnt_mp;            // VFS-level mount structure.
-    struct timespec         pmnt_mount_time;    // Time at which the file system was mounted.
+    int32_t           pmnt_id;            // A unique identifier for this mount. Shared by all nodes.
+    int               pmnt_flags;         // Flags, set from the mount command (PROCFS_MOPT_XXX).
+    struct mount     *pmnt_mp;            // VFS-level mount structure.
+    struct timespec   pmnt_mount_time;    // Time at which the file system was mounted.
 };
 
 /*
@@ -209,10 +209,10 @@ struct pfsmount {
  */
 struct pfsnode {
     // Linkage for the node hash. Protected by the node hash lock.
-    LIST_ENTRY(pfsnode)  node_hash;
+    LIST_ENTRY(pfsnode) node_hash;
 
     // Pointer to the associated vnode. Protected by the node hash lock.
-    vnode_t                 node_vnode;
+    vnode_t             node_vnode;
 
     // Records whether this node is currently being attached to a vnode.
     // Only one thread can be allowed to link the node to a vnode. If a
@@ -221,24 +221,21 @@ struct pfsnode {
     // and wait until the field is reset to false, then check again whether
     // some or all of the work that it needed to do has been completed.
     // Protected by the node hash lock.
-    boolean_t               node_attaching_vnode;
+    boolean_t           node_attaching_vnode;
 
     // Records whether a thread is awaiting the outcome of vnode attachment.
     // Protected by the node hash lock.
-    boolean_t               node_thread_waiting_attach;
+    boolean_t           node_thread_waiting_attach;
 
     // node_mnt_id and node_id taken together uniquely identify a node. There
     // must only ever be one procnfsnode instance (and hence one vnode) for each
     // (node_mnt_id, node_id) combination. The node_mnt_id value can be obtained
     // from the pmnt_id field of the pfsmount structure for the owning mount.
-    int32_t                 node_mnt_id;            // Identifier of the owning mount.
-    pfsid_t         node_id;                // The identifer of this node.
+    int32_t             node_mnt_id;            // Identifier of the owning mount.
+    pfsid_t             node_id;                // The identifer of this node.
 
     // Pointer to the pfssnode_t for this node.
-    pfssnode_t *node_structure_node;   // Set when allocated, never changes.
-
-    // Open flags
-    u_long                  node_flags;
+    pfssnode_t         *node_structure_node;    // Set when allocated, never changes.
 };
 
 /*
