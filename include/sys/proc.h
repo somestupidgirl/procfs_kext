@@ -82,6 +82,67 @@
 #include <sys/time.h>
 #include <uuid/uuid.h>
 
+struct session;
+struct pgrp;
+struct proc;
+struct proc_ident;
+
+/* Exported fields for kern sysctls */
+struct extern_proc {
+    union {
+        struct {
+            struct proc     *__p_forw; /* Doubly-linked run/sleep queue. */
+            struct proc     *__p_back;
+        } p_st1;
+        struct timeval       __p_starttime;   /* process start time */
+    } p_un;
+#define p_forw              p_un.p_st1.__p_forw
+#define p_back              p_un.p_st1.__p_back
+#define p_starttime         p_un.__p_starttime
+    struct vmspace         *p_vmspace;     /* Address space. */
+    struct sigacts         *p_sigacts;     /* Signal actions, state (PROC ONLY). */
+    int                     p_flag;                 /* P_* flags. */
+    char                    p_stat;                 /* S* process status. */
+    pid_t                   p_pid;                  /* Process identifier. */
+    pid_t                   p_oppid;         /* Save parent pid during ptrace. XXX */
+    int                     p_dupfd;         /* Sideways return value from fdopen. XXX */
+    /* Mach related  */
+    caddr_t                 user_stack;     /* where user stack was allocated */
+    void                   *exit_thread;   /* XXX Which thread is exiting? */
+    int                     p_debugger;             /* allow to debug */
+    boolean_t               sigwait;        /* indication to suspend */
+    /* scheduling */
+    u_int                   p_estcpu;        /* Time averaged value of p_cpticks. */
+    int                     p_cpticks;       /* Ticks of cpu time. */
+    fixpt_t                 p_pctcpu;        /* %cpu for this process during p_swtime */
+    void                   *p_wchan;        /* Sleep address. */
+    char                   *p_wmesg;        /* Reason for sleep. */
+    u_int                   p_swtime;        /* Time swapped in or out. */
+    u_int                   p_slptime;       /* Time since last blocked. */
+    struct itimerval        p_realtimer;  /* Alarm timer. */
+    struct timeval          p_rtime;        /* Real time. */
+    u_quad_t                p_uticks;              /* Statclock hits in user mode. */
+    u_quad_t                p_sticks;              /* Statclock hits in system mode. */
+    u_quad_t                p_iticks;              /* Statclock hits processing intr. */
+    int                     p_traceflag;            /* Kernel trace points. */
+    struct vnode           *p_tracep;        /* Trace to vnode. */
+    int                     p_siglist;              /* DEPRECATED. */
+    struct vnode           *p_textvp;        /* Vnode of executable. */
+    int                     p_holdcnt;              /* If non-zero, don't swap. */
+    sigset_t                p_sigmask;     /* DEPRECATED. */
+    sigset_t                p_sigignore;   /* Signals being ignored. */
+    sigset_t                p_sigcatch;    /* Signals being caught by user. */
+    u_char                  p_priority;     /* Process priority. */
+    u_char                  p_usrpri;       /* User-priority based on p_cpu and p_nice. */
+    char                    p_nice;         /* Process "nice" value. */
+    char                    p_comm[MAXCOMLEN + 1];
+    struct pgrp            *p_pgrp;   /* Pointer to process group. */
+    struct user            *p_addr;   /* Kernel virtual addr of u-area (PROC ONLY). */
+    u_short                 p_xstat;        /* Exit status for wait; also stop signal. */
+    u_short                 p_acflag;       /* Accounting flags. */
+    struct rusage          *p_ru;   /* Exit information. XXX */
+};
+
 /* Status values. */
 #define SIDL    1               /* Process being created by fork. */
 #define SRUN    2               /* Currently runnable. */

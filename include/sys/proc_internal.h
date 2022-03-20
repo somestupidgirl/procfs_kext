@@ -76,10 +76,10 @@
 #define	_SYS_PROC_INTERNAL_H_
 
 #include <libkern/OSAtomic.h>
+#include <mach/resource_monitors.h>     /* command/proc_name_t */
 #include <os/refcnt.h>
 #include <sys/param.h>
 #include <sys/proc.h>
-#include <mach/resource_monitors.h>     // command/proc_name_t
 
 __BEGIN_DECLS
 #include <kern/locks.h>
@@ -617,5 +617,133 @@ typedef int (*proc_iterate_fn_t)(proc_t, void *);
 #define PROC_CREATE_FORK        0       /* independent child (running) */
 #define PROC_CREATE_SPAWN       1       /* independent child (suspended) */
 #define PROC_CREATE_VFORK       2       /* child borrows context */
+
+/* LP64 version of extern_proc.  all pointers
+ * grow when we're dealing with a 64-bit process.
+ * WARNING - keep in sync with extern_proc
+ * but use native alignment of 64-bit process.
+ */
+
+#include <sys/time.h>   /* user_timeval, user_itimerval */
+
+/*
+ * This packing is required to ensure symmetry between userspace and kernelspace
+ * when the kernel is 64-bit and the user application is 32-bit. All currently
+ * supported ARM slices (arm64/armv7k/arm64_32) contain the same struct
+ * alignment ABI so this packing isn't needed for ARM.
+ */
+#if defined(__x86_64__)
+#pragma pack(4)
+#endif
+
+struct user32_extern_proc {
+    union {
+        struct {
+            uint32_t            __p_forw;                               /* Doubly-linked run/sleep queue. */
+            uint32_t            __p_back;
+        } p_st1;
+        struct user32_timeval   __p_starttime;                          /* process start time */
+    } p_un;
+    uint32_t                    p_vmspace;                              /* Address space. */
+    uint32_t                    p_sigacts;                              /* Signal actions, state (PROC ONLY). */
+    int                         p_flag;                                 /* P_* flags. */
+    char                        p_stat;                                 /* S* process status. */
+    pid_t                       p_pid;                                  /* Process identifier. */
+    pid_t                       p_oppid;                                /* Save parent pid during ptrace. XXX */
+    int                         p_dupfd;                                /* Sideways return value from fdopen. XXX */
+
+    /* Mach related  */
+    uint32_t                    user_stack;                             /* where user stack was allocated */
+    uint32_t                    exit_thread;                            /* XXX Which thread is exiting? */
+    int                         p_debugger;                             /* allow to debug */
+    boolean_t                   sigwait;                                /* indication to suspend */
+
+    /* scheduling */
+    u_int                       p_estcpu;                               /* Time averaged value of p_cpticks. */
+    int                         p_cpticks;                              /* Ticks of cpu time. */
+    fixpt_t                     p_pctcpu;                               /* %cpu for this process during p_swtime */
+    uint32_t                    p_wchan;                                /* Sleep address. */
+    uint32_t                    p_wmesg;                                /* Reason for sleep. */
+    u_int                       p_swtime;                               /* Time swapped in or out. */
+    u_int                       p_slptime;                              /* Time since last blocked. */
+    struct user32_itimerval     p_realtimer;                            /* Alarm timer. */
+    struct user32_timeval       p_rtime;                                /* Real time. */
+    u_quad_t                    p_uticks;                               /* Statclock hits in user mode. */
+    u_quad_t                    p_sticks;                               /* Statclock hits in system mode. */
+    u_quad_t                    p_iticks;                               /* Statclock hits processing intr. */
+    int                         p_traceflag;                            /* Kernel trace points. */
+    uint32_t                    p_tracep;                               /* Trace to vnode. */
+    int                         p_siglist;                              /* DEPRECATED */
+    uint32_t                    p_textvp;                               /* Vnode of executable. */
+    int                         p_holdcnt;                              /* If non-zero, don't swap. */
+    sigset_t                    p_sigmask;                              /* DEPRECATED. */
+    sigset_t                    p_sigignore;                            /* Signals being ignored. */
+    sigset_t                    p_sigcatch;                             /* Signals being caught by user. */
+    u_char                      p_priority;                             /* Process priority. */
+    u_char                      p_usrpri;                               /* User-priority based on p_cpu and p_nice. */
+    char                        p_nice;                                 /* Process "nice" value. */
+    char                        p_comm[MAXCOMLEN + 1];
+    uint32_t                    p_pgrp;                                 /* Pointer to process group. */
+    uint32_t                    p_addr;                                 /* Kernel virtual addr of u-area (PROC ONLY). */
+    u_short                     p_xstat;                                /* Exit status for wait; also stop signal. */
+    u_short                     p_acflag;                               /* Accounting flags. */
+    uint32_t                    p_ru;                                   /* Exit information. XXX */
+};
+
+#pragma pack()
+
+struct user64_extern_proc {
+    union {
+        struct {
+            user_addr_t         __p_forw;                               /* Doubly-linked run/sleep queue. */
+            user_addr_t         __p_back;
+        } p_st1;
+        struct user64_timeval   __p_starttime;                          /* process start time */
+    } p_un;
+    user_addr_t                 p_vmspace;                              /* Address space. */
+    user_addr_t                 p_sigacts;                              /* Signal actions, state (PROC ONLY). */
+    int                         p_flag;                                 /* P_* flags. */
+    char                        p_stat;                                 /* S* process status. */
+    pid_t                       p_pid;                                  /* Process identifier. */
+    pid_t                       p_oppid;                                /* Save parent pid during ptrace. XXX */
+    int                         p_dupfd;                                /* Sideways return value from fdopen. XXX */
+
+    /* Mach related  */
+    user_addr_t                 user_stack __attribute((aligned(8)));   /* where user stack was allocated */
+    user_addr_t                 exit_thread;                            /* XXX Which thread is exiting? */
+    int                         p_debugger;                             /* allow to debug */
+    boolean_t                   sigwait;                                /* indication to suspend */
+
+    /* scheduling */
+    u_int                       p_estcpu;                               /* Time averaged value of p_cpticks. */
+    int                         p_cpticks;                              /* Ticks of cpu time. */
+    fixpt_t                     p_pctcpu;                               /* %cpu for this process during p_swtime */
+    user_addr_t                 p_wchan __attribute((aligned(8)));      /* Sleep address. */
+    user_addr_t                 p_wmesg;                                /* Reason for sleep. */
+    u_int                       p_swtime;                               /* Time swapped in or out. */
+    u_int                       p_slptime;                              /* Time since last blocked. */
+    struct user64_itimerval     p_realtimer;                            /* Alarm timer. */
+    struct user64_timeval       p_rtime;                                /* Real time. */
+    u_quad_t                    p_uticks;                               /* Statclock hits in user mode. */
+    u_quad_t                    p_sticks;                               /* Statclock hits in system mode. */
+    u_quad_t                    p_iticks;                               /* Statclock hits processing intr. */
+    int                         p_traceflag;                            /* Kernel trace points. */
+    user_addr_t                 p_tracep __attribute((aligned(8)));     /* Trace to vnode. */
+    int                         p_siglist;                              /* DEPRECATED */
+    user_addr_t                 p_textvp __attribute((aligned(8)));     /* Vnode of executable. */
+    int                         p_holdcnt;                              /* If non-zero, don't swap. */
+    sigset_t                    p_sigmask;                              /* DEPRECATED. */
+    sigset_t                    p_sigignore;                            /* Signals being ignored. */
+    sigset_t                    p_sigcatch;                             /* Signals being caught by user. */
+    u_char                      p_priority;                             /* Process priority. */
+    u_char                      p_usrpri;                               /* User-priority based on p_cpu and p_nice. */
+    char                        p_nice;                                 /* Process "nice" value. */
+    char                        p_comm[MAXCOMLEN + 1];
+    user_addr_t                 p_pgrp __attribute((aligned(8)));       /* Pointer to process group. */
+    user_addr_t                 p_addr;                                 /* Kernel virtual addr of u-area (PROC ONLY). */
+    u_short                     p_xstat;                                /* Exit status for wait; also stop signal. */
+    u_short                     p_acflag;                               /* Accounting flags. */
+    user_addr_t                  p_ru __attribute((aligned(8)));        /* Exit information. XXX */
+};
 
 #endif	/* !_SYS_PROC_INTERNAL_H_ */
