@@ -209,7 +209,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
     strlcpy(name, cnp->cn_nameptr, min(sizeof(name), cnp->cn_namelen + 1));
     cnp->cn_flags &= ~MAKEENTRY;
     *ap->a_vpp = NULLVP;
-    procfs_mount_t *mp = vfs_mp_to_procfs_mp(vnode_mount(dvp));      // procfs file system mount.
+    pfsmount_t *mp = vfs_mp_to_procfs_mp(vnode_mount(dvp));      // procfs file system mount.
     
     if (cnp->cn_flags & ISDOTDOT) {
         // We need the parent of the directory in "dvp". Get that by figuring out what its
@@ -328,7 +328,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                     // check if root or if the file system is mounted with
                     // the "noprocperms" option.
                     boolean_t suser = vfs_context_suser(ap->a_context) == 0;
-                    procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(dvp));
+                    pfsmount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(dvp));
                     boolean_t check_access = !suser && procfs_should_access_check(pmp);
                     kauth_cred_t creds = vfs_context_ucred(ap->a_context);
                     if (check_access && procfs_check_can_access_process(creds, target_proc) != 0) {
@@ -448,7 +448,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
     // nodes. Do not check if root or if the file system is mounted with
     // the "noprocperms" option.
     boolean_t suser = vfs_context_suser(ap->a_context) == 0;
-    procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(vp));
+    pfsmount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(vp));
     boolean_t check_access = !suser && procfs_should_access_check(pmp);
     kauth_cred_t creds = vfs_context_ucred(ap->a_context);
 
@@ -768,7 +768,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     // but the "noprocperms" mount option can be used to allow read and execute access
     // to all users, if required. We reflect this by setting "modemask" to limit the
     // permissions that will be returned.
-    procfs_mount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(vp));
+    pfsmount_t *pmp = vfs_mp_to_procfs_mp(vnode_mount(vp));
     mode_t modemask = (pmp->pmnt_flags & PROCFS_MOPT_NOPROCPERMS) ? RWX_OWNER_RX_ALL : ALL_ACCESS_OWNER_GROUP_ONLY;
 
     struct vnode_attr *vap = ap->a_vap;

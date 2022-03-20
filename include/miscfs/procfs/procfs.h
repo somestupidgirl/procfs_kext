@@ -101,7 +101,7 @@ typedef enum {
 
 typedef struct procfsnode procfsnode_t;
 typedef struct pfsid pfsid_t;
-typedef struct procfs_mount procfs_mount_t;
+typedef struct pfsmount pfsmount_t;
 typedef struct pfssnode pfssnode_t;
 
 // Callback function used to create vnodes, called from within the
@@ -198,7 +198,7 @@ struct pfsid {
  * instance of this file system, but the implementation does not
  * preclude multiple mounts.
  */
-struct procfs_mount {
+struct pfsmount {
     int32_t                 pmnt_id;            // A unique identifier for this mount. Shared by all nodes.
     int                     pmnt_flags;         // Flags, set from the mount command (PROCFS_MOPT_XXX).
     struct mount           *pmnt_mp;            // VFS-level mount structure.
@@ -232,7 +232,7 @@ struct procfsnode {
     // node_mnt_id and node_id taken together uniquely identify a node. There
     // must only ever be one procnfsnode instance (and hence one vnode) for each
     // (node_mnt_id, node_id) combination. The node_mnt_id value can be obtained
-    // from the pmnt_id field of the procfs_mount structure for the owning mount.
+    // from the pmnt_id field of the pfsmount structure for the owning mount.
     int32_t                 node_mnt_id;            // Identifier of the owning mount.
     pfsid_t         node_id;                // The identifer of this node.
 
@@ -273,16 +273,16 @@ vnode_to_procfsnode(vnode_t vp)
 
 /* Convert from procfs mount pointer to VFS mount pointer. */
 static inline struct mount *
-procfs_mp_to_vfs_mp(procfs_mount_t *pmp)
+procfs_mp_to_vfs_mp(pfsmount_t *pmp)
 {
     return pmp->pmnt_mp;
 }
 
 /* Convert from VFS mount pointer to procfs mount pointer. */
-static inline procfs_mount_t *
+static inline pfsmount_t *
 vfs_mp_to_procfs_mp(struct mount *vmp)
 {
-    return(procfs_mount_t *)vfs_fsprivate(vmp);
+    return(pfsmount_t *)vfs_fsprivate(vmp);
 }
 
 #pragma mark -
@@ -290,7 +290,7 @@ vfs_mp_to_procfs_mp(struct mount *vmp)
 
 /* Returns whether access checks should apply to the vnodes on a given mount point. */
 static inline boolean_t
-procfs_should_access_check(procfs_mount_t *pmp)
+procfs_should_access_check(pfsmount_t *pmp)
 {
     return (pmp->pmnt_flags & PROCFS_MOPT_NOPROCPERMS) == 0;
 }
@@ -318,7 +318,7 @@ extern const pfsid_t PROCFS_ROOT_NODE_ID;
 /* Public API */
 extern void procfsnode_start_init(void);
 extern void procfsnode_complete_init(void);
-extern int procfsnode_find(procfs_mount_t *pmp,
+extern int procfsnode_find(pfsmount_t *pmp,
                            pfsid_t node_id,
                            pfssnode_t *snode,
                            procfsnode_t **pnpp, vnode_t *vnpp,

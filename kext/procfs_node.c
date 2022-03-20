@@ -110,7 +110,7 @@ procfsnode_complete_init(void)
  * which is called when the node's associated vnode is being reclaimed.
  */
 int
-procfsnode_find(procfs_mount_t *pmp, pfsid_t node_id, pfssnode_t *snode,
+procfsnode_find(pfsmount_t *pmp, pfsid_t node_id, pfssnode_t *snode,
                 procfsnode_t **pnpp, vnode_t *vnpp,
                 create_vnode_func create_vnode_func,
                 void *create_vnode_params)

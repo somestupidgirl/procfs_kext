@@ -159,7 +159,7 @@ procfs_fini(void)
 STATIC int
 procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unused vfs_context_t context)
 {
-    procfs_mount_t *procfs_mp = vfs_mp_to_procfs_mp(mp);
+    pfsmount_t *procfs_mp = vfs_mp_to_procfs_mp(mp);
     if (procfs_mp == NULL) {
         // First mount. Get the mount options from user space.
         procfs_mount_args_t mount_args;
@@ -170,9 +170,9 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
         }
 
         // Allocate the procfs mount structure and link it to the VFS structure.
-        procfs_mp = OSMalloc(sizeof(procfs_mount_t), procfs_osmalloc_tag);
+        procfs_mp = OSMalloc(sizeof(pfsmount_t), procfs_osmalloc_tag);
         if (procfs_mp == NULL) {
-            printf("procfs: Failed to allocate procfs_mount_t");
+            printf("procfs: Failed to allocate pfsmount_t");
             return ENOMEM;
         }
 
@@ -205,7 +205,7 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
 
 /*
  * Performs file system unmount. Clears out any cached vnodes, forcing reclaim, disconnects the
- * file system's procfs_mount_t structure from the system mount structure and releases it.
+ * file system's pfsmount_t structure from the system mount structure and releases it.
  *
  * NOTE: mounts and unmounts are serialized by the mnt_rwlock in the VFS mount structure, so we do
  * not need to make this code reentrant or worry about being mounted and unmounted at the same time.
@@ -213,7 +213,7 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
 STATIC int
 procfs_unmount(struct mount *mp, __unused int mntflags, __unused vfs_context_t context)
 {
-    procfs_mount_t *procfs_mp = vfs_mp_to_procfs_mp(mp);
+    pfsmount_t *procfs_mp = vfs_mp_to_procfs_mp(mp);
     if (procfs_mp != NULL) {
         // We are currently mounted. Release resources and disconnect.
 
@@ -221,7 +221,7 @@ procfs_unmount(struct mount *mp, __unused int mntflags, __unused vfs_context_t c
         vflush(mp, NULLVP, FORCECLOSE);
 
         vfs_setfsprivate(mp, NULL);
-        OSFree(procfs_mp, sizeof(procfs_mount_t), procfs_osmalloc_tag);
+        OSFree(procfs_mp, sizeof(pfsmount_t), procfs_osmalloc_tag);
 
         if (procfs_mp != NULL) {
             procfs_mp = NULL;
@@ -351,7 +351,7 @@ STATIC void
 populate_vfs_attr(struct mount *mp, struct vfs_attr *fsap)
 {
     struct vfsstatfs *statfsp = vfs_statfs(mp);
-    procfs_mount_t *procfs_mp = vfs_mp_to_procfs_mp(mp);
+    pfsmount_t *procfs_mp = vfs_mp_to_procfs_mp(mp);
 
     VFSATTR_RETURN(fsap, f_objcount, 0);
     VFSATTR_RETURN(fsap, f_filecount, 0);
