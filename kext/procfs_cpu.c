@@ -22,7 +22,7 @@ STATIC char *get_leaf7_ext_flags(void);
 int
 procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    vm_offset_t pageno, uva, kva;
+    vm_offset_t pageno, uva;
     int len = 0, xlen = 0;
     off_t page_offset = 0;
     size_t buffer_size = 0;
@@ -136,14 +136,21 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     char *x86_64_bugs = "";
 
     /*
-     * Set up the variables required for moving our data into userspace.
+     * Allocate memory.
      */
-    kva = VM_MIN_KERNEL_ADDRESS;                                        // kernel virtual address
-    uva = uio_offset(uio);                                              // user virtual address
-    pageno = trunc_page(uva);                                           // page number
-    page_offset = uva - pageno;                                         // page offset
-    buffer_size = (LBFSZ * 4);                                          // buffer size
-    buffer = _MALLOC(buffer_size, M_TEMP, M_WAITOK);                    // buffer
+    buffer_size = (LBFSZ * 4);
+    buffer = _MALLOC(buffer_size, M_TEMP, M_WAITOK);
+
+    /*
+     * Get the userspace virtual address.
+     */
+    uva = uio_offset(uio);
+
+    /*
+     * Get the page number of this segment.
+     */
+    pageno = trunc_page(uva);
+    page_offset = uva - pageno;
 
     /*
      * The main loop iterates over each processor number stored in the
@@ -232,13 +239,12 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             );
 
             /*
-             * Subtract the uva offset from len.
+             * How many bytes to copy.
              */
-            xlen = len - uva;
-            xlen = imin(xlen, uio_resid(uio));
+            xlen = imin(len - page_offset, uio_resid(uio));
 
             /*
-             * Copy our data into userspace.
+             * Do the move into userspace.
              */
             uiomove(buffer, xlen, uio);
 
