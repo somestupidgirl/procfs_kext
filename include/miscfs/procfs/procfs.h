@@ -51,6 +51,32 @@ typedef struct procfs_mount_args {
 extern OSMallocTag procfs_osmalloc_tag;
 
 #pragma mark -
+#pragma mark Type Definitions
+
+typedef struct pfsnode pfsnode_t;
+typedef struct pfsid pfsid_t;
+typedef struct pfsmount pfsmount_t;
+typedef struct pfssnode pfssnode_t;
+
+// Callback function used to create vnodes, called from within the
+// procfsnode_find() function. "params" is used to pass the details that
+// the function needs in order to create the correct vnode. It is obtained
+// from the "create_vnode_params" argument passed to procfsnode_find(),
+// "pnp" is a pointer to the pfsnode_t that the vnode should be linked to
+// and "vpp" is where the created vnode will be stored, if the call was successful.
+// Returns 0 on success or an error code (from errno.h) if not.
+typedef int (*create_vnode_func)(void *params, pfsnode_t *pnp, vnode_t *vpp);
+
+// Type for the base node id field of a structure node.
+typedef uint16_t pfsbaseid_t;
+
+// Type of a function that reports the size for a procfs node.
+typedef size_t (*procfs_node_size_fn)(pfsnode_t *pnp, kauth_cred_t creds);
+
+// Type of a function that reads the data for a procfs node.
+typedef int (*procfs_read_data_fn)(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+
+#pragma mark -
 #pragma mark Common Definitions
 
 enum vtype;
@@ -95,32 +121,6 @@ typedef enum {
 
 // Largest name of a structure node.
 #define MAX_STRUCT_NODE_NAME_LEN 16
-
-#pragma mark -
-#pragma mark Type Definitions
-
-typedef struct pfsnode pfsnode_t;
-typedef struct pfsid pfsid_t;
-typedef struct pfsmount pfsmount_t;
-typedef struct pfssnode pfssnode_t;
-
-// Callback function used to create vnodes, called from within the
-// procfsnode_find() function. "params" is used to pass the details that
-// the function needs in order to create the correct vnode. It is obtained
-// from the "create_vnode_params" argument passed to procfsnode_find(),
-// "pnp" is a pointer to the pfsnode_t that the vnode should be linked to
-// and "vpp" is where the created vnode will be stored, if the call was successful.
-// Returns 0 on success or an error code (from errno.h) if not.
-typedef int (*create_vnode_func)(void *params, pfsnode_t *pnp, vnode_t *vpp);
-
-// Type for the base node id field of a structure node.
-typedef uint16_t pfsbaseid_t;
-
-// Type of a function that reports the size for a procfs node.
-typedef size_t (*procfs_node_size_fn)(pfsnode_t *pnp, kauth_cred_t creds);
-
-// Type of a function that reads the data for a procfs node.
-typedef int (*procfs_read_data_fn)(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 #pragma mark -
 #pragma mark Structure Definitions
