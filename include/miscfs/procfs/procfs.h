@@ -79,8 +79,6 @@ typedef int (*procfs_read_data_fn)(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 #pragma mark -
 #pragma mark Common Definitions
 
-enum vtype;
-
 /*
  * The different types of node in a procfs filesystem
  */
