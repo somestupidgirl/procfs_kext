@@ -80,7 +80,7 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			$(ARCHFLAGS) \
 			-nostdlib \
 			-Xlinker -kext \
-			-Xlinker -object_path_lto main.o \
+			-Xlinker -object_path_lto procfs.o \
 			-Xlinker -object_path_lto procfs_cpu.o \
 			-Xlinker -object_path_lto procfs_data.o \
 			-Xlinker -object_path_lto procfs_node.o \
