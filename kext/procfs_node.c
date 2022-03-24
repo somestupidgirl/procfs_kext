@@ -326,7 +326,7 @@ procfsnode_find(pfsmount_t *pmp, pfsid_t node_id, pfssnode_t *snode,
 void
 procfsnode_reclaim(vnode_t vp)
 {
-    pfsnode_t *pnp = vnode_to_procfsnode(vp);
+    pfsnode_t *pnp = VTOPFS(vp);
     if (pnp != NULL) {
         // Lock to manipulate the hash table.
         lck_mtx_lock(pfsnode_hash_mutex);

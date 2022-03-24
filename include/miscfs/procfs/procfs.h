@@ -250,6 +250,26 @@ struct procfs_pidlist_data
 };
 
 #pragma mark -
+#pragma mark Macros
+
+/*
+ * Convert between pfsmp vfsmp.
+ */
+#define MPTOPMP(mp)   vfs_mp_to_procfs_mp(mp)
+#define PMPTOMP(pmp)   procfs_mp_to_vfs_mp(pmp)
+
+/*
+ * Convert between pfsnode vnode.
+ */
+#define VTOPFS(vp)      vnode_to_procfsnode(vp)
+#define PFSTOV(pfs)     pfsnode_to_vnode(pfs)
+
+/*
+ * Zero out vnode attributes.
+ */
+#define VATTR_NULL(vap) bzero(vap, sizeof(struct vnode_attr))
+
+#pragma mark -
 #pragma mark Inline Conversion Functions
 
 /* Convert from procfs vnode pointer to VFS vnode pointer. */

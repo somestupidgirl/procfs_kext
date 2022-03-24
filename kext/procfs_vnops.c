@@ -197,7 +197,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
 
     // Get the pfsnode_t for the directory. This must
     // not be NULL.
-    pfsnode_t *dir_pnp = vnode_to_procfsnode(dvp);
+    pfsnode_t *dir_pnp = VTOPFS(dvp);
     if (dir_pnp == NULL) {
         error = EINVAL;
         goto out;
@@ -435,7 +435,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
         return ENOTDIR;
     }
 
-    pfsnode_t *dir_pnp = vnode_to_procfsnode(vp);
+    pfsnode_t *dir_pnp = VTOPFS(vp);
     pfssnode_t *dir_snode = dir_pnp->node_structure_node;
 
     int numentries = 0;
@@ -748,7 +748,7 @@ STATIC int
 procfs_vnop_getattr(struct vnop_getattr_args *ap)
 {
     vnode_t vp = ap->a_vp;
-    pfsnode_t *procfs_node = vnode_to_procfsnode(vp);
+    pfsnode_t *procfs_node = VTOPFS(vp);
     pfssnode_t *snode = procfs_node->node_structure_node;
     pfstype node_type = snode->psn_node_type;
 
@@ -868,7 +868,7 @@ procfs_vnop_readlink(struct vnop_readlink_args *ap)
 {
     int error = 0;
     vnode_t vp = ap->a_vp;
-    pfsnode_t *pnp = vnode_to_procfsnode(vp);
+    pfsnode_t *pnp = VTOPFS(vp);
     pfssnode_t *snode = pnp->node_structure_node;
     if (snode->psn_node_type == PFScurproc) {
         // The link is "curproc". Get the pid of the current process
@@ -902,7 +902,7 @@ STATIC int
 procfs_vnop_read(struct vnop_read_args *ap)
 {
     vnode_t vp = ap->a_vp;
-    pfsnode_t *pnp = vnode_to_procfsnode(vp);
+    pfsnode_t *pnp = VTOPFS(vp);
     pfssnode_t *snode = pnp->node_structure_node;
     procfs_read_data_fn read_data_fn = snode->psn_read_data_fn;
 

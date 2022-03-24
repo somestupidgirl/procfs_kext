@@ -159,7 +159,7 @@ procfs_fini(void)
 STATIC int
 procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unused vfs_context_t context)
 {
-    pfsmount_t *procfs_mp = vfs_mp_to_procfs_mp(mp);
+    pfsmount_t *procfs_mp = MPTOPMP(mp);
     if (procfs_mp == NULL) {
         // First mount. Get the mount options from user space.
         pfsmount_args_t mount_args;
@@ -213,7 +213,7 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
 STATIC int
 procfs_unmount(struct mount *mp, __unused int mntflags, __unused vfs_context_t context)
 {
-    pfsmount_t *procfs_mp = vfs_mp_to_procfs_mp(mp);
+    pfsmount_t *procfs_mp = MPTOPMP(mp);
     if (procfs_mp != NULL) {
         // We are currently mounted. Release resources and disconnect.
 
@@ -248,7 +248,7 @@ procfs_root(struct mount *mp, vnode_t *vpp, __unused vfs_context_t context)
     pfsnode_t *root_pfsnode;
 
     // Find the root vnode in the cache, or create it if it does not exist.
-    int error = procfsnode_find(vfs_mp_to_procfs_mp(mp), PROCFS_ROOT_NODE_ID, procfs_structure_root_node(),
+    int error = procfsnode_find(MPTOPMP(mp), PROCFS_ROOT_NODE_ID, procfs_structure_root_node(),
                                 &root_pfsnode, &root_vnode,
                                 (create_vnode_func)&procfs_create_root_vnode, mp);
 
@@ -328,7 +328,7 @@ populate_statfs_info(struct mount *mp, struct vfsstatfs *statfsp)
     // Compose fsid_t from the mount point id and the file system
     // type number, which was assigned when the file system was
     // registered. This pair of values just has to be unique.
-    statfsp->f_fsid.val[0] = vfs_mp_to_procfs_mp(mp)->pmnt_id;
+    statfsp->f_fsid.val[0] = MPTOPMP(mp)->pmnt_id;
     statfsp->f_fsid.val[1] = vfs_typenum(mp);
 
     bzero(statfsp->f_mntfromname, sizeof(statfsp->f_mntfromname));
@@ -351,7 +351,7 @@ STATIC void
 populate_vfs_attr(struct mount *mp, struct vfs_attr *fsap)
 {
     struct vfsstatfs *statfsp = vfs_statfs(mp);
-    pfsmount_t *procfs_mp = vfs_mp_to_procfs_mp(mp);
+    pfsmount_t *procfs_mp = MPTOPMP(mp);
 
     VFSATTR_RETURN(fsap, f_objcount, 0);
     VFSATTR_RETURN(fsap, f_filecount, 0);
