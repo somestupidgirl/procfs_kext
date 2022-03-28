@@ -476,11 +476,14 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 printf("procfs_vnop_readdir: ERROR: found PROCFS_ROOT\n");
                 continue;
 
-           case PFSdir:
+            case PFSdir:
                 type = DT_DIR;
                 break;
 
             case PFSfile:
+                type = DT_REG;
+                break;
+
             case PFScpuinfo:
                 type = DT_REG;
                 break;
@@ -791,6 +794,9 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
         break;
 
     case PFSfile:
+        VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
+        break;
+
     case PFScpuinfo:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
@@ -851,9 +857,9 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
 
         proc_rele(p);
     }
-    kauth_cred_unref(&proc_cred);
     VATTR_RETURN(vap, va_uid, uid);
     VATTR_RETURN(vap, va_gid, gid);
+    kauth_cred_unref(&proc_cred);
 
     return error;
 }
