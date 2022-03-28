@@ -481,9 +481,6 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 break;
 
             case PFSfile:
-                type = DT_REG;
-                break;
-
             case PFScpuinfo:
                 type = DT_REG;
                 break;
@@ -794,6 +791,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
         break;
 
     case PFSfile:
+    case PFScpuinfo:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
 
@@ -807,10 +805,6 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
 
     case PFSfd:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL);
-        break;
-
-    case PFScpuinfo:
-        VATTR_RETURN(vap, va_mode, ALL_ACCESS_ALL);
         break;
 
     case PFScurproc:        // Symbolic link to the calling process (FALLTHRU)
@@ -854,6 +848,8 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
         // Get the effective uid and gid from the process.
         uid = kauth_cred_getuid(proc_cred);
         gid = kauth_cred_getgid(proc_cred);
+
+        proc_rele(p);
     }
     kauth_cred_unref(&proc_cred);
     VATTR_RETURN(vap, va_uid, uid);
