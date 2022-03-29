@@ -252,6 +252,17 @@ struct procfs_pidlist_data
 #pragma mark -
 #pragma mark Macros
 
+#define CNEQ(cnp, s, len) \
+     ((cnp)->cn_namelen == (len) && \
+      (memcmp((s), (cnp)->cn_nameptr, (len)) == 0))
+
+#define PROCFS_FILENO(pid, type, fd) \
+    (((type) < PFSproc) ? ((type) + 2) : \
+    (((fd) == -1) ? ((((pid)+1) << 5) + ((int) (type))) : \
+    ((((pid)+1) << 16) | ((fd) << 5) | ((int) (type)))))
+
+#define PROCFS_TYPE(type)   ((type) & 0x1f)
+
 /*
  * Convert between pfsmp vfsmp.
  */
