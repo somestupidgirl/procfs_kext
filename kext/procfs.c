@@ -1,4 +1,6 @@
+#include <kern/locks.h>
 #include <libkern/libkern.h>
+#include <libkern/OSMalloc.h>
 #include <libkern/version.h>
 #include <libkext/libkext.h>
 #include <mach/kmod.h>
@@ -10,18 +12,73 @@
 #include "symbols.h"
 
 #pragma mark -
+#pragma mark Start/Stop Function Prototypes
+
+kern_return_t procfs_start(kmod_info_t *ki, void *d);
+kern_return_t procfs_stop(kmod_info_t *ki, void *d);
+
+#pragma mark -
 #pragma mark External References
 
-extern int procfs_init(__unused struct vfsconf *vfsconf);
-extern void procfs_fini(void);
 extern struct vfs_fsentry procfs_vfsentry;
 extern vfstable_t procfs_vfs_table_ref;
 
 #pragma mark -
-#pragma mark Function Prototypes
+#pragma mark Initialization and finishing routines
 
-kern_return_t procfs_start(kmod_info_t *ki, __unused void *d);
-kern_return_t procfs_stop(__unused kmod_info_t *ki, __unused void *d);
+/*
+ * Initialization. Initializes static data, which is required when
+ * the first mount occurs. Called only once during kernel startup,
+ * but we interlock anyway to ensure that we don't perform intialization
+ * more than once.
+ */
+int
+procfs_init(__unused struct vfsconf *vfsconf)
+{
+    static int initialized;  // Protect against multiple calls.
+
+    if (!initialized) {
+        initialized = 1;
+
+        // Create the tag for memory allocation.
+        procfs_osmalloc_tag = OSMalloc_Tagalloc(PROCFS_BUNDLEID, OSMT_DEFAULT);
+
+        if (procfs_osmalloc_tag == NULL) {
+            return ENOMEM;   // Plausible error code.
+        }
+
+        // Allocate the lock group and the mutex lock for the hash table.
+        pfsnode_lck_grp = lck_grp_alloc_init(PROCFS_BUNDLEID ".pfsnode_locks", LCK_GRP_ATTR_NULL);
+        pfsnode_hash_mutex = lck_mtx_alloc_init(pfsnode_lck_grp, LCK_ATTR_NULL);
+    }
+
+    return 0;
+}
+
+/*
+ * Cleanup routine. Free the memory allocation tag, lock group and
+ * hash mutex upon unloading the kext.
+ */
+int
+procfs_fini(void)
+{
+    if (procfs_osmalloc_tag != NULL) {
+        OSMalloc_Tagfree(procfs_osmalloc_tag);
+        procfs_osmalloc_tag = NULL;
+    }
+
+    if (pfsnode_lck_grp != NULL) {
+        lck_grp_free(pfsnode_lck_grp);
+        pfsnode_lck_grp = NULL;
+    }
+
+    if (pfsnode_hash_mutex != NULL) {
+        lck_mtx_free(pfsnode_hash_mutex, pfsnode_lck_grp);
+        pfsnode_hash_mutex = NULL;
+    }
+
+    return 0;
+}
 
 #pragma mark -
 #pragma mark Start/Stop Routines
@@ -76,37 +133,30 @@ kern_return_t
 procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 {
     uuid_string_t uuid;
-    kern_return_t ret = KERN_SUCCESS;
+    kern_return_t ret = 0;
 
     ret = libkext_vma_uuid(ki->address, uuid);
-    if (ret != KERN_SUCCESS) {
+    if (ret != 0) {
         LOG_ERR("util_vma_uuid() failed  errno: %d \n", ret);
         goto out_error;
     }
 
     ret = vfs_fsremove(procfs_vfs_table_ref);
-    if (ret != KERN_SUCCESS) {
+    if (ret != 0) {
         LOG_ERR("vfs_fsremove() failure  errno: %d \n", ret);
         goto out_error;
     }
 
     procfs_fini();
-
     libkext_massert();
 
     LOG_DBG("unloaded %s version %s build %s (%s) \n",
         BUNDLEID_S, KEXTVERSION_S, KEXTBUILD_S, __TS__);
 
-    if (ret == KERN_SUCCESS) {
-        goto out_exit;
-    }
-
-out_exit:
-    return ret;
+    return KERN_SUCCESS;
 
 out_error:
-    ret = KERN_FAILURE;
-    goto out_exit;
+    return KERN_FAILURE;
 }
 
 KMOD_EXPLICIT_DECL (PROCFS_BUNDLEID, PROCFS_BUILDNUM, procfs_start, procfs_stop)

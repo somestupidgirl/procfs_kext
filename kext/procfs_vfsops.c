@@ -48,11 +48,13 @@ extern struct vnodeopv_desc *procfs_vnodeops_list[1];
 // vnodes.
 extern int (**procfs_vnodeop_p)(void *);
 
+// Initialization routine. Only called once during the kext
+// start routine in procfs.c - Included here as an external
+// reference for the procfs_vfsops structure.
+extern int procfs_init(struct vfsconf *vfsconf);
+
 #pragma mark -
 #pragma mark Function Prototypes
-
-int procfs_init(__unused struct vfsconf *vfsconf);
-void procfs_fini(void);
 
 STATIC int procfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t context);
 STATIC int procfs_unmount(struct mount *mp, int mntflags, vfs_context_t context);
@@ -100,55 +102,6 @@ STATIC int mounted_instance_count = 0;
 #pragma mark VFS Operations
 
 /* --- VFS OPERATIONS --- */
-/*
- * Initialization. Initializes static data, which is required when
- * the first mount occurs. Called only once during kernel startup,
- * but we interlock anyway to ensure that we don't perform intialization
- * more than once.
- */
-int
-procfs_init(__unused struct vfsconf *vfsconf)
-{
-    static int initialized;  // Protect against multiple calls.
-
-    if (!initialized) {
-        initialized = 1;
-
-        // Create the tag for memory allocation.
-        procfs_osmalloc_tag = OSMalloc_Tagalloc(PROCFS_BUNDLEID, OSMT_DEFAULT);
-
-        if (procfs_osmalloc_tag == NULL) {
-            return ENOMEM;   // Plausible error code.
-        }
-
-        // Allocate the lock group and the mutex lock for the hash table.
-        pfsnode_lck_grp = lck_grp_alloc_init(PROCFS_BUNDLEID ".pfsnode_locks", LCK_GRP_ATTR_NULL);
-        pfsnode_hash_mutex = lck_mtx_alloc_init(pfsnode_lck_grp, LCK_ATTR_NULL);
-    }
-
-    return 0;
-}
-
-void
-procfs_fini(void)
-{
-    if (procfs_osmalloc_tag != NULL) {
-        OSMalloc_Tagfree(procfs_osmalloc_tag);
-        procfs_osmalloc_tag = NULL;
-    }
-
-    if (pfsnode_lck_grp != NULL) {
-        lck_grp_free(pfsnode_lck_grp);
-        pfsnode_lck_grp = NULL;
-    }
-
-    if (pfsnode_hash_mutex != NULL) {
-        lck_mtx_free(pfsnode_hash_mutex, pfsnode_lck_grp);
-        pfsnode_hash_mutex = NULL;
-    }
-
-    return;
-}
 
 /*
  * Performs the mount operation for the procfs file system. Gets the options passed to the
