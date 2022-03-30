@@ -26,6 +26,8 @@ STATIC char *get_cpu_ext_flags(void);
 STATIC char *get_leaf7_flags(void);
 STATIC char *get_leaf7_ext_flags(void);
 
+#define quad(hi,lo)    (((uint64_t)(hi)) << 32 | (lo))
+
 /* For AMD CPU's */
 boolean_t
 is_amd_cpu(void)
@@ -684,6 +686,13 @@ get_leaf7_flags(void)
 {
     int i = 0;
     int size = 0;
+
+    uint32_t reg[4];
+
+    if (is_amd_cpu() && _cpuid_info()->cpuid_family >= 23){
+        do_cpuid(0x7, reg);
+        _cpuid_info()->cpuid_leaf7_features = quad(reg[ecx], reg[ebx]) & ~CPUID_LEAF7_FEATURE_SMAP;
+    }
 
     if (_cpuid_info()->cpuid_leaf7_features) {
         size = (sizeof(leaf7_feature_flags) * 2);
