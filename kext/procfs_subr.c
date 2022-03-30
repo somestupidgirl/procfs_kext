@@ -22,7 +22,7 @@
 
 #include <miscfs/procfs/procfs.h>
 
-#include "symdecls.h"
+#include <symlib/symbols.h>
 
 /* 
  * Allocate a pfsnode/vnode pair. Gets the vnode type that is appropriate

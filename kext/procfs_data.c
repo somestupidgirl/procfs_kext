@@ -25,7 +25,7 @@
 
 #include <miscfs/procfs/procfs.h>
 
-#include "symdecls.h"
+#include <symlib/symbols.h>
 
 #pragma mark -
 #pragma mark Process and Thread Node Data

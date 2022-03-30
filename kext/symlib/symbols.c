@@ -9,7 +9,7 @@
 #include <libklookup/klookup.h>
 #include <mach/kern_return.h>
 
-#include "symdecls.h"
+#include <symlib/symbols.h>
 
 #pragma mark -
 #pragma mark Macros

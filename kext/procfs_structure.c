@@ -28,8 +28,6 @@
 
 #include <miscfs/procfs/procfs.h>
 
-#include "symdecls.h"
-
 #pragma mark -
 #pragma mark Function Prototypes
 
