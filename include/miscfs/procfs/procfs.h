@@ -24,6 +24,7 @@
 // Mount option flags.
 // Do not apply process permissions to the pid entries in /proc.
 #define PROCFS_MOPT_NOPROCPERMS (1 << 0)
+#define MOPT_PROCFS             { "procperms", 1, PROCFS_MOPT_NOPROCPERMS, 0 }
 
 /*
  * The procfs mount structure, created by mount_procfs

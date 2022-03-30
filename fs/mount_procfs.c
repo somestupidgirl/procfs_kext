@@ -41,14 +41,8 @@ static _Bool verbose = FALSE;
 
 // Mount options.
 static struct mntopt mopts[] = {
-    // The standard mount options.
     MOPT_STDOPTS,
-
-    // procfs mount options.
-    { "procperms", 1, PROCFS_MOPT_NOPROCPERMS, 0}, // Inverse: if omitted, this option is enabled.
-
-    // End marker
-    { NULL }
+    MOPT_PROCFS,
 };
 
 int main(int argc, char *argv[])
