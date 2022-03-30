@@ -87,9 +87,9 @@ struct vfsops procfs_vfsops = {
 struct vfs_fsentry procfs_vfsentry = {
     .vfe_vfsops         = &procfs_vfsops,
     .vfe_vopcnt         = ARRAY_SIZE(procfs_vnodeops_list),
-    .vfe_opvdescs       = &*procfs_vnodeops_list,
-    .vfe_fstypenum      = PROCFS_NOTYPENUM,
-    .vfe_fsname         = PROCFS_FSNAME,
+    .vfe_opvdescs       = procfs_vnodeops_list,
+    .vfe_fstypenum      = 0,
+    .vfe_fsname         = "procfs",
     .vfe_flags          = PROCFS_VFS_FLAGS
 };
 

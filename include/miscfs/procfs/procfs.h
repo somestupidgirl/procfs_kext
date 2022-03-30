@@ -11,19 +11,13 @@
 #define procfs_h
 
 #pragma mark -
-#pragma mark Common Definitions
+#pragma mark Definitions for both user-level and kernel components
 
-// File system type name.
-#define PROCFS_FSNAME        "procfs"
-#define PROCFS_BUNDLEID      "com.stupid.filesystems.procfs"
-#define PROCFS_BUILDNUM      "1"
-#define PROCFS_VERSION       "1.0.0"
-#define PROCFS_LCK_GRP_NAME  PROCFS_BUNDLEID ".lckgrp"
-#define PROCFS_NOTYPENUM     0
+/* Lock group name */
+#define PROCFS_LCKGRP_NAME      BUNDLEID_S ".lckgrp"
 
-// Mount option flags.
-// Do not apply process permissions to the pid entries in /proc.
-#define PROCFS_MOPT_NOPROCPERMS (1 << 0)
+/* Mount option flags. */
+#define PROCFS_MOPT_NOPROCPERMS (1 << 0) // Do not apply process permissions to the pid entries in /proc.
 #define MOPT_PROCFS             { "procperms", 1, PROCFS_MOPT_NOPROCPERMS, 0 }
 
 /*

@@ -19,12 +19,6 @@
 #include <miscfs/procfs/procfs.h>
 
 #pragma mark -
-#pragma mark Start/Stop Function Prototypes
-
-kern_return_t procfs_start(kmod_info_t *ki, void *d);
-kern_return_t procfs_stop(kmod_info_t *ki, void *d);
-
-#pragma mark -
 #pragma mark External References
 
 extern kern_return_t resolve_symbols(void);
@@ -49,14 +43,14 @@ procfs_init(__unused struct vfsconf *vfsconf)
         initialized = 1;
 
         // Create the tag for memory allocation.
-        procfs_osmalloc_tag = OSMalloc_Tagalloc(PROCFS_BUNDLEID, OSMT_DEFAULT);
+        procfs_osmalloc_tag = OSMalloc_Tagalloc(BUNDLEID_S, OSMT_DEFAULT);
 
         if (procfs_osmalloc_tag == NULL) {
             return ENOMEM;   // Plausible error code.
         }
 
         // Allocate the lock group and the mutex lock for the hash table.
-        pfsnode_lck_grp = lck_grp_alloc_init(PROCFS_BUNDLEID ".pfsnode_locks", LCK_GRP_ATTR_NULL);
+        pfsnode_lck_grp = lck_grp_alloc_init(PROCFS_LCKGRP_NAME, LCK_GRP_ATTR_NULL);
         pfsnode_hash_mutex = lck_mtx_alloc_init(pfsnode_lck_grp, LCK_ATTR_NULL);
     }
 
@@ -115,7 +109,7 @@ procfs_start(kmod_info_t *ki, __unused void *d)
         LOG_ERR("procfs_init() failed errno:  %d \n", ret);
         goto out_error;
     }
-    LOG_DBG("lock group(%s) allocated \n", PROCFS_LCK_GRP_NAME);
+    LOG_DBG("lock group(%s) allocated \n", PROCFS_LCKGRP_NAME);
 
     ret = vfs_fsadd(&procfs_vfsentry, &procfs_vfs_table_ref);
     if (ret != 0) {
@@ -126,7 +120,7 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     LOG_DBG("%s file system registered", procfs_vfsentry.vfe_fsname);
 
     LOG_DBG("loaded %s version %s build %s (%s) \n",
-        PROCFS_BUNDLEID, PROCFS_VERSION, PROCFS_BUILDNUM, __TS__);
+        BUNDLEID_S, KEXTVERSION_S, KEXTBUILD_S, __TS__);
 
     return KERN_SUCCESS;
 
@@ -167,7 +161,7 @@ out_error:
     return KERN_FAILURE;
 }
 
-KMOD_EXPLICIT_DECL (PROCFS_BUNDLEID, PROCFS_BUILDNUM, procfs_start, procfs_stop)
+KMOD_EXPLICIT_DECL (BUNDLEID_S, KEXTBUILD_S, procfs_start, procfs_stop)
   __attribute__ ((visibility ("default")))
 
 __private_extern__ kmod_start_func_t *_realmain = procfs_start;

@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
         syslog(PROCFS_SYSLOG_LEVEL, "%s: Mounting procfs on %s", prog_name, mntdir);
     }
 
-    int result = mount(PROCFS_FSNAME, mntdir, generic_options, &mount_args);
+    int result = mount("procfs", mntdir, generic_options, &mount_args);
     if (result < 0) {
         fprintf(stderr, "%s: Failed to mount procfs on %s: %s\n", prog_name, mntdir, strerror(errno));
     }
@@ -125,7 +125,7 @@ usage(char *name) {
     fprintf(stderr, "     noprocperms\tDisables procperms. Use with extreme caution - this is a security risk.\n");
     fprintf(stderr, "     -v\t\t\tEnables verbose logging of mount operation to syslog.\n");
     fprintf(stderr, "     -?, -h\t\tPrints this usage message and exits.\n");
-    fprintf(stderr, "Example: mount -t %s -o procperms,-v %s /proc\n", PROCFS_FSNAME, PROCFS_FSNAME);
+    fprintf(stderr, "Example: mount -t %s -o procperms,-v %s /proc\n", "procfs", "procfs");
     
     exit(1);
     /* NOTREACHED */
