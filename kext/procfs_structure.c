@@ -33,29 +33,15 @@
 #pragma mark -
 #pragma mark Function Prototypes
 
-STATIC pfssnode_t *add_node(pfssnode_t *parent,
-                                         const char *name,
-                                         pfstype type,
-                                         pfsbaseid_t node_id,
-                                         uint16_t flags,
-                                         size_t size,
-                                         procfs_node_size_fn node_size_fn,
-                                         procfs_read_data_fn node_read_data_fn);
-STATIC pfssnode_t *add_directory(pfssnode_t *parent,
-                                         const char *name,
-                                         pfstype type,
-                                         pfsbaseid_t node_id,
-                                         uint16_t flags,
-                                         boolean_t raw,
-                                         procfs_node_size_fn node_size_fn,
-                                         procfs_read_data_fn node_read_data_fn);
-STATIC pfssnode_t *add_file(pfssnode_t *parent,
-                                         const char *name,
-                                         pfsbaseid_t node_id,
-                                         uint16_t flags,
-                                         size_t size,
-                                         procfs_node_size_fn node_size_fn,
-                                         procfs_read_data_fn node_read_data_fn);
+STATIC pfssnode_t *add_node(pfssnode_t *parent, const char *name, pfstype type, pfsbaseid_t node_id, uint16_t flags, size_t size,
+                        procfs_node_size_fn node_size_fn, procfs_read_data_fn node_read_data_fn);
+
+STATIC pfssnode_t *add_directory(pfssnode_t *parent, const char *name, pfstype type, pfsbaseid_t node_id, uint16_t flags, boolean_t raw,
+                        procfs_node_size_fn node_size_fn, procfs_read_data_fn node_read_data_fn);
+
+STATIC pfssnode_t *add_file(pfssnode_t *parent, const char *name, pfsbaseid_t node_id, uint16_t flags, size_t size,
+                        procfs_node_size_fn node_size_fn, procfs_read_data_fn node_read_data_fn);
+
 STATIC void release_node(pfssnode_t *node);
 
 // Next node id. No need to lock this value because access
@@ -215,14 +201,8 @@ vnode_type_for_structure_node_type(pfstype pfs_type)
  * should not be called directly.
  */
 STATIC pfssnode_t *
-add_node(pfssnode_t *parent,
-         const char *name,
-         pfstype type,
-         pfsbaseid_t node_id,
-         uint16_t flags,
-         size_t size,
-         procfs_node_size_fn node_size_fn,
-         procfs_read_data_fn node_read_data_fn)
+add_node(pfssnode_t *parent, const char *name, pfstype type, pfsbaseid_t node_id, uint16_t flags, size_t size,
+            procfs_node_size_fn node_size_fn, procfs_read_data_fn node_read_data_fn)
 {
     pfssnode_t *node = (pfssnode_t *)OSMalloc(sizeof(pfssnode_t), procfs_osmalloc_tag);
     if (node == NULL) {
@@ -256,14 +236,8 @@ add_node(pfssnode_t *parent,
  * with the raw argument set to 1 to avoid infinite recursion.
  */
 STATIC pfssnode_t *
-add_directory(pfssnode_t *parent,
-              const char *name,
-              pfstype type,
-              pfsbaseid_t node_id,
-              uint16_t flags,
-              boolean_t raw,
-              procfs_node_size_fn node_size_fn,
-              procfs_read_data_fn node_read_data_fn)
+add_directory(pfssnode_t *parent, const char *name, pfstype type, pfsbaseid_t node_id, uint16_t flags, boolean_t raw,
+                procfs_node_size_fn node_size_fn, procfs_read_data_fn node_read_data_fn)
 {
     // Add the directory node.
     pfssnode_t *snode = add_node(parent, name, type, node_id, flags, 0, node_size_fn, node_read_data_fn);
@@ -283,13 +257,8 @@ add_directory(pfssnode_t *parent,
  * elements (although that is not checked).
  */
 STATIC pfssnode_t *
-add_file(pfssnode_t *parent,
-         const char *name,
-         pfsbaseid_t node_id,
-         uint16_t flags,
-         size_t size,
-         procfs_node_size_fn node_size_fn,
-         procfs_read_data_fn node_read_data_fn)
+add_file(pfssnode_t *parent, const char *name, pfsbaseid_t node_id, uint16_t flags, size_t size,
+            procfs_node_size_fn node_size_fn, procfs_read_data_fn node_read_data_fn)
 {
     return add_node(parent, name, PFSfile, node_id, flags, size, node_size_fn, node_read_data_fn);
 }

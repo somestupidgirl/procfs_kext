@@ -357,12 +357,9 @@ procfsnode_to_pid(pfsnode_t *pfsnode)
 extern const pfsid_t PROCFS_ROOT_NODE_ID;
 
 /* Public API */
-extern int procfsnode_find(pfsmount_t *pmp,
-                           pfsid_t node_id,
-                           pfssnode_t *snode,
-                           pfsnode_t **pnpp, vnode_t *vnpp,
-                           create_vnode_func create_vnode_func,
-                           void *create_vnode_params);
+extern int procfsnode_find(pfsmount_t *pmp, pfsid_t node_id, pfssnode_t *snode, pfsnode_t **pnpp,
+                           vnode_t *vnpp, create_vnode_func create_vnode_func, void *create_vnode_params);
+
 extern void procfsnode_reclaim(vnode_t vp);
 extern void procfs_get_parent_node_id(pfsnode_t *pnp, pfsid_t *idp);
 
