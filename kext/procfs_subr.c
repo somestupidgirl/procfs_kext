@@ -18,10 +18,41 @@
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/ucred.h>
+#include <sys/vnode.h>
 
 #include <miscfs/procfs/procfs.h>
 
 #include "symdecls.h"
+
+/* 
+ * Allocate a pfsnode/vnode pair. Gets the vnode type that is appropriate
+ * for a given structure node type.
+ */
+enum vtype
+procfs_allocvp(pfstype pfs_type)
+{
+    switch (pfs_type) {
+    case PFSroot:           /* FALLTHROUGH */
+    case PFSproc:           /* FALLTHROUGH */
+    case PFSthread:         /* FALLTHROUGH */
+    case PFSdir:            /* FALLTHROUGH */
+    case PFSdirthis:        /* FALLTHROUGH */
+    case PFSdirparent:      /* FALLTHROUGH */
+    case PFSfd:             /* FALLTHROUGH */
+        return VDIR;
+
+    case PFSfile:           /* FALLTHROUGH */
+    case PFScpuinfo:        /* FALLTHROUGH */
+        return VREG;
+
+    case PFSprocnamedir:    /* FALLTHROUGH */
+    case PFScurproc:        /* FALLTHROUGH */
+        return VLNK;
+    }
+
+    // Unknown type: make it a file.
+    return VREG;
+}
 
 /*
  * Given a vnode that corresponds to a pfsnode_t, returns the corresponding

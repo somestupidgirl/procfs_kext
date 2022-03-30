@@ -161,37 +161,6 @@ procfs_structure_free()
     }
 }
 
-/* 
- * Gets the vnode type that is appropriate for a given structure node type.
- * This function serves a similar purpose as 'procfs_allocvp' in NetBSD's
- * procfs_subr.c file.
- */
-enum vtype
-vnode_type_for_structure_node_type(pfstype pfs_type)
-{
-    switch (pfs_type) {
-    case PFSroot:           /* FALLTHROUGH */
-    case PFSproc:           /* FALLTHROUGH */
-    case PFSthread:         /* FALLTHROUGH */
-    case PFSdir:            /* FALLTHROUGH */
-    case PFSdirthis:        /* FALLTHROUGH */
-    case PFSdirparent:      /* FALLTHROUGH */
-    case PFSfd:             /* FALLTHROUGH */
-        return VDIR;
-
-    case PFSfile:           /* FALLTHROUGH */
-    case PFScpuinfo:        /* FALLTHROUGH */
-        return VREG;
-
-    case PFSprocnamedir:    /* FALLTHROUGH */
-    case PFScurproc:        /* FALLTHROUGH */
-        return VLNK;
-    }
-
-    // Unknown type: make it a file.
-    return VREG;
-}
-
 #pragma mark -
 #pragma mark Creation of Structure Nodes
 

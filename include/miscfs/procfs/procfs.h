@@ -379,11 +379,10 @@ extern void procfs_structure_init(void);
 extern void procfs_structure_free(void);
 
 /* 
- * Gets the vnode type that is appropriate for a given structure node type.
- * This function serves a similar purpose as 'procfs_allocvp' from NetBSD's
- * procfs_subr.c file.
+ * Allocate a pfsnode/vnode pair. Gets the vnode type that is appropriate
+ * for a given structure node type.
  */
-extern enum vtype vnode_type_for_structure_node_type(pfstype);
+extern enum vtype procfs_allocvp(pfstype);
 
 /*
  * Copies data from the local buffer "data" into the area described

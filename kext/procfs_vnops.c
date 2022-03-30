@@ -821,11 +821,10 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     }
 
     // ----- Generic attributes.
-    VATTR_RETURN(vap, va_type, vnode_type_for_structure_node_type(node_type)); // File type
-    VATTR_RETURN(vap, va_fsid, pmp->pmnt_id);                           // File system id.
-    VATTR_RETURN(vap, va_fileid, procfs_get_node_fileid(procfs_node));  // Unique file id.
-    VATTR_RETURN(vap, va_data_size,
-                 procfs_get_node_size_attr(procfs_node, vfs_context_ucred(ap->a_context))); // File size.
+    VATTR_RETURN(vap, va_type, procfs_allocvp(node_type));                                                      // File type
+    VATTR_RETURN(vap, va_fsid, pmp->pmnt_id);                                                                   // File system id.
+    VATTR_RETURN(vap, va_fileid, procfs_get_node_fileid(procfs_node));                                          // Unique file id.
+    VATTR_RETURN(vap, va_data_size, procfs_get_node_size_attr(procfs_node, vfs_context_ucred(ap->a_context)));  // File size.
 
     // Use the process start time as the create time if we have a process.
     // otherwise use the file system mount time. Set the other times to the
@@ -947,7 +946,7 @@ procfs_create_vnode(procfs_vnode_create_args *cap, pfsnode_t *pnp, vnode_t *vpp)
 
     memset(&vnode_create_params, 0, sizeof(vnode_create_params));
     vnode_create_params.vnfs_mp = vnode_mount(cap->vca_parentvp);
-    vnode_create_params.vnfs_vtype = vnode_type_for_structure_node_type(snode->psn_node_type);
+    vnode_create_params.vnfs_vtype = procfs_allocvp(snode->psn_node_type);
     vnode_create_params.vnfs_str = "procfs vnode";
     vnode_create_params.vnfs_dvp = cap->vca_parentvp;
     vnode_create_params.vnfs_fsnode = pnp;
