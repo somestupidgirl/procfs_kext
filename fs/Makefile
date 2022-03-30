@@ -1,20 +1,12 @@
-#
-# Check mandatory vars
-#
+include ../Makefile.inc
 
 # defaults
-COPYRIGHT?=				"Copyright © 2022 somestupidgirl,  All rights reserved."
-FSNAME?=				procfs
-FSVERSION?=				1.0.0
-FSBUILD?=				1
-BUNDLEDOMAIN?=			com.stupid.filesystems.util
 BUNDLEID?=				$(BUNDLEDOMAIN).$(FSNAME)
 FSBUNDLE?=				$(FSNAME).fs
 FSMACHO?=				$(FSNAME).out
 ARCHFLAGS?=				-arch x86_64
 PREFIX?=				/Library/Filesystems
 DEVELOPER_DIR?=			/Applications/Xcode.app/Contents/Developer
-SIGNCERT?=				foozlefairy@gmail.com
 MACOSX_VERSION_MIN?= 	11.3
 
 #

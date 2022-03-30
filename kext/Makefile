@@ -1,20 +1,12 @@
-#
-# Check mandatory vars
-#
+include ../Makefile.inc
 
 # defaults
-COPYRIGHT?=				"Copyright © 2022 somestupidgirl,  All rights reserved."
-KEXTNAME?=				procfs
-KEXTVERSION?=			1.0.0
-KEXTBUILD?=				1
-BUNDLEDOMAIN?=			com.stupid.filesystems
 BUNDLEID?=				$(BUNDLEDOMAIN).$(KEXTNAME)
 KEXTBUNDLE?=			$(KEXTNAME).kext
 KEXTMACHO?=				$(KEXTNAME).out
 ARCHFLAGS?=				-arch x86_64
 PREFIX?=				/Library/Extensions
 DEVELOPER_DIR?=			/Applications/Xcode.app/Contents/Developer
-SIGNCERT?=				foozlefairy@gmail.com
 MACOSX_VERSION_MIN?= 	11.3
 
 #
