@@ -84,7 +84,7 @@ procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
      */
     char *vendor_id = _cpuid_info()->cpuid_vendor;
     uint8_t cpu_family = _cpuid_info()->cpuid_family;
-    uint8_t model = _cpuid_info()->cpuid_model; // FIXME
+    uint8_t model = _cpuid_info()->cpuid_model + (_cpuid_info()->cpuid_extmodel << 4);
     char *model_name = _cpuid_info()->cpuid_brand_string;
     uint32_t microcode = _cpuid_info()->cpuid_microcode_version; // FIXME
     uint32_t cache_size = _cpuid_info()->cpuid_cache_size;
