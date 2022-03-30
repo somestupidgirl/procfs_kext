@@ -749,6 +749,48 @@ get_leaf7_ext_flags(void)
     }
 }
 
+const char *amd_feature_flags[] = {
+    /* 0 */ "syscall",
+    /* 1 */ "mp",
+    /* 2 */ "nx",
+    /* 3 */ "mmxext",
+    /* 4 */ "fxsr_opt",
+    /* 5 */ "pdpe1gb",
+    /* 6 */ "rdtscp",
+    /* 7 */ "lm",
+    /* 8 */ "3dnowext",
+    /* 9 */ "3dnow",
+};
+
+static char *amd_feature2_flags[] = {
+    /* 0 */  "lahf_lm",
+    /* 1 */  "cmp_legacy",
+    /* 2 */  "svm",
+    /* 3 */  "extapic",
+    /* 4 */  "cr8_legacy",
+    /* 5 */  "abm",
+    /* 6 */  "sse4a",
+    /* 7 */  "misalignsse",
+    /* 8 */  "3dnowprefetch",
+    /* 9 */  "osvw",
+    /* 10 */ "ibs",
+    /* 11 */ "xop",
+    /* 12 */ "skinit",
+    /* 13 */ "wdt",
+    /* 14 */ "lwp",
+    /* 15 */ "fma4",
+    /* 16 */ "tce",
+    /* 17 */ "nodeid_msr",
+    /* 18 */ "tbm",
+    /* 19 */ "topoext",
+    /* 20 */ "perfctr_core",
+    /* 21 */ "perfctr_nb",
+    /* 22 */ "bpext",
+    /* 23 */ "ptsc",
+    /* 24 */ "perfctr_llc",
+    /* 25 */ "mwaitx",
+};
+
 const char *power_flags[] = {
     /* 0 */  "ts",                  /* temperature sensor */
     /* 1 */  "fid",                 /* frequency id control */
