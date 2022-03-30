@@ -26,6 +26,42 @@ STATIC char *get_cpu_ext_flags(void);
 STATIC char *get_leaf7_flags(void);
 STATIC char *get_leaf7_ext_flags(void);
 
+/* For AMD CPU's */
+boolean_t
+is_amd_cpu(void)
+{
+    uint32_t ourcpuid[4];
+
+    do_cpuid(0, ourcpuid);
+    if (ourcpuid[ebx] == 0x68747541 &&
+        ourcpuid[ecx] == 0x444D4163 &&
+        ourcpuid[edx] == 0x69746E65) {
+        return TRUE;
+    }
+
+    return FALSE;
+};
+
+/* For Intel CPU's */
+boolean_t
+is_intel_cpu(void)
+{
+    uint32_t ourcpuid[4];
+
+    do_cpuid(0, ourcpuid);
+    if (ourcpuid[ebx] == 0x756E6547 &&
+        ourcpuid[ecx] == 0x6C65746E &&
+        ourcpuid[edx] == 0x49656E69) {
+        return TRUE;
+    }
+
+    if (!is_amd_cpu()) {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 int
 procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
