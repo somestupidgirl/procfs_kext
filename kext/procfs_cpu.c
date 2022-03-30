@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2022 Sunneva Jonsdottir
+ *
+ * procfs_cpu.c
+ *
+ * Functions that provide information about the CPU.
+ */
 #include <string.h>
 #include <i386/cpuid.h>
 #include <i386/tsc.h>

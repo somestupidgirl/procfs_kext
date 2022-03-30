@@ -1,17 +1,15 @@
-//
-//  procfs_data.c
-//  ProcFS
-//
-//  Created by Kim Topley on 1/10/16.
-//
-//
-// The functions in this file provide the data for files in the procfs
-// file system and the size values for all procfs nodes, as seen in the
-// st_size field of the stat structure. Both the data and the size depend
-// on the node type. The correct function for each node is specified in
-// its pfssnode_t.
-//
-
+/*
+ * Copyright (c) 2015 Kim Topley
+ * Copyright (c) 2022 Sunneva Jonsdottir
+ *
+ * procfs_data.c
+ *
+ * The functions in this file provide the data for files in the procfs
+ * file system and the size values for all procfs nodes, as seen in the
+ * st_size field of the stat structure. Both the data and the size depend
+ * on the node type. The correct function for each node is specified in
+ * its pfssnode_t.
+ */
 #include <libkern/libkern.h>
 #include <libkext/libkext.h>
 #include <sys/bsdtask_info.h>

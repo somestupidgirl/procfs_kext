@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2022 Sunneva Jonsdottir
+ *
+ * procfs.c
+ *
+ * This file contains the initialization and cleanup routines
+ * as well as the start/stop routines for loading and unloading
+ * the kernel extension.
+ */
 #include <kern/locks.h>
 #include <libkern/libkern.h>
 #include <libkern/OSMalloc.h>
@@ -9,8 +18,6 @@
 
 #include <miscfs/procfs/procfs.h>
 
-#include "symbols.h"
-
 #pragma mark -
 #pragma mark Start/Stop Function Prototypes
 
@@ -20,6 +27,7 @@ kern_return_t procfs_stop(kmod_info_t *ki, void *d);
 #pragma mark -
 #pragma mark External References
 
+extern kern_return_t resolve_symbols(void);
 extern struct vfs_fsentry procfs_vfsentry;
 extern vfstable_t procfs_vfs_table_ref;
 

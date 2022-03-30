@@ -1,13 +1,12 @@
-//
-//  procfs.h
-//  ProcFS
-//
-//  Created by Kim Topley on 12/1/15.
-//
-// Definitions for the procfs file system. The content of this
-// header is available to both user-level and kernel components.
-//
-
+/*
+ * Copyright (c) 2015 Kim Topley
+ * Copyright (c) 2022 Sunneva Jonsdottir
+ *
+ * procfs.h
+ *
+ * Definitions for the procfs file system. The content of this
+ * header is available to both user-level and kernel components.
+ */
 #ifndef procfs_h
 #define procfs_h
 

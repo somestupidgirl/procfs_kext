@@ -1,10 +1,11 @@
-//
-//  procfsnode.c
-//  ProcFS
-//
-//  Created by Kim Topley on 12/7/15.
-//
-
+/*
+ * Copyright (c) 2015 Kim Topley
+ * Copyright (c) 2022 Sunneva Jonsdottir
+ *
+ * procfs_node.c
+ *
+ * Functions for the management of vnodes and pfsnodes.
+ */
 #include <kern/assert.h>
 #include <libkern/OSMalloc.h>
 #include <libkext/libkext.h>

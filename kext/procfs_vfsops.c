@@ -1,10 +1,11 @@
-//
-//  procfs_vfsops.c
-//  ProcFS
-//
-//  Created by Kim Topley on 12/3/15.
-//
-//
+/*
+ * Copyright (c) 2015 Kim Topley
+ * Copyright (c) 2022 Sunneva Jonsdottir
+ *
+ * procfs_vfsops.c
+ *
+ * VFS operations for the ProcFS file system.
+ */
 #include <kern/locks.h>
 #include <libkern/libkern.h>
 #include <libkext/libkext.h>

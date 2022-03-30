@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2022 Sunneva Jonsdottir
+ *
+ * symdecls.h
+ *
+ * Declarations for the symbol resolver and related stuff.
+ */
 #ifndef _symdecls_h
 #define _symdecls_h
 

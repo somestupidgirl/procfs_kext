@@ -1,24 +1,9 @@
-//
-//  procfsstructure.c
-//  ProcFS
-//
-//  Created by Kim Topley on 12/26/15.
-//
-//
-#include <string.h>
-#include <kern/assert.h>
-#include <kern/debug.h>
-#include <libkern/OSMalloc.h>
-#include <libkext/libkext.h>
-#include <mach/boolean.h>
-#include <sys/proc_info.h>
-#include <sys/vnode.h>
-
-#include <miscfs/procfs/procfs.h>
-
-#include "symdecls.h"
-
 /*
+ * Copyright (c) 2015 Kim Topley
+ * Copyright (c) 2022 Sunneva Jonsdottir
+ *
+ * procfs_structure.c
+ *
  * Definition and management of the file system layout. The
  * layout is defined by a tree of pfssnode_t
  * objects, starting with the root of the file system. The
@@ -32,6 +17,19 @@
  * fixed. To do that, add the required functions in the
  * file procfs_data.c and link to them from the pfssnode_t.
  */
+#include <string.h>
+#include <kern/assert.h>
+#include <kern/debug.h>
+#include <libkern/OSMalloc.h>
+#include <libkext/libkext.h>
+#include <mach/boolean.h>
+#include <sys/proc_info.h>
+#include <sys/vnode.h>
+
+#include <miscfs/procfs/procfs.h>
+
+#include "symdecls.h"
+
 #pragma mark -
 #pragma mark Function Prototypes
 

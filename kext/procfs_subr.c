@@ -1,12 +1,10 @@
-//
-//  procfs_subr.c
-//  ProcFS
-//
-//  Created by Kim Topley on 12/29/15.
-//
-//
 /*
- * Utility functions for procfs.
+ * Copyright (c) 2015 Kim Topley
+ * Copyright (c) 2022 Sunneva Jonsdottir
+ *
+ * procfs_subr.c
+ *
+ * Utility functions for the ProcFS file system.
  */
 #include <kern/thread.h>
 #include <libkern/OSMalloc.h>

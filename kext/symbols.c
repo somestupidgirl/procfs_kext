@@ -1,6 +1,29 @@
+/*
+ * Copyright (c) 2022 Sunneva Jonsdottir
+ *
+ * symbols.c
+ *
+ * This file holds a function for resolving given symbols.
+ * It gets called only once during the kext's start routine.
+ */
+#include <libklookup/klookup.h>
 #include <mach/kern_return.h>
 
-#include "symbols.h"
+#include "symdecls.h"
+
+#pragma mark -
+#pragma mark Macros
+
+#define SYM_INIT(sym) __typeof(_##sym) _##sym = NULL
+
+#define SYM_LOOKUP(sym) { \
+    if (!(_##sym = SymbolLookup("_"#sym))) { \
+        return KERN_FAILURE; \
+    } \
+}
+
+#pragma mark -
+#pragma mark Main Routine
 
 // Global Variables
 SYM_INIT(initproc);
