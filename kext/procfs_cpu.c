@@ -322,129 +322,129 @@ procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 }
 
 const char *feature_flags[] = {
-    /* 1 */  "fpu",
-    /* 2 */  "vme",
-    /* 3 */  "de",
-    /* 4 */  "pse",
-    /* 5 */  "tsc",
-    /* 6 */  "msr",
-    /* 7 */  "pae",
-    /* 8 */  "mce",
-    /* 9 */  "cx8",
-    /* 10 */ "apic",
-    /* 11 */ "sep",
-    /* 12 */ "mtrr",
-    /* 13 */ "pge",
-    /* 14 */ "mca",
-    /* 15 */ "cmov",
-    /* 16 */ "pat",
-    /* 17 */ "pse36",
-    /* 18 */ "psn",
-    /* 19 */ "clfsh",
-    /* 20 */ "ds",
-    /* 21 */ "acpi",
-    /* 22 */ "mmx",
-    /* 23 */ "fxsr",
-    /* 24 */ "sse",
-    /* 25 */ "sse2",
-    /* 26 */ "ss",
-    /* 27 */ "htt",
-    /* 28 */ "tm",
-    /* 29 */ "pbe",
-    /* 30 */ "sse3",
-    /* 31 */ "pclmulqdq",
-    /* 32 */ "dtes64",
-    /* 33 */ "mon",
-    /* 34 */ "dscpl",
-    /* 35 */ "vmx",
-    /* 36 */ "smx",
-    /* 37 */ "est",
-    /* 38 */ "tm2",
-    /* 39 */ "ssse3",
-    /* 40 */ "cid",
-    /* 41 */ "seglim64",
-    /* 42 */ "fma",
-    /* 43 */ "cx16",
-    /* 44 */ "tpr",
-    /* 45 */ "pdcm",
-    /* 46 */ "pcid",
-    /* 47 */ "dca",
-    /* 48 */ "sse4.1",
-    /* 49 */ "sse4.2",
-    /* 50 */ "x2apic",
-    /* 51 */ "movbe",
-    /* 52 */ "popcnt",
-    /* 53 */ "tsctmr",
-    /* 54 */ "aes",
-    /* 55 */ "xsave",
-    /* 56 */ "osxsave",
-    /* 57 */ "avx1.0",
-    /* 58 */ "f16c",
-    /* 59 */ "rdrand",
-    /* 60 */ "vmm",
+    /* 0 */  "fpu",
+    /* 1 */  "vme",
+    /* 2 */  "de",
+    /* 3 */  "pse",
+    /* 4 */  "tsc",
+    /* 5 */  "msr",
+    /* 6 */  "pae",
+    /* 7 */  "mce",
+    /* 8 */  "cx8",
+    /* 9 */  "apic",
+    /* 10 */ "sep",
+    /* 11 */ "mtrr",
+    /* 12 */ "pge",
+    /* 13 */ "mca",
+    /* 14 */ "cmov",
+    /* 15 */ "pat",
+    /* 16 */ "pse36",
+    /* 17 */ "psn",
+    /* 18 */ "clfsh",
+    /* 19 */ "ds",
+    /* 20 */ "acpi",
+    /* 21 */ "mmx",
+    /* 22 */ "fxsr",
+    /* 23 */ "sse",
+    /* 24 */ "sse2",
+    /* 25 */ "ss",
+    /* 26 */ "htt",
+    /* 27 */ "tm",
+    /* 28 */ "pbe",
+    /* 39 */ "sse3",
+    /* 30 */ "pclmulqdq",
+    /* 31 */ "dtes64",
+    /* 32 */ "mon",
+    /* 33 */ "dscpl",
+    /* 34 */ "vmx",
+    /* 35 */ "smx",
+    /* 36 */ "est",
+    /* 37 */ "tm2",
+    /* 38 */ "ssse3",
+    /* 39 */ "cid",
+    /* 40 */ "seglim64",
+    /* 41 */ "fma",
+    /* 42 */ "cx16",
+    /* 43 */ "tpr",
+    /* 44 */ "pdcm",
+    /* 45 */ "pcid",
+    /* 46 */ "dca",
+    /* 47 */ "sse4.1",
+    /* 48 */ "sse4.2",
+    /* 49 */ "x2apic",
+    /* 50 */ "movbe",
+    /* 51 */ "popcnt",
+    /* 52 */ "tsctmr",
+    /* 53 */ "aes",
+    /* 54 */ "xsave",
+    /* 55 */ "osxsave",
+    /* 56 */ "avx1.0",
+    /* 57 */ "f16c",
+    /* 58 */ "rdrand",
+    /* 59 */ "vmm",
 };
 
 uint64_t feature_list[] = {
-    /* 1 */  CPUID_FEATURE_FPU,
-    /* 2 */  CPUID_FEATURE_VME,
-    /* 3 */  CPUID_FEATURE_DE,
-    /* 4 */  CPUID_FEATURE_PSE,
-    /* 5 */  CPUID_FEATURE_TSC,
-    /* 6 */  CPUID_FEATURE_MSR,
-    /* 7 */  CPUID_FEATURE_PAE,
-    /* 8 */  CPUID_FEATURE_MCE,
-    /* 9 */  CPUID_FEATURE_CX8,
-    /* 10 */ CPUID_FEATURE_APIC,
-    /* 11 */ CPUID_FEATURE_SEP,
-    /* 12 */ CPUID_FEATURE_MTRR,
-    /* 13 */ CPUID_FEATURE_PGE,
-    /* 14 */ CPUID_FEATURE_MCA,
-    /* 15 */ CPUID_FEATURE_CMOV,
-    /* 16 */ CPUID_FEATURE_PAT,
-    /* 17 */ CPUID_FEATURE_PSE36,
-    /* 18 */ CPUID_FEATURE_PSN,
-    /* 19 */ CPUID_FEATURE_CLFSH,
-    /* 20 */ CPUID_FEATURE_DS,
-    /* 21 */ CPUID_FEATURE_ACPI,
-    /* 22 */ CPUID_FEATURE_MMX,
-    /* 23 */ CPUID_FEATURE_FXSR,
-    /* 24 */ CPUID_FEATURE_SSE,
-    /* 25 */ CPUID_FEATURE_SSE2,
-    /* 26 */ CPUID_FEATURE_SS,
-    /* 27 */ CPUID_FEATURE_HTT,
-    /* 28 */ CPUID_FEATURE_TM,
-    /* 29 */ CPUID_FEATURE_PBE,
-    /* 30 */ CPUID_FEATURE_SSE3,
-    /* 31 */ CPUID_FEATURE_PCLMULQDQ,
-    /* 32 */ CPUID_FEATURE_DTES64,
-    /* 33 */ CPUID_FEATURE_MONITOR,
-    /* 34 */ CPUID_FEATURE_DSCPL,
-    /* 35 */ CPUID_FEATURE_VMX,
-    /* 36 */ CPUID_FEATURE_SMX,
-    /* 37 */ CPUID_FEATURE_EST,
-    /* 38 */ CPUID_FEATURE_TM2,
-    /* 39 */ CPUID_FEATURE_SSSE3,
-    /* 40 */ CPUID_FEATURE_CID,
-    /* 41 */ CPUID_FEATURE_SEGLIM64,
-    /* 42 */ CPUID_FEATURE_FMA,
-    /* 43 */ CPUID_FEATURE_CX16,
-    /* 44 */ CPUID_FEATURE_xTPR,
-    /* 45 */ CPUID_FEATURE_PDCM,
-    /* 46 */ CPUID_FEATURE_PCID,
-    /* 47 */ CPUID_FEATURE_DCA,
-    /* 48 */ CPUID_FEATURE_SSE4_1,
-    /* 49 */ CPUID_FEATURE_SSE4_2,
-    /* 50 */ CPUID_FEATURE_x2APIC,
-    /* 51 */ CPUID_FEATURE_MOVBE,
-    /* 52 */ CPUID_FEATURE_POPCNT,
-    /* 53 */ CPUID_FEATURE_TSCTMR,
-    /* 54 */ CPUID_FEATURE_AES,
-    /* 55 */ CPUID_FEATURE_XSAVE,
-    /* 56 */ CPUID_FEATURE_OSXSAVE,
-    /* 57 */ CPUID_FEATURE_AVX1_0,
-    /* 58 */ CPUID_FEATURE_F16C,
-    /* 59 */ CPUID_FEATURE_RDRAND,
-    /* 60 */ CPUID_FEATURE_VMM,
+    /* 0 */  CPUID_FEATURE_FPU,
+    /* 1 */  CPUID_FEATURE_VME,
+    /* 2 */  CPUID_FEATURE_DE,
+    /* 3 */  CPUID_FEATURE_PSE,
+    /* 4 */  CPUID_FEATURE_TSC,
+    /* 5 */  CPUID_FEATURE_MSR,
+    /* 6 */  CPUID_FEATURE_PAE,
+    /* 7 */  CPUID_FEATURE_MCE,
+    /* 8 */  CPUID_FEATURE_CX8,
+    /* 9 */  CPUID_FEATURE_APIC,
+    /* 10 */ CPUID_FEATURE_SEP,
+    /* 11 */ CPUID_FEATURE_MTRR,
+    /* 12 */ CPUID_FEATURE_PGE,
+    /* 13 */ CPUID_FEATURE_MCA,
+    /* 14 */ CPUID_FEATURE_CMOV,
+    /* 15 */ CPUID_FEATURE_PAT,
+    /* 16 */ CPUID_FEATURE_PSE36,
+    /* 17 */ CPUID_FEATURE_PSN,
+    /* 18 */ CPUID_FEATURE_CLFSH,
+    /* 19 */ CPUID_FEATURE_DS,
+    /* 20 */ CPUID_FEATURE_ACPI,
+    /* 21 */ CPUID_FEATURE_MMX,
+    /* 22 */ CPUID_FEATURE_FXSR,
+    /* 23 */ CPUID_FEATURE_SSE,
+    /* 24 */ CPUID_FEATURE_SSE2,
+    /* 25 */ CPUID_FEATURE_SS,
+    /* 26 */ CPUID_FEATURE_HTT,
+    /* 27 */ CPUID_FEATURE_TM,
+    /* 28 */ CPUID_FEATURE_PBE,
+    /* 29 */ CPUID_FEATURE_SSE3,
+    /* 30 */ CPUID_FEATURE_PCLMULQDQ,
+    /* 31 */ CPUID_FEATURE_DTES64,
+    /* 32 */ CPUID_FEATURE_MONITOR,
+    /* 33 */ CPUID_FEATURE_DSCPL,
+    /* 34 */ CPUID_FEATURE_VMX,
+    /* 35 */ CPUID_FEATURE_SMX,
+    /* 36 */ CPUID_FEATURE_EST,
+    /* 37 */ CPUID_FEATURE_TM2,
+    /* 38 */ CPUID_FEATURE_SSSE3,
+    /* 39 */ CPUID_FEATURE_CID,
+    /* 40 */ CPUID_FEATURE_SEGLIM64,
+    /* 41 */ CPUID_FEATURE_FMA,
+    /* 42 */ CPUID_FEATURE_CX16,
+    /* 43 */ CPUID_FEATURE_xTPR,
+    /* 44 */ CPUID_FEATURE_PDCM,
+    /* 45 */ CPUID_FEATURE_PCID,
+    /* 46 */ CPUID_FEATURE_DCA,
+    /* 47 */ CPUID_FEATURE_SSE4_1,
+    /* 48 */ CPUID_FEATURE_SSE4_2,
+    /* 49 */ CPUID_FEATURE_x2APIC,
+    /* 50 */ CPUID_FEATURE_MOVBE,
+    /* 51 */ CPUID_FEATURE_POPCNT,
+    /* 52 */ CPUID_FEATURE_TSCTMR,
+    /* 53 */ CPUID_FEATURE_AES,
+    /* 54 */ CPUID_FEATURE_XSAVE,
+    /* 55 */ CPUID_FEATURE_OSXSAVE,
+    /* 56 */ CPUID_FEATURE_AVX1_0,
+    /* 57 */ CPUID_FEATURE_F16C,
+    /* 58 */ CPUID_FEATURE_RDRAND,
+    /* 59 */ CPUID_FEATURE_VMM,
 };
 
 STATIC char *
@@ -485,25 +485,25 @@ get_cpu_flags(void)
 }
 
 const char *feature_ext_flags[] = {
-    /* 1 */ "syscall",
-    /* 2 */ "xd",
-    /* 3 */ "1gbpage",
-    /* 4 */ "rdtscp",
-    /* 5 */ "em64t",
-    /* 6 */ "lahf",
-    /* 7 */ "lzcnt",
-    /* 8 */ "prefetchcw"
+    /* 0 */ "syscall",
+    /* 1 */ "xd",
+    /* 2 */ "1gbpage",
+    /* 3 */ "rdtscp",
+    /* 4 */ "em64t",
+    /* 5 */ "lahf",
+    /* 6 */ "lzcnt",
+    /* 7 */ "prefetchcw"
 };
 
 uint64_t feature_ext_list[] = {
-    /* 1 */ CPUID_EXTFEATURE_SYSCALL,
-    /* 2 */ CPUID_EXTFEATURE_XD,
-    /* 3 */ CPUID_EXTFEATURE_1GBPAGE,
-    /* 4 */ CPUID_EXTFEATURE_RDTSCP,
-    /* 5 */ CPUID_EXTFEATURE_EM64T,
-    /* 6 */ CPUID_EXTFEATURE_LAHF,
-    /* 7 */ CPUID_EXTFEATURE_LZCNT,
-    /* 8 */ CPUID_EXTFEATURE_PREFETCHW
+    /* 0 */ CPUID_EXTFEATURE_SYSCALL,
+    /* 1 */ CPUID_EXTFEATURE_XD,
+    /* 2 */ CPUID_EXTFEATURE_1GBPAGE,
+    /* 3 */ CPUID_EXTFEATURE_RDTSCP,
+    /* 4 */ CPUID_EXTFEATURE_EM64T,
+    /* 5 */ CPUID_EXTFEATURE_LAHF,
+    /* 6 */ CPUID_EXTFEATURE_LZCNT,
+    /* 7 */ CPUID_EXTFEATURE_PREFETCHW
 };
 
 STATIC char *
@@ -546,101 +546,101 @@ get_cpu_ext_flags(void)
 }
 
 const char *leaf7_feature_flags[] = {
-    /* 1 */  "rdwrfsgs",
-    /* 2 */  "tsc_thread_offset",
-    /* 3 */  "sgx",
-    /* 4 */  "bmi1",
-    /* 5 */  "hle",
-    /* 6 */  "avx2",
-    /* 7 */  "fdpeo",
-    /* 8 */  "smep",
-    /* 9 */  "bmi2",
-    /* 10 */ "erms",
-    /* 11 */ "invpcid",
-    /* 12 */ "rtm",
-    /* 13 */ "pqm",
-    /* 14 */ "fpu_csds",
-    /* 15 */ "mpx",
-    /* 16 */ "pqe",
-    /* 17 */ "avx512f",
-    /* 18 */ "avx512dq",
-    /* 19 */ "rdseed",
-    /* 20 */ "adx",
-    /* 21 */ "smap",
-    /* 22 */ "avx512ifma",
-    /* 23 */ "clfsopt",
-    /* 24 */ "clwb",
-    /* 25 */ "ipt",
-    /* 26 */ "avx512cd",
-    /* 27 */ "sha",
-    /* 28 */ "avx512bw",
-    /* 29 */ "avx512vl",
-    /* 30 */ "prefetchwt1",
-    /* 31 */ "avx512vbmi",
-    /* 32 */ "umip",
-    /* 33 */ "pku",
-    /* 34 */ "ospke",
-    /* 35 */ "waitpkg",
-    /* 36 */ "gfni",
-    /* 37 */ "vaes",
-    /* 38 */ "vpclmulqdq",
-    /* 39 */ "avx512vnni",
-    /* 40 */ "avx512bitalg",
-    /* 41 */ "avx512vpopcntdq",
-    /* 42 */ "rdpid",
-    /* 43 */ "cldemote",
-    /* 44 */ "movdiri",
-    /* 45 */ "movdiri64b",
-    /* 46 */ "sgxlc"
+    /* 0 */  "rdwrfsgs",
+    /* 1 */  "tsc_thread_offset",
+    /* 2 */  "sgx",
+    /* 3 */  "bmi1",
+    /* 4 */  "hle",
+    /* 5 */  "avx2",
+    /* 6 */  "fdpeo",
+    /* 7 */  "smep",
+    /* 8 */  "bmi2",
+    /* 9 */  "erms",
+    /* 10 */ "invpcid",
+    /* 11 */ "rtm",
+    /* 12 */ "pqm",
+    /* 13 */ "fpu_csds",
+    /* 14 */ "mpx",
+    /* 15 */ "pqe",
+    /* 16 */ "avx512f",
+    /* 17 */ "avx512dq",
+    /* 18 */ "rdseed",
+    /* 19 */ "adx",
+    /* 20 */ "smap",
+    /* 21 */ "avx512ifma",
+    /* 22 */ "clfsopt",
+    /* 23 */ "clwb",
+    /* 24 */ "ipt",
+    /* 25 */ "avx512cd",
+    /* 26 */ "sha",
+    /* 27 */ "avx512bw",
+    /* 28 */ "avx512vl",
+    /* 29 */ "prefetchwt1",
+    /* 30 */ "avx512vbmi",
+    /* 31 */ "umip",
+    /* 32 */ "pku",
+    /* 33 */ "ospke",
+    /* 34 */ "waitpkg",
+    /* 35 */ "gfni",
+    /* 36 */ "vaes",
+    /* 37 */ "vpclmulqdq",
+    /* 38 */ "avx512vnni",
+    /* 39 */ "avx512bitalg",
+    /* 40 */ "avx512vpopcntdq",
+    /* 41 */ "rdpid",
+    /* 42 */ "cldemote",
+    /* 43 */ "movdiri",
+    /* 44 */ "movdiri64b",
+    /* 45 */ "sgxlc"
 };
 
 uint64_t leaf7_feature_list[] = {
-    /* 1 */  CPUID_LEAF7_FEATURE_RDWRFSGS,
-    /* 2 */  CPUID_LEAF7_FEATURE_TSCOFF,
-    /* 3 */  CPUID_LEAF7_FEATURE_SGX,
-    /* 4 */  CPUID_LEAF7_FEATURE_BMI1,
-    /* 5 */  CPUID_LEAF7_FEATURE_HLE,
-    /* 6 */  CPUID_LEAF7_FEATURE_AVX2,
-    /* 7 */  CPUID_LEAF7_FEATURE_FDPEO,
-    /* 8 */  CPUID_LEAF7_FEATURE_SMEP,
-    /* 9 */  CPUID_LEAF7_FEATURE_BMI2,
-    /* 10 */ CPUID_LEAF7_FEATURE_ERMS,
-    /* 12 */ CPUID_LEAF7_FEATURE_INVPCID,
-    /* 12 */ CPUID_LEAF7_FEATURE_RTM,
-    /* 13 */ CPUID_LEAF7_FEATURE_PQM,
-    /* 14 */ CPUID_LEAF7_FEATURE_FPU_CSDS,
-    /* 15 */ CPUID_LEAF7_FEATURE_MPX,
-    /* 16 */ CPUID_LEAF7_FEATURE_PQE,
-    /* 17 */ CPUID_LEAF7_FEATURE_AVX512F,
-    /* 18 */ CPUID_LEAF7_FEATURE_AVX512DQ,
-    /* 19 */ CPUID_LEAF7_FEATURE_RDSEED,
-    /* 20 */ CPUID_LEAF7_FEATURE_ADX,
-    /* 21 */ CPUID_LEAF7_FEATURE_SMAP,
-    /* 22 */ CPUID_LEAF7_FEATURE_AVX512IFMA,
-    /* 23 */ CPUID_LEAF7_FEATURE_CLFSOPT,
+    /* 0 */  CPUID_LEAF7_FEATURE_RDWRFSGS,
+    /* 1 */  CPUID_LEAF7_FEATURE_TSCOFF,
+    /* 2 */  CPUID_LEAF7_FEATURE_SGX,
+    /* 3 */  CPUID_LEAF7_FEATURE_BMI1,
+    /* 4 */  CPUID_LEAF7_FEATURE_HLE,
+    /* 5 */  CPUID_LEAF7_FEATURE_AVX2,
+    /* 6 */  CPUID_LEAF7_FEATURE_FDPEO,
+    /* 7 */  CPUID_LEAF7_FEATURE_SMEP,
+    /* 8 */  CPUID_LEAF7_FEATURE_BMI2,
+    /* 9 */  CPUID_LEAF7_FEATURE_ERMS,
+    /* 10 */ CPUID_LEAF7_FEATURE_INVPCID,
+    /* 11 */ CPUID_LEAF7_FEATURE_RTM,
+    /* 12 */ CPUID_LEAF7_FEATURE_PQM,
+    /* 13 */ CPUID_LEAF7_FEATURE_FPU_CSDS,
+    /* 14 */ CPUID_LEAF7_FEATURE_MPX,
+    /* 15 */ CPUID_LEAF7_FEATURE_PQE,
+    /* 16 */ CPUID_LEAF7_FEATURE_AVX512F,
+    /* 17 */ CPUID_LEAF7_FEATURE_AVX512DQ,
+    /* 18 */ CPUID_LEAF7_FEATURE_RDSEED,
+    /* 19 */ CPUID_LEAF7_FEATURE_ADX,
+    /* 20 */ CPUID_LEAF7_FEATURE_SMAP,
+    /* 21 */ CPUID_LEAF7_FEATURE_AVX512IFMA,
+    /* 22 */ CPUID_LEAF7_FEATURE_CLFSOPT,
     /* 23 */ CPUID_LEAF7_FEATURE_CLWB,
-    /* 25 */ CPUID_LEAF7_FEATURE_IPT,
-    /* 26 */ CPUID_LEAF7_FEATURE_AVX512CD,
-    /* 27 */ CPUID_LEAF7_FEATURE_SHA,
-    /* 28 */ CPUID_LEAF7_FEATURE_AVX512BW,
-    /* 29 */ CPUID_LEAF7_FEATURE_AVX512VL,
-    /* 30 */ CPUID_LEAF7_FEATURE_PREFETCHWT1,
-    /* 31 */ CPUID_LEAF7_FEATURE_AVX512VBMI,
-    /* 32 */ CPUID_LEAF7_FEATURE_UMIP,
-    /* 33 */ CPUID_LEAF7_FEATURE_PKU,
-    /* 34 */ CPUID_LEAF7_FEATURE_OSPKE,
-    /* 35 */ CPUID_LEAF7_FEATURE_WAITPKG,
-    /* 36 */ CPUID_LEAF7_FEATURE_GFNI,
-    /* 37 */ CPUID_LEAF7_FEATURE_VAES,
-    /* 38 */ CPUID_LEAF7_FEATURE_VPCLMULQDQ,
-    /* 39 */ CPUID_LEAF7_FEATURE_AVX512VNNI,
-    /* 40 */ CPUID_LEAF7_FEATURE_AVX512BITALG,
-    /* 41 */ CPUID_LEAF7_FEATURE_AVX512VPCDQ,
-    /* 42 */ CPUID_LEAF7_FEATURE_RDPID,
-    /* 43 */ CPUID_LEAF7_FEATURE_CLDEMOTE,
-    /* 44 */ CPUID_LEAF7_FEATURE_MOVDIRI,
-    /* 45 */ CPUID_LEAF7_FEATURE_MOVDIRI64B,
-    /* 46 */ CPUID_LEAF7_FEATURE_SGXLC
+    /* 24 */ CPUID_LEAF7_FEATURE_IPT,
+    /* 25 */ CPUID_LEAF7_FEATURE_AVX512CD,
+    /* 26 */ CPUID_LEAF7_FEATURE_SHA,
+    /* 27 */ CPUID_LEAF7_FEATURE_AVX512BW,
+    /* 28 */ CPUID_LEAF7_FEATURE_AVX512VL,
+    /* 29 */ CPUID_LEAF7_FEATURE_PREFETCHWT1,
+    /* 30 */ CPUID_LEAF7_FEATURE_AVX512VBMI,
+    /* 31 */ CPUID_LEAF7_FEATURE_UMIP,
+    /* 32 */ CPUID_LEAF7_FEATURE_PKU,
+    /* 33 */ CPUID_LEAF7_FEATURE_OSPKE,
+    /* 34 */ CPUID_LEAF7_FEATURE_WAITPKG,
+    /* 35 */ CPUID_LEAF7_FEATURE_GFNI,
+    /* 36 */ CPUID_LEAF7_FEATURE_VAES,
+    /* 37 */ CPUID_LEAF7_FEATURE_VPCLMULQDQ,
+    /* 38 */ CPUID_LEAF7_FEATURE_AVX512VNNI,
+    /* 39 */ CPUID_LEAF7_FEATURE_AVX512BITALG,
+    /* 40 */ CPUID_LEAF7_FEATURE_AVX512VPCDQ,
+    /* 41 */ CPUID_LEAF7_FEATURE_RDPID,
+    /* 42 */ CPUID_LEAF7_FEATURE_CLDEMOTE,
+    /* 43 */ CPUID_LEAF7_FEATURE_MOVDIRI,
+    /* 44 */ CPUID_LEAF7_FEATURE_MOVDIRI64B,
+    /* 45 */ CPUID_LEAF7_FEATURE_SGXLC
 };
 
 STATIC char*
@@ -682,33 +682,33 @@ get_leaf7_flags(void)
 }
 
 const char *leaf7_feature_ext_flags[] = {
-    /* 1 */  "avx5124vnniw",
-    /* 2 */  "avx5124fmaps",
-    /* 3 */  "fsrepmov",
-    /* 4 */  "srbds_ctlr",
-    /* 5 */  "mdclear",
-    /* 6 */  "tsxfa",
-    /* 7 */  "ibrs",
-    /* 8 */  "stibp",
-    /* 9 */  "l1d",
-    /* 10 */ "acapmsr",
-    /* 11 */ "ccapmsr",
-    /* 12 */ "ssbd"
+    /* 0 */  "avx5124vnniw",
+    /* 1 */  "avx5124fmaps",
+    /* 2 */  "fsrepmov",
+    /* 3 */  "srbds_ctlr",
+    /* 4 */  "mdclear",
+    /* 5 */  "tsxfa",
+    /* 6 */  "ibrs",
+    /* 7 */  "stibp",
+    /* 8 */  "l1d",
+    /* 9 */  "acapmsr",
+    /* 10 */ "ccapmsr",
+    /* 11 */ "ssbd"
 };
 
 uint64_t leaf7_feature_ext_list[] = {
-    /* 1 */  CPUID_LEAF7_EXTFEATURE_AVX5124VNNIW,
-    /* 2 */  CPUID_LEAF7_EXTFEATURE_AVX5124FMAPS,
-    /* 3 */  CPUID_LEAF7_EXTFEATURE_FSREPMOV,
-    /* 4 */  CPUID_LEAF7_EXTFEATURE_SRBDS_CTRL,
-    /* 5 */  CPUID_LEAF7_EXTFEATURE_MDCLEAR,
-    /* 6 */  CPUID_LEAF7_EXTFEATURE_TSXFA,
+    /* 0 */  CPUID_LEAF7_EXTFEATURE_AVX5124VNNIW,
+    /* 1 */  CPUID_LEAF7_EXTFEATURE_AVX5124FMAPS,
+    /* 2 */  CPUID_LEAF7_EXTFEATURE_FSREPMOV,
+    /* 3 */  CPUID_LEAF7_EXTFEATURE_SRBDS_CTRL,
+    /* 4 */  CPUID_LEAF7_EXTFEATURE_MDCLEAR,
+    /* 5 */  CPUID_LEAF7_EXTFEATURE_TSXFA,
     /* 6 */  CPUID_LEAF7_EXTFEATURE_IBRS,
-    /* 8 */  CPUID_LEAF7_EXTFEATURE_STIBP,
-    /* 9 */  CPUID_LEAF7_EXTFEATURE_L1DF,
-    /* 10 */ CPUID_LEAF7_EXTFEATURE_ACAPMSR,
-    /* 11 */ CPUID_LEAF7_EXTFEATURE_CCAPMSR,
-    /* 12 */ CPUID_LEAF7_EXTFEATURE_SSBD
+    /* 7 */  CPUID_LEAF7_EXTFEATURE_STIBP,
+    /* 8 */  CPUID_LEAF7_EXTFEATURE_L1DF,
+    /* 9 */  CPUID_LEAF7_EXTFEATURE_ACAPMSR,
+    /* 10 */ CPUID_LEAF7_EXTFEATURE_CCAPMSR,
+    /* 11 */ CPUID_LEAF7_EXTFEATURE_SSBD
 };
 
 STATIC char *
@@ -750,48 +750,48 @@ get_leaf7_ext_flags(void)
 }
 
 const char *power_flags[] = {
-    /* 1 */  "ts",                  /* temperature sensor */
-    /* 2 */  "fid",                 /* frequency id control */
-    /* 3 */  "vid",                 /* voltage id control */
-    /* 4 */  "ttp",                 /* thermal trip */
-    /* 5 */  "tm",                  /* hardware thermal control */
-    /* 6 */  "stc",                 /* software thermal control */
-    /* 7 */  "100mhzsteps",         /* 100 MHz multiplier control */
-    /* 8 */  "hwpstate",            /* hardware P-state control */
-    /* 10 */ "",                    /* tsc invariant mapped to constant_tsc */
-    /* 11 */ "cpb",                 /* core performance boost */
-    /* 12 */ "eff_freq_ro",         /* readonly aperf/mperf */
-    /* 13 */ "proc_feedback",       /* processor feedback interface */
-    /* 14 */ "acc_power"            /* accumulated power mechanism */
+    /* 0 */  "ts",                  /* temperature sensor */
+    /* 1 */  "fid",                 /* frequency id control */
+    /* 2 */  "vid",                 /* voltage id control */
+    /* 3 */  "ttp",                 /* thermal trip */
+    /* 4 */  "tm",                  /* hardware thermal control */
+    /* 5 */  "stc",                 /* software thermal control */
+    /* 6 */  "100mhzsteps",         /* 100 MHz multiplier control */
+    /* 7 */  "hwpstate",            /* hardware P-state control */
+    /* 8 */  "",                    /* tsc invariant mapped to constant_tsc */
+    /* 9 */  "cpb",                 /* core performance boost */
+    /* 10 */ "eff_freq_ro",         /* readonly aperf/mperf */
+    /* 11 */ "proc_feedback",       /* processor feedback interface */
+    /* 12 */ "acc_power"            /* accumulated power mechanism */
 };
 
 const char *x86_bug_flags[] = {
-    /* 1 */ "f00f",                 /* Intel F00F */
-    /* 2 */ "fdiv",                 /* FPU FDIV */
-    /* 3 */ "coma",                 /* Cyrix 6x86 coma */
-    /* 4 */ "tlb_mmatch",           /* "tlb_mmatch" AMD Erratum 383 */
-    /* 5 */ "apic_c1e",             /* "apic_c1e" AMD Erratum 400 */
-    /* 6 */ "11ap",                 /* Bad local APIC aka 11AP */
-    /* 7 */ "fxsave_leak",          /* FXSAVE leaks FOP/FIP/FOP */
-    /* 8 */ "clflush_monitor",      /* AAI65, CLFLUSH required before MONITOR */
-    /* 9 */ "sysret_ss_attrs",      /* SYSRET doesn't fix up SS attrs */
-    /* 10 */ "espfix"               /* "" IRET to 16-bit SS corrupts ESP/RSP high bits */
+    /* 0 */ "f00f",                 /* Intel F00F */
+    /* 1 */ "fdiv",                 /* FPU FDIV */
+    /* 2 */ "coma",                 /* Cyrix 6x86 coma */
+    /* 3 */ "tlb_mmatch",           /* "tlb_mmatch" AMD Erratum 383 */
+    /* 4 */ "apic_c1e",             /* "apic_c1e" AMD Erratum 400 */
+    /* 5 */ "11ap",                 /* Bad local APIC aka 11AP */
+    /* 6 */ "fxsave_leak",          /* FXSAVE leaks FOP/FIP/FOP */
+    /* 7 */ "clflush_monitor",      /* AAI65, CLFLUSH required before MONITOR */
+    /* 8 */ "sysret_ss_attrs",      /* SYSRET doesn't fix up SS attrs */
+    /* 9 */ "espfix"                /* "" IRET to 16-bit SS corrupts ESP/RSP high bits */
 };
 
 const char *x86_64_bug_flags[] = {
-    /* 1 */  "null_seg",            /* Nulling a selector preserves the base */
-    /* 2 */  "swapgs_fence",        /* SWAPGS without input dep on GS */
-    /* 3 */  "monitor",             /* IPI required to wake up remote CPU */
-    /* 4 */  "amd_e400",            /* CPU is among the affected by Erratum 400 */
-    /* 5 */  "cpu_meltdown",        /* CPU is affected by meltdown attack and needs kernel page table isolation */
-    /* 6 */  "spectre_v1",          /* CPU is affected by Spectre variant 1 attack with conditional branches */
-    /* 7 */  "spectre_v2",          /* CPU is affected by Spectre variant 2 attack with indirect branches */
-    /* 8 */  "spec_store_bypass",   /* CPU is affected by speculative store bypass attack */
-    /* 9 */  "l1tf",                /* CPU is affected by L1 Terminal Fault */
-    /* 10 */ "mds",                 /* CPU is affected by Microarchitectural data sampling */
-    /* 11 */ "msdbs_only",          /* CPU is only affected by the  MSDBS variant of BUG_MDS */
-    /* 12 */ "swapgs",              /* CPU is affected by speculation through SWAPGS */
-    /* 13 */ "taa",                 /* CPU is affected by TSX Async Abort(TAA) */
-    /* 14 */ "itlb_multihit",       /* CPU may incur MCE during certain page attribute changes */
-    /* 15 */ "srbds"                /* CPU may leak RNG bits if not mitigated */
+    /* 0 */  "null_seg",            /* Nulling a selector preserves the base */
+    /* 1 */  "swapgs_fence",        /* SWAPGS without input dep on GS */
+    /* 2 */  "monitor",             /* IPI required to wake up remote CPU */
+    /* 3 */  "amd_e400",            /* CPU is among the affected by Erratum 400 */
+    /* 4 */  "cpu_meltdown",        /* CPU is affected by meltdown attack and needs kernel page table isolation */
+    /* 5 */  "spectre_v1",          /* CPU is affected by Spectre variant 1 attack with conditional branches */
+    /* 6 */  "spectre_v2",          /* CPU is affected by Spectre variant 2 attack with indirect branches */
+    /* 7 */  "spec_store_bypass",   /* CPU is affected by speculative store bypass attack */
+    /* 8 */  "l1tf",                /* CPU is affected by L1 Terminal Fault */
+    /* 9 */  "mds",                 /* CPU is affected by Microarchitectural data sampling */
+    /* 10 */ "msdbs_only",          /* CPU is only affected by the  MSDBS variant of BUG_MDS */
+    /* 11 */ "swapgs",              /* CPU is affected by speculation through SWAPGS */
+    /* 12 */ "taa",                 /* CPU is affected by TSX Async Abort(TAA) */
+    /* 13 */ "itlb_multihit",       /* CPU may incur MCE during certain page attribute changes */
+    /* 14 */ "srbds"                /* CPU may leak RNG bits if not mitigated */
 };
