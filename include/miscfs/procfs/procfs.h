@@ -39,6 +39,7 @@ typedef struct pfsmount_args {
 
 #ifndef __FSBUNDLE__
 
+#include <kern/locks.h>
 #include <libkern/OSMalloc.h>
 #include <libkext/libkext.h>
 #include <mach/task.h>
@@ -47,8 +48,22 @@ typedef struct pfsmount_args {
 #include <sys/queue.h>
 #include <sys/vnode.h>
 
+#pragma mark -
+#pragma mark External References
+
+// Lock used to protect the hash table.
+extern lck_grp_t *pfsnode_lck_grp;
+extern lck_mtx_t *pfsnode_hash_mutex;
+
 // Tag used for memory allocation.
 extern OSMallocTag procfs_osmalloc_tag;
+
+// The buckets for the pfsnode hash table. The number of buckets
+// is always a power of two.
+extern LIST_HEAD(procfs_hash_head, pfsnode) *pfsnode_hash_buckets;
+
+// The mask used to get the bucket number from a pfsnode hash.
+extern u_long pfsnode_hash_to_bucket_mask;
 
 #pragma mark -
 #pragma mark Type Definitions
@@ -74,6 +89,7 @@ typedef struct pfsnode pfsnode_t;
 typedef struct pfsid pfsid_t;
 typedef struct pfsmount pfsmount_t;
 typedef struct pfssnode pfssnode_t;
+typedef struct procfs_hash_head procfs_hash_head;
 
 // Callback function used to create vnodes, called from within the
 // procfsnode_find() function. "params" is used to pass the details that
@@ -342,8 +358,6 @@ procfsnode_to_pid(pfsnode_t *pfsnode)
 extern const pfsid_t PROCFS_ROOT_NODE_ID;
 
 /* Public API */
-extern void procfsnode_start_init(void);
-extern void procfsnode_complete_init(void);
 extern int procfsnode_find(pfsmount_t *pmp,
                            pfsid_t node_id,
                            pfssnode_t *snode,

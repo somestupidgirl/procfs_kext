@@ -13,6 +13,7 @@
 #include <libkext/libkext.h>
 #include <libkext/libkext.h>
 #include <sys/mount.h>
+#include <sys/systm.h>
 #include <sys/vnode.h>
 
 #include <miscfs/procfs/procfs.h>
@@ -25,6 +26,10 @@
 
 // Block size for this file system. A meaningless value.
 #define BLOCK_SIZE 4096
+
+// The numer of hash buckets required. This *MUST* be
+// a power of two.
+#define HASH_BUCKET_COUNT (1 << 6)
 
 // Each separate mount of the file system requires a unique id,
 // which is also used by every node in the file system. This is
@@ -42,11 +47,6 @@ extern struct vnodeopv_desc *procfs_vnodeops_list[1];
 // when the file system is registered and used when creating
 // vnodes.
 extern int (**procfs_vnodeop_p)(void *);
-
-// See: procfs_node.c
-extern lck_grp_t *pfsnode_lck_grp;
-extern lck_mtx_t *pfsnode_hash_mutex;
-extern OSMallocTag procfs_osmalloc_tag;
 
 #pragma mark -
 #pragma mark Function Prototypes
@@ -101,9 +101,10 @@ STATIC int mounted_instance_count = 0;
 
 /* --- VFS OPERATIONS --- */
 /*
- * Initialization. Called only once during kernel startup, but we 
- * interlock anyway to ensure that we don't perform intialization
- * more than once. 
+ * Initialization. Initializes static data, which is required when
+ * the first mount occurs. Called only once during kernel startup,
+ * but we interlock anyway to ensure that we don't perform intialization
+ * more than once.
  */
 int
 procfs_init(__unused struct vfsconf *vfsconf)
@@ -120,9 +121,11 @@ procfs_init(__unused struct vfsconf *vfsconf)
             return ENOMEM;   // Plausible error code.
         }
 
-        // Initialize pfsnode data.
-        procfsnode_start_init();
+        // Allocate the lock group and the mutex lock for the hash table.
+        pfsnode_lck_grp = lck_grp_alloc_init(PROCFS_BUNDLEID ".pfsnode_locks", LCK_GRP_ATTR_NULL);
+        pfsnode_hash_mutex = lck_mtx_alloc_init(pfsnode_lck_grp, LCK_ATTR_NULL);
     }
+
     return 0;
 }
 
@@ -197,9 +200,18 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
 
         // Complete setup of procfs data. Does nothing after first mount.
         procfs_structure_init();
-        procfsnode_complete_init();
+
+        // Initialize static data that is only required after an instance of the file
+        // system has been mounted.
+        lck_mtx_lock(pfsnode_hash_mutex);
+        if (pfsnode_hash_buckets == NULL) {
+            // Set up the hash buckets only on first mount. Rather than define a
+            // a new BSD zone, we use the existing zone M_CACHE.
+            pfsnode_hash_buckets = hashinit(HASH_BUCKET_COUNT, M_CACHE, &pfsnode_hash_to_bucket_mask);
+        }
+        lck_mtx_unlock(pfsnode_hash_mutex);
     }
-    
+
     return 0;
 }
 

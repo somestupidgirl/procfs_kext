@@ -28,17 +28,12 @@ const pfsid_t PROCFS_ROOT_NODE_ID = {
 #pragma mark -
 #pragma mark Hash table for procfs nodes
 
-// The numer of hash buckets required. This *MUST* be
-// a power of two.
-#define HASH_BUCKET_COUNT (1 << 6)
-
 // The buckets for the pfsnode hash table. The number of buckets
 // is always a power of two.
-STATIC LIST_HEAD(procfs_hash_head, pfsnode) *pfsnode_hash_buckets;
-typedef struct procfs_hash_head procfs_hash_head;
+struct procfs_hash_head *pfsnode_hash_buckets;
 
 // The mask used to get the bucket number from a pfsnode hash.
-STATIC u_long pfsnode_hash_to_bucket_mask;
+u_long pfsnode_hash_to_bucket_mask;
 
 // Lock used to protect the hash table.
 lck_grp_t *pfsnode_lck_grp = NULL;
@@ -58,37 +53,6 @@ OSMallocTag procfs_osmalloc_tag = NULL;
 #pragma mark -
 #pragma mark Forward declaration of functions.
 STATIC void procfsnode_free_node(pfsnode_t *pfsnode);
-
-#pragma mark -
-#pragma mark Initialization.
-
-/*
- * Initialize static data used in this file, which is required when the first
- * mount occurs.
- */
-void
-procfsnode_start_init(void)
-{
-    // Allocate the lock group and the mutex lock for the hash table.
-    pfsnode_lck_grp = lck_grp_alloc_init(PROCFS_BUNDLEID ".pfsnode_locks", LCK_GRP_ATTR_NULL);
-    pfsnode_hash_mutex = lck_mtx_alloc_init(pfsnode_lck_grp, LCK_ATTR_NULL);
-}
-
-/* 
- * Initializes static data that is only required after an instance of the file
- * system has been mounted. This function is called exactly once per mount.
- */
-void
-procfsnode_complete_init(void)
-{
-    lck_mtx_lock(pfsnode_hash_mutex);
-    if (pfsnode_hash_buckets == NULL) {
-        // Set up the hash buckets only on first mount. Rather than define a
-        // a new BSD zone, we use the existing zone M_CACHE.
-        pfsnode_hash_buckets = hashinit(HASH_BUCKET_COUNT, M_CACHE, &pfsnode_hash_to_bucket_mask);
-    }
-    lck_mtx_unlock(pfsnode_hash_mutex);
-}
 
 #pragma mark -
 #pragma mark Management of vnodes and pfsnodes
