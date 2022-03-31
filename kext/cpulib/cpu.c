@@ -609,6 +609,17 @@ get_leaf7_ext_flags(void)
     int size = 0;
 
     /*
+     * FIXME: Enable reading the cpuid_leaf7_extfeatures on AMD chipsets.
+     */
+#if 0
+    uint32_t reg[4];
+    if (is_amd_cpu() && _cpuid_info()->cpuid_family >= 23){
+        do_cpuid(0x7, reg);
+        _cpuid_info()->cpuid_leaf7_extfeatures = reg[ebx];
+    }
+#endif
+
+    /*
      * Main loop.
      */
     if (_cpuid_info()->cpuid_leaf7_extfeatures) {
