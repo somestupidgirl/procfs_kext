@@ -437,6 +437,39 @@ is_intel_cpu(void)
     return FALSE;
 }
 
+uint32_t
+extract_bitfield(uint32_t infield, uint32_t width, uint32_t offset)
+{
+    uint32_t bitmask;
+    uint32_t outfield;
+
+    if ((offset+width) == 32) {
+        bitmask = (0xFFFFFFFF<<offset);
+    } else {
+        bitmask = (0xFFFFFFFF<<offset) ^ (0xFFFFFFFF<<(offset+width));
+    }
+
+    outfield = (infield & bitmask) >> offset;
+    return outfield;
+}
+
+uint32_t
+get_bitfield_width(uint32_t number)
+{
+    uint32_t fieldwidth;
+
+    number--;
+    if (number == 0) {
+        return 0;
+    }
+
+    __asm__ volatile ( "bsr %%eax, %%ecx\n\t"
+                      : "=c" (fieldwidth)
+                      : "a"(number));
+
+    return fieldwidth+1;  /* bsr returns the position, we want the width */
+}
+
 char *
 get_cpu_flags(void)
 {
