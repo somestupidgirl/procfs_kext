@@ -78,25 +78,22 @@ procfs_structure_init(void)
         // that has the same node id on all instance of this file system.
         root_node = add_directory(NULL, "/", PFSroot, PROCFS_ROOT_NODE_BASE_ID, 0, 0, NULL, NULL);
 
-        // A link in the root node to the current process entry. This will become a symbolic link.
-        add_node(root_node, "curproc", PFScurproc, next_node_id++, 0, 0, NULL, NULL);
-
         // A directory that contains all of the visible processes, listed by command name.
         // Each entry in this directory is a symbolic link to the process entry in root (e.g. "../123).
         pfssnode_t *proc_by_name_dir = add_directory(root_node, "byname",
                         PFSdir, next_node_id++, 0, 0, NULL, NULL);
 
+        // A file that displays information about the CPU, emulating the Linux /proc/cpuinfo feature.
+        pfssnode_t *cpuinfo = add_node(root_node, "cpuinfo",
+                        PFScpuinfo, next_node_id++, 0, 0, NULL, procfs_docpuinfo);
+
+        // A link in the root node to the current process entry. This will become a symbolic link.
+        add_node(root_node, "curproc", PFScurproc, next_node_id++, 0, 0, NULL, NULL);
+
         // A pseudo-entry below "byname" that is replaced by nodes for all of the visible processes.
         // NOTE: this must be the last child entry for the "byname" node.
         add_directory(proc_by_name_dir, "__Process_N__",
                         PFSprocnamedir, next_node_id++, PSN_FLAG_PROCESS, 0, procfs_process_node_size, NULL);
-
-        // A file that displays information about the CPU, emulating the Linux /proc/cpuinfo feature.
-        pfssnode_t *cpuinfo = add_node(root_node, "cpuinfo",
-                        PFScpuinfo, next_node_id++, PSN_FLAG_PROCESS, (LBFSZ * 4), procfs_process_node_size, procfs_docpuinfo);
-
-        // --- /proc/cpuinfo and other files that should be generated under the root node will not show up
-        // --- if placed beneath the following entries.
 
         // A pseudo-entry below "/" that is replaced by nodes for all of the visible processes.
         // NOTE: this must be the last child entry for the root node.
@@ -134,7 +131,6 @@ procfs_structure_init(void)
         add_file(one_proc_dir, "tty", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_tty_data);
         add_file(one_proc_dir, "info", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_bsdshortinfo), NULL, procfs_read_proc_info);
         add_file(one_proc_dir, "taskinfo", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_taskinfo), NULL, procfs_read_task_info);
-        add_file(one_proc_dir, "cpuinfo", next_node_id++, PSN_FLAG_PROCESS, sizeof(LBFSZ * 4), NULL, procfs_docpuinfo);
 
         // --- Per thread files.
         add_file(one_thread_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_taskinfo), NULL, procfs_read_thread_info);

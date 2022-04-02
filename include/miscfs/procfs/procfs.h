@@ -335,7 +335,7 @@ procfs_should_access_check(pfsmount_t *pmp)
 static inline boolean_t
 procfs_is_directory_type(pfstype type)
 {
-    return type != PFSfile && type != PFScurproc;
+    return type != PFSfile && type != PFScurproc && type != PFScpuinfo;
 }
 
 /* Gets the pid_t for the process corresponding to a pfsnode_t. */

@@ -757,15 +757,17 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     pfstype node_type = snode->psn_node_type;
 
     pid_t pid;  // pid of the process for this node.
-    proc_t p;   // proc_t for the process - NULL for the root node.
+    proc_t p = NULL;   // proc_t for the process - NULL for the root node.
 
-    // Get the process pid and proc_t for the target vnode.
-    // Returns ENOENT if the process does not exist. For the
-    // root vnode, p is zero and pid is PRNODE_NO_PID, but the
-    // return value is zero.
-    int error = procfs_get_process_info(vp, &pid, &p);
-    if (error != 0) {
-        return error;
+    if (node_type != PFScpuinfo) {
+        // Get the process pid and proc_t for the target vnode.
+        // Returns ENOENT if the process does not exist. For the
+        // root vnode, p is zero and pid is PRNODE_NO_PID, but the
+        // return value is zero.
+        int error = procfs_get_process_info(vp, &pid, &p);
+        if (error != 0) {
+            return error;
+        }
     }
 
     // Permissions usually allow access only for the node's owning process and group,
@@ -861,7 +863,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     VATTR_RETURN(vap, va_gid, gid);
     kauth_cred_unref(&proc_cred);
 
-    return error;
+    return 0;
 }
 
 /*

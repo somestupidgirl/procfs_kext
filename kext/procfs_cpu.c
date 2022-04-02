@@ -22,16 +22,13 @@
 #include <symlib/symbols.h>
 
 int
-procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     vm_offset_t pageno, uva;
     int len = 0, xlen = 0;
     off_t page_offset = 0;
     size_t buffer_size = 0;
     char *buffer;
-
-    int pid = pnp->node_id.nodeid_pid;
-    proc_t p = proc_find(pid);
 
     /*
      * Overall processor count for the current CPU.
@@ -308,7 +305,6 @@ procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             break;
         }
     }
-    proc_rele(p);
 
     return 0;
 }
