@@ -365,9 +365,11 @@ procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 #pragma mark -
 #pragma mark File Node Data
 
-static void
+STATIC void
 fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * fproc)
 {
+    bzero(fproc, sizeof(struct proc_fileinfo));
+
     fproc->fi_openflags = fp->fp_glob->fg_flag;
     fproc->fi_status = 0;
     fproc->fi_offset = fp->fp_glob->fg_offset;
@@ -383,12 +385,14 @@ fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * 
             fproc->fi_status |= PROC_FP_CLFORK;
         }
     }
+
+    fproc->fi_guardflags = 0;
 }
 
 /*
  * copy stat64 structure into vinfo_stat structure.
  */
-static void
+STATIC void
 munge_vinfo_stat(struct stat64 *sbp, struct vinfo_stat *vsbp)
 {
     bzero(vsbp, sizeof(struct vinfo_stat));
@@ -420,7 +424,7 @@ munge_vinfo_stat(struct stat64 *sbp, struct vinfo_stat *vsbp)
 #include <sys/mount_internal.h>
 #include <sys/vnode_internal.h>
 
-static int
+STATIC int
 fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fsgetpath)
 {
     vfs_context_t context;
@@ -476,10 +480,13 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
         // Get the vnode, vnode id and fileproc structure for the file.
         // The fileproc has an additional iocount, which we must remember
         // to release.
-        if ((error = file_vnode_withvid(fd, &vp, &vid)) == 0) {
+        //error = fp_getfvpandvid(p, fd, &fp, &vp, &vid);
+        error = file_vnode_withvid(fd, &vp, &vid);
+        if (error == 0) {
             // Get a hold on the vnode and check that it did not
             // change id.
-            if ((error = vnode_getwithvid(vp, vid)) == 0) {
+            error = vnode_getwithvid(vp, vid);
+            if (error == 0) {
                 // Got the vnode. Pack vnode and file info into
                 // a vnode_fdinfowithpath structure.
                 struct vnode_fdinfowithpath info;
@@ -500,6 +507,7 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
             }
             
             // Release the hold on the fileproc structure
+            //fp_drop(p, fd, fp, FALSE);
             file_drop(fd);
         }
     } else {
@@ -532,19 +540,22 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         // file is not a socket, this fails and we will return an error.
         // Otherwise, the fileproc has an additional iocount, which we
         // must remember to release.
-        if ((error = file_socket(fd, &so)) == 0) {
+        //error = fp_getfsock(p, fd, &fp, &so);
+        error = file_socket(fd, &so);
+        if (error == 0) {
             struct socket_fdinfo info;
 
             bzero(&info, sizeof(info));
             fill_fileinfo(fp, p, fd, &info.pfi);
-            if ((error = _fill_socketinfo(so, &info.psi)) == 0) {
+            error = _fill_socketinfo(so, &info.psi);
+            if (error == 0) {
                 error = procfs_copy_data((char *)&info, sizeof(info), uio);
             }
 
             // Release the hold on the fileproc structure
+            //fp_drop(p, fd, fp, FALSE);
             file_drop(fd);
         }
-        error = ENOTSUP;
     } else {
         error = ESRCH;
     }
