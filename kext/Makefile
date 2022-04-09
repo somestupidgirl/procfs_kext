@@ -55,7 +55,7 @@ CFLAGS+=	$(SDKFLAGS) \
 			-fno-builtin \
 			-fno-common \
 			-mkernel \
-			-I../kext \
+			-I../kext/lib \
 			-I../lib \
 			-I../include \
 			-I../MacKernelSDK/Headers
@@ -73,8 +73,8 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			$(ARCHFLAGS) \
 			-nostdlib \
 			-Xlinker -kext \
-			-Xlinker -object_path_lto cpulib/cpu.o \
-			-Xlinker -object_path_lto symlib/symbols.o \
+			-Xlinker -object_path_lto lib/cpu.o \
+			-Xlinker -object_path_lto lib/symbols.o \
 			-Xlinker -object_path_lto procfs.o \
 			-Xlinker -object_path_lto procfs_cpu.o \
 			-Xlinker -object_path_lto procfs_data.o \

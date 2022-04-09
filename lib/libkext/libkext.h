@@ -146,12 +146,6 @@
  */
 #define QSTRLEN(s)          (sizeof(s) - 1)
 
-/* calculates the length of an array in number of items. */
-#define nitems(x)           ((int)sizeof((x)) / (int)sizeof((x)[0]))
-
-// A large buffer size for general usage.
-#define LBFSZ       (8 * 1024)
-
 void *libkext_malloc(size_t, int);
 void *libkext_realloc(void *, size_t, size_t, int);
 void libkext_mfree(void *);
@@ -174,16 +168,6 @@ int libkext_file_read(const char *, unsigned char *, size_t, off_t, size_t *);
 extern void *kern_os_malloc(size_t);
 extern void kern_os_free(void *);
 extern void *kern_os_realloc(void *, size_t);
-
-extern int isupper(char c);
-extern int islower(char c);
-extern int isspace(char c);
-extern int isdigit(char c);
-extern int isxdigit(char c);
-extern int isalpha(char c);
-extern int isalnum(char c);
-extern int toupper(char c);
-extern int tolower(char c);
 
 #endif /* LIBKEXT_H */
 

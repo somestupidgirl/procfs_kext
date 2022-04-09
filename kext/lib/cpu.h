@@ -17,9 +17,4 @@ extern char *get_cpu_ext_flags(void);
 extern char *get_leaf7_flags(void);
 extern char *get_leaf7_ext_flags(void);
 
-#pragma mark -
-#pragma mark Macros
-
-#define quad(hi,lo)    (((uint64_t)(hi)) << 32 | (lo))
-
 #endif /* cpuinfo_h */

@@ -17,8 +17,8 @@
 #include <sys/proc_reg.h>
 #include <sys/types.h>
 
-#include <cpulib/cpu.h>
-#include <symlib/symbols.h>
+#include "cpu.h"
+#include "symbols.h"
 
 #pragma mark -
 #pragma mark Feature Lists

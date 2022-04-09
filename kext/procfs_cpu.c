@@ -18,8 +18,9 @@
 
 #include <miscfs/procfs/procfs.h>
 
-#include <cpulib/cpu.h>
-#include <symlib/symbols.h>
+#include "lib/cpu.h"
+#include "lib/symbols.h"
+#include "lib/helpers.h"
 
 int
 procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
