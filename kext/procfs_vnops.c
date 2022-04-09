@@ -923,14 +923,41 @@ procfs_vnop_read(struct vnop_read_args *ap)
     return error;
 }
 
-/**
+/*
  * Reclaims a vnode and its associated pfsnode_t when it's
  * no longer needed by the kernel file system code.
+ * Removes the pfsnode_t from the hash table, removes the
+ * file system reference and breaks the link between the
+ * vnode and the pfsnode_t.
  */
 STATIC int
 procfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 {
-    procfsnode_reclaim(ap->a_vp);
+    pfsnode_t *pnp = VTOPFS(ap->a_vp);
+
+    if (pnp != NULL) {
+        // Lock to manipulate the hash table.
+        lck_mtx_lock(pfsnode_hash_mutex);
+
+        // Remove the node from the hash table and free it.
+        procfsnode_free_node(pnp);
+
+        // CAUTION: pnp is now invalid. Null it out to cause a panic
+        // if it gets referenced beyond this point.
+        if (pnp != NULL) {
+            pnp = NULL;
+        }
+        lck_mtx_unlock(pfsnode_hash_mutex);
+    }
+
+    // Remove the file system reference that we added when
+    // we created the vnode.
+    vnode_removefsref(ap->a_vp);
+
+    // Clear the link to the pfsnode_t since the
+    // vnode will no longer be linked to it.
+    vnode_clearfsnode(ap->a_vp);
+
     return 0;
 }
 

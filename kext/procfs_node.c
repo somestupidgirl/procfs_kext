@@ -52,10 +52,6 @@ OSMallocTag procfs_osmalloc_tag = NULL;
 #define HASH_FOR_MOUNT_AND_ID(mount_id, node_id) (int)(((mount_id) << 16) ^ (node_id.nodeid_pid) ^ (node_id.nodeid_objectid) ^ (node_id.nodeid_base_id))
 
 #pragma mark -
-#pragma mark Forward declaration of functions.
-STATIC void procfsnode_free_node(pfsnode_t *pfsnode);
-
-#pragma mark -
 #pragma mark Management of vnodes and pfsnodes
 
 /*
@@ -282,46 +278,12 @@ procfsnode_find(pfsmount_t *pmp, pfsid_t node_id, pfssnode_t *snode,
     return error;
 }
 
-/*
- * Reclaims the node resources that are linked to a given vnode
- * when the vnode is being reclaimed. Removes the pfsnode_t from
- * the hash table, removes the file system reference and breaks the
- * link between the vnode and the pfsnode_t.
- */
-void
-procfsnode_reclaim(vnode_t vp)
-{
-    pfsnode_t *pnp = VTOPFS(vp);
-    if (pnp != NULL) {
-        // Lock to manipulate the hash table.
-        lck_mtx_lock(pfsnode_hash_mutex);
-
-        // Remove the node from the hash table and free it.
-        procfsnode_free_node(pnp);
-
-        // CAUTION: pnp is now invalid. Null it out to cause a panic
-        // if it gets referenced beyond this point.
-        if (pnp != NULL) {
-            pnp = NULL;
-        }
-        lck_mtx_unlock(pfsnode_hash_mutex);
-    }
-
-    // Remove the file system reference that we added when
-    // we created the vnode.
-    vnode_removefsref(vp);
-
-    // Clear the link to the pfsnode_t since the
-    // vnode will no longer be linked to it.
-    vnode_clearfsnode(vp);
-}
-
-/*
+ /*
   * Removes a pfsnode_t from its owning hash bucket and
   * releases its memory. This method must be called with the
   * hash table lock held.
   */
-STATIC void
+void
 procfsnode_free_node(pfsnode_t *pfsnode)
 {
     LIST_REMOVE(pfsnode, node_hash);
