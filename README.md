@@ -70,11 +70,27 @@ Likewise you can use the `cat` command to get the contents of a file:
 
 Finder support has not yet been implemented.
 
+## TODO:
+ - misc: Fix Finder support.
+ - procfs_data: Fix procfs_read_tty_data().
+ - procfs_data: Fix procfs_read_fd_data().
+ - procfs_data: Fix procfs_read_socket_data().
+ - procfs_cpu: Implement AMD support for get_leaf7_ext_flags().
+ - procfs_cpu: Implement support for AMD-specific flags in /proc/cpuinfo.
+ - procfs_cpu: Implement functions to detect CPU power management features for /proc/cpuinfo.
+ - procfs_cpu: Implement functions to detect CPU bugs for /proc/cpuinfo.
+ - procfs_cpu: Fix microcode for /proc/cpuinfo -- might be an AMD issue.
+ - procfs_cpu: Implement /proc/stat.
+ - procfs_cpu: Implement /proc/loadavg.
+ - misc: Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
+ - misc: Implement all the linux-compatible features that we see in NetBSD and FreeBSD.
+ - arm64: Add support for M1 macs.
+
 ## Issues
 Currently known issues that are being worked on:
 
- - Executing `cat` on certain files *will* result in a kernel panic at the moment and most will not show any human-readable data yet.
- - There are some issues with permissions and ownership being applied to the `/proc/cpuinfo` file when being generated under the root node. 
+ - The fd functions are still very buggy since they use static internal functions that the symbol resolver can't resolve.
+ - Executing `cat` on `/proc/<pid>/tty` *will* result in a kernel panic. This should be fixed soon.
  - Finder support has not been added yet so the proc directory will simply appear as an empty mount in the Finder.
 
 ## Contributing and Bug Reporting
