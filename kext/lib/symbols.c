@@ -35,10 +35,6 @@ SYM_INIT(hard_maxproc);
 SYM_INIT(processor_count);
 SYM_INIT(tscFreq);
 SYM_INIT(dead_mountp);
-SYM_INIT(stathz);
-SYM_INIT(profhz);
-SYM_INIT(tick);
-SYM_INIT(hz);
 
 // Process Locks
 SYM_INIT(proc_list_lock);
@@ -103,10 +99,6 @@ resolve_symbols()
 	SYM_LOOKUP(processor_count);
 	SYM_LOOKUP(tscFreq);
 	SYM_LOOKUP(dead_mountp);
-	SYM_LOOKUP(stathz);
-	SYM_LOOKUP(profhz);
-	SYM_LOOKUP(tick);
-	SYM_LOOKUP(hz);
 
 	// Process Locks
 	SYM_LOOKUP(proc_list_lock);

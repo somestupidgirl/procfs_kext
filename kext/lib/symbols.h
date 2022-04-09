@@ -29,10 +29,6 @@ extern int (*_hard_maxproc);
 extern unsigned int (*_processor_count);
 extern uint64_t (*_tscFreq);
 extern struct mount * (*_dead_mountp);
-extern int (*_stathz);              /* statistics clock's frequency */
-extern int (*_profhz);              /* profiling clock's frequency */
-extern int (*_tick);                /* usec per tick (1000000 / hz) */
-extern int (*_hz);                  /* system clock's frequency */
 
 #pragma mark -
 #pragma mark Function Declarations
