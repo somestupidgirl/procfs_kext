@@ -365,6 +365,94 @@ procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 #pragma mark -
 #pragma mark File Node Data
 
+static void
+fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * fproc)
+{
+    fproc->fi_openflags = fp->fp_glob->fg_flag;
+    fproc->fi_status = 0;
+    fproc->fi_offset = fp->fp_glob->fg_offset;
+    fproc->fi_type = FILEGLOB_DTYPE(fp->fp_glob);
+    if (os_ref_get_count_raw(&fp->fp_glob->fg_count) > 1) {
+        fproc->fi_status |= PROC_FP_SHARED;
+    }
+    if (proc != PROC_NULL) {
+        if ((FDFLAGS_GET(proc, fd) & UF_EXCLOSE) != 0) {
+            fproc->fi_status |= PROC_FP_CLEXEC;
+        }
+        if ((FDFLAGS_GET(proc, fd) & UF_FORKCLOSE) != 0) {
+            fproc->fi_status |= PROC_FP_CLFORK;
+        }
+    }
+}
+
+/*
+ * copy stat64 structure into vinfo_stat structure.
+ */
+static void
+munge_vinfo_stat(struct stat64 *sbp, struct vinfo_stat *vsbp)
+{
+    bzero(vsbp, sizeof(struct vinfo_stat));
+
+    vsbp->vst_dev = sbp->st_dev;
+    vsbp->vst_mode = sbp->st_mode;
+    vsbp->vst_nlink = sbp->st_nlink;
+    vsbp->vst_ino = sbp->st_ino;
+    vsbp->vst_uid = sbp->st_uid;
+    vsbp->vst_gid = sbp->st_gid;
+    vsbp->vst_atime = sbp->st_atimespec.tv_sec;
+    vsbp->vst_atimensec = sbp->st_atimespec.tv_nsec;
+    vsbp->vst_mtime = sbp->st_mtimespec.tv_sec;
+    vsbp->vst_mtimensec = sbp->st_mtimespec.tv_nsec;
+    vsbp->vst_ctime = sbp->st_ctimespec.tv_sec;
+    vsbp->vst_ctimensec = sbp->st_ctimespec.tv_nsec;
+    vsbp->vst_birthtime = sbp->st_birthtimespec.tv_sec;
+    vsbp->vst_birthtimensec = sbp->st_birthtimespec.tv_nsec;
+    vsbp->vst_size = sbp->st_size;
+    vsbp->vst_blocks = sbp->st_blocks;
+    vsbp->vst_blksize = sbp->st_blksize;
+    vsbp->vst_flags = sbp->st_flags;
+    vsbp->vst_gen = sbp->st_gen;
+    vsbp->vst_rdev = sbp->st_rdev;
+    vsbp->vst_qspare[0] = sbp->st_qspare[0];
+    vsbp->vst_qspare[1] = sbp->st_qspare[1];
+}
+
+#include <sys/mount_internal.h>
+#include <sys/vnode_internal.h>
+
+static int
+fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fsgetpath)
+{
+    vfs_context_t context;
+    struct stat64 sb;
+    int error = 0;
+
+    struct vnode_attr *vap;
+
+    bzero(&sb, sizeof(struct stat64));
+    context = vfs_context_create((vfs_context_t)0);
+
+    if (!error) {
+        error = _vn_stat(vp, &sb, NULL, 1, 0, context);
+        munge_vinfo_stat(&sb, &vinfo->vi_stat);
+    }
+    (void)vfs_context_rele(context);
+    if (error != 0) {
+        goto out;
+    }
+
+    if (vnode_mount(vp) != _dead_mountp) {
+        vinfo->vi_fsid = vp->v_mount->mnt_vfsstat.f_fsid;
+    } else {
+        vinfo->vi_fsid.val[0] = 0;
+        vinfo->vi_fsid.val[1] = 0;
+    }
+    vinfo->vi_type = vnode_vtype(vp);
+
+out:
+    return error;
+}
+
 /*
  * Reads the data associated with a file descriptor node. The data is 
  * a vnode_infowithpath structure containing information about both the target
@@ -376,12 +464,11 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     int pid = pnp->node_id.nodeid_pid;
-    //uint64_t fd = (int)pnp->node_id.nodeid_objectid;
+    uint64_t fd = (int)pnp->node_id.nodeid_objectid;
     
     int error = 0;
     proc_t p = proc_find(pid);
     if (p != NULL) {
-#if 0
         struct fileproc *fp;
         vnode_t vp;
         uint32_t vid;
@@ -398,7 +485,7 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                 struct vnode_fdinfowithpath info;
                 bzero(&info, sizeof(info));
                 fill_fileinfo(fp, p, fd, &info.pfi);
-                error = procfs_fill_vnodeinfo(vp, &info.pvip.vip_vi, ctx);
+                error = fill_vnodeinfo(vp, &info.pvip.vip_vi, ctx);
                 // If all is well, add in the file path and copy the data
                 // out to user space.
                 if (error == 0) {
@@ -415,8 +502,6 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
             // Release the hold on the fileproc structure
             file_drop(fd);
         }
-#endif
-        error = ENOTSUP;
     } else {
         error = ESRCH;
     }
@@ -434,13 +519,12 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     int pid = pnp->node_id.nodeid_pid;
-    //uint64_t fd = (int)pnp->node_id.nodeid_objectid;
+    uint64_t fd = (int)pnp->node_id.nodeid_objectid;
 
     int error = 0;
 
     proc_t p = proc_find(pid);
     if (p != NULL) {
-#if 0
         struct fileproc *fp;
         socket_t so;
 
@@ -460,7 +544,6 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             // Release the hold on the fileproc structure
             file_drop(fd);
         }
-#endif
         error = ENOTSUP;
     } else {
         error = ESRCH;

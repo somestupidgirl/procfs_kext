@@ -132,4 +132,18 @@ struct fdt_iterator {
     struct fileproc *fdti_fp;
 };
 
+#define         fdfile(p, fd)                                   \
+                    (&(p)->p_fd->fd_ofiles[(fd)])
+#define         fdflags(p, fd)                                  \
+                    (&(p)->p_fd->fd_ofileflags[(fd)])
+
+/*
+ * Accesor macros for fd flags
+ */
+#define FDFLAGS_GET(p, fd) (*fdflags(p, fd) & (UF_EXCLOSE|UF_FORKCLOSE))
+#define FDFLAGS_SET(p, fd, bits) \
+       (*fdflags(p, fd) |= ((bits) & (UF_EXCLOSE|UF_FORKCLOSE)))
+#define FDFLAGS_CLR(p, fd, bits) \
+       (*fdflags(p, fd) &= ~((bits) & (UF_EXCLOSE|UF_FORKCLOSE)))
+
 #endif /* !_SYS_FILEDESC_H_ */
