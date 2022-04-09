@@ -19,6 +19,7 @@
 
 #include "cpu.h"
 #include "symbols.h"
+#include "helpers.h"
 
 #pragma mark -
 #pragma mark Feature Lists

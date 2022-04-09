@@ -5,6 +5,7 @@
 #ifndef _procfs_helpers_h
 #define _procfs_helpers_h
 
+#include <stdint.h>
 #include <mach/i386/vm_param.h>
 
 #include "symbols.h"
