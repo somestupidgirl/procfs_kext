@@ -74,6 +74,7 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			-nostdlib \
 			-Xlinker -kext \
 			-Xlinker -object_path_lto lib/cpu.o \
+			-Xlinker -object_path_lto lib/kern.o \
 			-Xlinker -object_path_lto lib/symbols.o \
 			-Xlinker -object_path_lto procfs.o \
 			-Xlinker -object_path_lto procfs_cpu.o \
