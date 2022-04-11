@@ -365,28 +365,190 @@ procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 #pragma mark -
 #pragma mark File Node Data
 
+#include <sys/fcntl.h>
+
 STATIC void
 fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * fproc)
-{
-    bzero(fproc, sizeof(struct proc_fileinfo));
+{   
+    uint32_t openflags = 0;
+    uint32_t status = 0;
+    off_t offset = 0;
+    int32_t type = 0;
+    uint32_t guardflags = 0;
 
-    fproc->fi_openflags = fp->fp_glob->fg_flag;
-    fproc->fi_status = 0;
-    fproc->fi_offset = fp->fp_glob->fg_offset;
-    fproc->fi_type = FILEGLOB_DTYPE(fp->fp_glob);
-    if (os_ref_get_count_raw(&fp->fp_glob->fg_count) > 1) {
-        fproc->fi_status |= PROC_FP_SHARED;
+    //openflags = fp->fp_glob->fg_flag;
+
+
+    // Not sure if this does anything
+    struct vnop_open_args ap;
+    int fmode = ap.a_mode;
+
+    if (fmode & O_RDONLY) {
+        openflags |= O_RDONLY;
     }
+    if (fmode & O_WRONLY) {
+        openflags |= O_WRONLY;
+    }
+    if (fmode & O_RDWR) {
+        openflags |= O_RDWR;
+    }
+    if (fmode & O_ACCMODE) {
+        openflags |= O_ACCMODE;
+    }
+    if (fmode & O_NONBLOCK) {
+        openflags |= O_NONBLOCK;
+    }
+    if (fmode & O_APPEND) {
+        openflags |= O_APPEND;
+    }
+    if (fmode & O_SHLOCK) {
+        openflags |= O_SHLOCK;
+    }
+    if (fmode & O_EXLOCK) {
+        openflags |= O_EXLOCK;
+    }
+    if (fmode & O_ASYNC) {
+        openflags |= O_ASYNC;
+    }
+    if (fmode & O_FSYNC) {
+        openflags |= O_FSYNC;
+    }
+    if (fmode & O_NOFOLLOW) {
+        openflags |= O_NOFOLLOW;
+    }
+    if (fmode & O_CREAT) {
+        openflags |= O_CREAT;
+    }
+    if (fmode & O_TRUNC) {
+        openflags |= O_TRUNC;
+    }
+    if (fmode & O_EXCL) {
+        openflags |= O_EXCL;
+    }
+    if (fmode & O_EVTONLY) {
+        openflags |= O_EVTONLY;
+    }
+    if (fmode & O_NOCTTY) {
+        openflags |= O_NOCTTY;
+    }
+    if (fmode & O_DIRECTORY) {
+        openflags |= O_DIRECTORY;
+    }
+    if (fmode & O_SYMLINK) {
+        openflags |= O_SYMLINK;
+    }
+    if (fmode & O_CLOEXEC) {
+        openflags |= O_CLOEXEC;
+    }
+    if (fmode & O_CLOFORK) {
+        openflags |= O_CLOFORK;
+    }
+    if (fmode & O_DP_GETRAWENCRYPTED) {
+        openflags |= O_CLOEXEC;
+    }
+    if (fmode & O_DP_GETRAWENCRYPTED) {
+        openflags |= O_CLOFORK;
+    }
+    if (fmode & O_NDELAY) {
+        openflags |= O_NDELAY;
+    }
+    if (fmode & O_NDELAY) {
+        openflags |= O_NDELAY;
+    }
+    if (fmode & O_POPUP) {
+        openflags |= O_NDELAY;
+    }
+    if (fmode & O_ALERT) {
+        openflags |= O_NDELAY;
+    }
+
+    if (fmode & FREAD) {
+        openflags |= FREAD;
+    }
+    if (fmode & FWRITE) {
+        openflags |= FWRITE;
+    }
+    if (fmode & FMARK) {
+        openflags |= FMARK;
+    }
+    if (fmode & FDEFER) {
+        openflags |= FDEFER;
+    }
+    if (fmode & FHASLOCK) {
+        openflags |= FHASLOCK;
+    }
+    if (fmode & FWASWRITTEN) {
+        openflags |= FWASWRITTEN;
+    }
+    if (fmode & FNOCACHE) {
+        openflags |= FNOCACHE;
+    }
+    if (fmode & FNORDAHEAD) {
+        openflags |= FNORDAHEAD;
+    }
+    if (fmode & FNODIRECT) {
+        openflags |= FNODIRECT;
+    }
+    if (fmode & FENCRYPTED) {
+        openflags |= FENCRYPTED;
+    }
+    if (fmode & FSINGLE_WRITER) {
+        openflags |= FSINGLE_WRITER;
+    }
+    if (fmode & FUNENCRYPTED) {
+        openflags |= FUNENCRYPTED;
+    }
+    if (fmode & FAPPEND) {
+        openflags |= FAPPEND;
+    }
+
+    //offset = fp->fp_glob->fg_offset;
+    //type = FILEGLOB_DTYPE(fp->fp_glob);
+
+#if 0
+    if (os_ref_get_count_raw(&fp->fp_glob->fg_count) > 1) {
+        status |= PROC_FP_SHARED;
+    }
+#endif
+
+#if 0
     if (proc != PROC_NULL) {
         if ((FDFLAGS_GET(proc, fd) & UF_EXCLOSE) != 0) {
-            fproc->fi_status |= PROC_FP_CLEXEC;
+            status |= PROC_FP_CLEXEC;
         }
         if ((FDFLAGS_GET(proc, fd) & UF_FORKCLOSE) != 0) {
-            fproc->fi_status |= PROC_FP_CLFORK;
+            status |= PROC_FP_CLFORK;
         }
     }
+#endif
 
-    fproc->fi_guardflags = 0;
+#if 0
+    if (fp_isguarded(fp, 0)) {
+        fproc->fi_status |= PROC_FP_GUARDED;
+        fproc->fi_guardflags = 0;
+        if (fp_isguarded(fp, GUARD_CLOSE)) {
+            guardflags |= PROC_FI_GUARD_CLOSE;
+        }
+        if (fp_isguarded(fp, GUARD_DUP)) {
+            guardflags |= PROC_FI_GUARD_DUP;
+        }
+        if (fp_isguarded(fp, GUARD_SOCKET_IPC)) {
+            guardflags |= PROC_FI_GUARD_SOCKET_IPC;
+        }
+        if (fp_isguarded(fp, GUARD_FILEPORT)) {
+            guardflags |= PROC_FI_GUARD_FILEPORT;
+        }
+    }
+#endif
+
+    bzero(fproc, sizeof(struct proc_fileinfo));
+    struct proc_fileinfo info = {
+        .fi_openflags = openflags,
+        .fi_status = status,
+        .fi_offset = offset,
+        .fi_type = type,
+        .fi_guardflags = guardflags,
+    };
 }
 
 /*
@@ -480,7 +642,6 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
         // Get the vnode, vnode id and fileproc structure for the file.
         // The fileproc has an additional iocount, which we must remember
         // to release.
-        //error = fp_getfvpandvid(p, fd, &fp, &vp, &vid);
         error = file_vnode_withvid(fd, &vp, &vid);
         if (error == 0) {
             // Get a hold on the vnode and check that it did not
@@ -492,7 +653,7 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                 struct vnode_fdinfowithpath info;
                 bzero(&info, sizeof(info));
                 fill_fileinfo(fp, p, fd, &info.pfi);
-                error = fill_vnodeinfo(vp, &info.pvip.vip_vi, ctx);
+                error = fill_vnodeinfo(vp, &info.pvip.vip_vi, FALSE);
                 // If all is well, add in the file path and copy the data
                 // out to user space.
                 if (error == 0) {
@@ -507,7 +668,6 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
             }
             
             // Release the hold on the fileproc structure
-            //fp_drop(p, fd, fp, FALSE);
             file_drop(fd);
         }
     } else {
@@ -540,7 +700,6 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         // file is not a socket, this fails and we will return an error.
         // Otherwise, the fileproc has an additional iocount, which we
         // must remember to release.
-        //error = fp_getfsock(p, fd, &fp, &so);
         error = file_socket(fd, &so);
         if (error == 0) {
             struct socket_fdinfo info;
@@ -553,7 +712,6 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             }
 
             // Release the hold on the fileproc structure
-            //fp_drop(p, fd, fp, FALSE);
             file_drop(fd);
         }
     } else {

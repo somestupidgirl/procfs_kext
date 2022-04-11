@@ -39,6 +39,7 @@ SYM_INIT(dead_mountp);
 // Process Locks
 SYM_INIT(proc_list_lock);
 SYM_INIT(proc_list_unlock);
+SYM_INIT(proc_fdlock);
 SYM_INIT(proc_fdlock_spin);
 SYM_INIT(proc_fdunlock);
 
@@ -103,6 +104,7 @@ resolve_symbols()
 	// Process Locks
 	SYM_LOOKUP(proc_list_lock);
 	SYM_LOOKUP(proc_list_unlock);
+	SYM_LOOKUP(proc_fdlock);
 	SYM_LOOKUP(proc_fdlock_spin);
 	SYM_LOOKUP(proc_fdunlock);
 

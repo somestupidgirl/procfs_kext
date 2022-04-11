@@ -1,6 +1,7 @@
 #ifndef _OS_REFCNT_INTERNAL_H
 #define _OS_REFCNT_INTERNAL_H
 
+#include <stdatomic.h>
 #include <kern/debug.h>
 
 struct os_refcnt {

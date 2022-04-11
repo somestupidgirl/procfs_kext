@@ -35,6 +35,7 @@ extern struct mount * (*_dead_mountp);
 
 extern void (*_proc_list_lock)(void);
 extern void (*_proc_list_unlock)(void);
+extern void (*_proc_fdlock)(struct proc *);
 extern void (*_proc_fdlock_spin)(struct proc *);
 extern void (*_proc_fdunlock)(struct proc *);
 
