@@ -42,6 +42,8 @@ SYM_INIT(proc_list_unlock);
 SYM_INIT(proc_fdlock);
 SYM_INIT(proc_fdlock_spin);
 SYM_INIT(proc_fdunlock);
+SYM_INIT(vnode_lock);
+SYM_INIT(vnode_unlock);
 
 // Process Iteration
 SYM_INIT(proc_iterate);
@@ -107,6 +109,8 @@ resolve_symbols()
 	SYM_LOOKUP(proc_fdlock);
 	SYM_LOOKUP(proc_fdlock_spin);
 	SYM_LOOKUP(proc_fdunlock);
+	SYM_LOOKUP(vnode_lock);
+	SYM_LOOKUP(vnode_unlock);
 
 	// Process Iteration
 	SYM_LOOKUP(proc_iterate);

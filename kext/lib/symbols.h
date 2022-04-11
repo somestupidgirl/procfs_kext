@@ -38,6 +38,8 @@ extern void (*_proc_list_unlock)(void);
 extern void (*_proc_fdlock)(struct proc *);
 extern void (*_proc_fdlock_spin)(struct proc *);
 extern void (*_proc_fdunlock)(struct proc *);
+extern void (*_vnode_lock)(struct vnode *);
+extern void (*_vnode_unlock)(struct vnode *);
 
 extern struct pgrp * (*_proc_pgrp)(proc_t);
 extern struct pgrp * (*_tty_pgrp)(struct tty * tp);
