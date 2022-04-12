@@ -1,3 +1,4 @@
+#include <os/log.h>
 #include <os/refcnt.h>
 #include <sys/fcntl.h>
 #include <sys/file.h>
@@ -138,59 +139,6 @@ proc_pidthreadinfo(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadin
     return 0;
 }
 
-void
-fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * fi)
-{   
-    uint32_t openflags = 0;
-    uint32_t status = 0;
-    off_t offset = 0;
-    int32_t type = 0;
-    uint32_t guardflags = 0;
-
-    openflags = fp->fp_glob->fg_flag;
-    offset = fp->fp_glob->fg_offset;
-    type = FILEGLOB_DTYPE(fp->fp_glob);
-
-    if (os_ref_get_count_raw(&fp->fp_glob->fg_count) > 1) {
-        status |= PROC_FP_SHARED;
-    }
-
-    if (proc != PROC_NULL) {
-        if ((FDFLAGS_GET(proc, fd) & UF_EXCLOSE) != 0) {
-            status |= PROC_FP_CLEXEC;
-        }
-        if ((FDFLAGS_GET(proc, fd) & UF_FORKCLOSE) != 0) {
-            status |= PROC_FP_CLFORK;
-        }
-    }
-
-#if 0
-    if (fp_isguarded(fp, 0)) {
-        fproc->fi_status |= PROC_FP_GUARDED;
-        fproc->fi_guardflags = 0;
-        if (fp_isguarded(fp, GUARD_CLOSE)) {
-            guardflags |= PROC_FI_GUARD_CLOSE;
-        }
-        if (fp_isguarded(fp, GUARD_DUP)) {
-            guardflags |= PROC_FI_GUARD_DUP;
-        }
-        if (fp_isguarded(fp, GUARD_SOCKET_IPC)) {
-            guardflags |= PROC_FI_GUARD_SOCKET_IPC;
-        }
-        if (fp_isguarded(fp, GUARD_FILEPORT)) {
-            guardflags |= PROC_FI_GUARD_FILEPORT;
-        }
-    }
-#endif
-
-    bzero(fi, sizeof(struct proc_fileinfo));
-    fi->fi_openflags = openflags;
-    fi->fi_status = status;
-    fi->fi_offset = offset;
-    fi->fi_type = type;
-    fi->fi_guardflags = guardflags;
-}
-
 /*
  * copy stat64 structure into vinfo_stat structure.
  */
@@ -258,6 +206,59 @@ out:
     return error;
 }
 
+void
+fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * fi)
+{   
+    uint32_t openflags = 0;
+    uint32_t status = 0;
+    off_t offset = 0;
+    int32_t type = 0;
+    uint32_t guardflags = 0;
+
+    openflags = fp->fp_glob->fg_flag;
+    offset = fp->fp_glob->fg_offset;
+    type = FILEGLOB_DTYPE(fp->fp_glob);
+
+    if (os_ref_get_count_raw(&fp->fp_glob->fg_count) > 1) {
+        status |= PROC_FP_SHARED;
+    }
+
+    if (proc != PROC_NULL) {
+        if ((FDFLAGS_GET(proc, fd) & UF_EXCLOSE) != 0) {
+            status |= PROC_FP_CLEXEC;
+        }
+        if ((FDFLAGS_GET(proc, fd) & UF_FORKCLOSE) != 0) {
+            status |= PROC_FP_CLFORK;
+        }
+    }
+
+#if 0
+    if (fp_isguarded(fp, 0)) {
+        fproc->fi_status |= PROC_FP_GUARDED;
+        fproc->fi_guardflags = 0;
+        if (fp_isguarded(fp, GUARD_CLOSE)) {
+            guardflags |= PROC_FI_GUARD_CLOSE;
+        }
+        if (fp_isguarded(fp, GUARD_DUP)) {
+            guardflags |= PROC_FI_GUARD_DUP;
+        }
+        if (fp_isguarded(fp, GUARD_SOCKET_IPC)) {
+            guardflags |= PROC_FI_GUARD_SOCKET_IPC;
+        }
+        if (fp_isguarded(fp, GUARD_FILEPORT)) {
+            guardflags |= PROC_FI_GUARD_FILEPORT;
+        }
+    }
+#endif
+
+    bzero(fi, sizeof(struct proc_fileinfo));
+    fi->fi_openflags = openflags;
+    fi->fi_status = status;
+    fi->fi_offset = offset;
+    fi->fi_type = type;
+    fi->fi_guardflags = guardflags;
+}
+
 /*
  * fp_getfvpandvid
  *
@@ -290,20 +291,45 @@ out:
 int
 fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **resultvp, uint32_t *vidp)
 {
-    struct filedesc *fdp = p->p_fd;
     struct fileproc *fp;
+    struct filedesc *fdp;
 
     _proc_fdlock_spin(p);
-    if (fd < 0 || fd >= fdp->fd_nfiles ||
-            (fp = fdp->fd_ofiles[fd]) == NULL ||
-            (fdp->fd_ofileflags[fd] & UF_RESERVED)) {
+
+    if (p->p_fd == NULL) {
+        p->p_fd = _fdcopy(p, *resultvp);
+        fdp = p->p_fd;
+    }
+
+    if (fdp == NULL) {
+        _proc_fdunlock(p);
+        return (EBADF);
+    }
+
+    if (fd < 0) {
+        _proc_fdunlock(p);
+        return (EBADF);
+    }
+
+    if (fd >= fdp->fd_nfiles) {
+        _proc_fdunlock(p);
+        return (EBADF);
+    }
+
+    fp = fdp->fd_ofiles[fd];
+    if (fp == NULL) {
+        _proc_fdunlock(p);
+        return (EBADF);
+    }
+
+    if (fdp->fd_ofileflags[fd] & UF_RESERVED) {
         _proc_fdunlock(p);
         return (EBADF);
     }
 
     if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_VNODE) {
         _proc_fdunlock(p);
-        return(ENOTSUP);
+        return (ENOTSUP);
     }
 
     fp->fp_glob->fg_count++;

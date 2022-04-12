@@ -132,6 +132,33 @@ struct fdt_iterator {
     struct fileproc *fdti_fp;
 };
 
+/*!
+ * @def fdt_foreach
+ *
+ * @brief
+ * Convenience macro around @c fdt_next() to enumerates fileprocs in a process
+ * file descriptor table.
+ *
+ * @param fp
+ * The iteration variable.
+ *
+ * @param p
+ * The process for which the file descriptor table is being iterated.
+ */
+#define fdt_foreach(fp, p) \
+    for (struct fdt_iterator __fdt_it = fdt_next(p, -1, true); \
+        ((fp) = __fdt_it.fdti_fp); \
+        __fdt_it = fdt_next(p, __fdt_it.fdti_fd, true))
+
+/*!
+ * @def fdt_foreach_fd
+ *
+ * @brief
+ * When in an @c fdt_foreach() loop, return the current file descriptor
+ * being inspected.
+ */
+#define fdt_foreach_fd()  __fdt_it.fdti_fd
+
 #define         fdfile(p, fd)                                   \
                     (&(p)->p_fd->fd_ofiles[(fd)])
 #define         fdflags(p, fd)                                  \

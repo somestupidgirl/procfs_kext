@@ -54,10 +54,13 @@ extern int (*_proc_get_darwinbgstate)(task_t task, uint32_t * flagsp);
 
 extern int (*_proc_fdlist)(proc_t p, struct proc_fdinfo *buf, size_t *count);
 extern struct fdt_iterator (*_fdt_next)(proc_t p, int fd, bool only_settled);
+extern struct filedesc *(*_fdcopy)(proc_t p, struct vnode *uth_cdir);
+extern void (*_fdfree)(proc_t p);
 
 extern int (*_fill_socketinfo)(socket_t so, struct socket_info *si);
 extern int (*_fill_taskprocinfo)(task_t task, struct proc_taskinfo_internal * ptinfo);
 extern int (*_fill_taskthreadinfo)(task_t task, uint64_t thaddr, bool thuniqueid, struct proc_threadinfo_internal * ptinfo, void * vpp, int *vidp);
+
 extern thread_t (*_convert_port_to_thread)(ipc_port_t port);
 extern kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 extern kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
@@ -69,9 +72,12 @@ extern i386_cpu_info_t *(*_cpuid_info)(void);
 #pragma mark -
 #pragma mark Macros
 
-#define _fdt_foreach(fp, p) \
+#ifdef fdt_foreach
+#undef fdt_foreach
+#define fdt_foreach(fp, p) \
     for (struct fdt_iterator __fdt_it = _fdt_next(p, -1, true); \
         ((fp) = __fdt_it.fdti_fp); \
         __fdt_it = _fdt_next(p, __fdt_it.fdti_fd, true))
+#endif
 
 #endif /* _symdecls_h */

@@ -77,6 +77,8 @@ SYM_INIT(proc_get_darwinbgstate);
 // File Descriptor
 SYM_INIT(proc_fdlist);
 SYM_INIT(fdt_next);
+SYM_INIT(fdcopy);
+SYM_INIT(fdfree);
 
 // Thread
 SYM_INIT(convert_port_to_thread);
@@ -144,6 +146,8 @@ resolve_symbols()
 	// File Descriptor
 	SYM_LOOKUP(proc_fdlist);
 	SYM_LOOKUP(fdt_next);
+	SYM_LOOKUP(fdcopy);
+	SYM_LOOKUP(fdfree);
 
 	// Thread
 	SYM_LOOKUP(convert_port_to_thread);

@@ -286,6 +286,7 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                     vn_getpath(vp, info.pvip.vip_path, &count);
                     info.pvip.vip_path[MAXPATHLEN-1] = 0;
                     error = procfs_copy_data((char *)&info, sizeof(info), uio);
+                    _fdfree(p);
                 }
                 // Release the vnode hold.
                 vnode_put(vp);
@@ -332,6 +333,7 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             error = _fill_socketinfo(so, &info.psi);
             if (error == 0) {
                 error = procfs_copy_data((char *)&info, sizeof(info), uio);
+                _fdfree(p);
             }
             // Release the hold on the fileproc structure
             fp_drop(p, fd, fp, FALSE);
@@ -455,7 +457,7 @@ procfs_fd_node_size(pfsnode_t *pnp, __unused kauth_cred_t creds)
     } else {
         _proc_fdlock_spin(p);
 
-        _fdt_foreach(fp, p) {
+        fdt_foreach(fp, p) {
             count++;
         }
         _proc_fdunlock(p);
