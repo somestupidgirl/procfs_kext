@@ -19,6 +19,7 @@
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/vnode.h>
@@ -249,12 +250,12 @@ procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
  * vnode and the file itself.
  */
 int
-procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
+procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     int pid = pnp->node_id.nodeid_pid;
-    uint64_t fd = pnp->node_id.nodeid_objectid;
+    int fd = pnp->node_id.nodeid_objectid;
     
     int error = 0;
     proc_t p = proc_find(pid);
@@ -309,7 +310,7 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
     int pid = pnp->node_id.nodeid_pid;
-    uint64_t fd = (int)pnp->node_id.nodeid_objectid;
+    int fd = pnp->node_id.nodeid_objectid;
 
     int error = 0;
 

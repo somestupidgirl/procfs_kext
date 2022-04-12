@@ -8,6 +8,7 @@
 #include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/vnode.h>
 #include <sys/vnode_internal.h>
@@ -138,7 +139,7 @@ proc_pidthreadinfo(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadin
 }
 
 void
-fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * fproc)
+fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * fi)
 {   
     uint32_t openflags = 0;
     uint32_t status = 0;
@@ -182,14 +183,12 @@ fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * 
     }
 #endif
 
-    bzero(fproc, sizeof(struct proc_fileinfo));
-    struct proc_fileinfo info = {
-        .fi_openflags = openflags,
-        .fi_status = status,
-        .fi_offset = offset,
-        .fi_type = type,
-        .fi_guardflags = guardflags,
-    };
+    bzero(fi, sizeof(struct proc_fileinfo));
+    fi->fi_openflags = openflags;
+    fi->fi_status = status;
+    fi->fi_offset = offset;
+    fi->fi_type = type;
+    fi->fi_guardflags = guardflags;
 }
 
 /*
@@ -240,12 +239,14 @@ fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fs
         error = _vn_stat(vp, &sb, NULL, 1, 0, context);
         munge_vinfo_stat(&sb, &vinfo->vi_stat);
     }
+
     (void)vfs_context_rele(context);
+
     if (error != 0) {
         goto out;
     }
 
-    if (vnode_mount(vp) != _dead_mountp) {
+    if (vnode_mount(vp) != *_dead_mountp) {
         vinfo->vi_fsid = vp->v_mount->mnt_vfsstat.f_fsid;
     } else {
         vinfo->vi_fsid.val[0] = 0;
@@ -299,18 +300,25 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
         _proc_fdunlock(p);
         return (EBADF);
     }
+
     if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_VNODE) {
         _proc_fdunlock(p);
         return(ENOTSUP);
     }
+
     fp->fp_glob->fg_count++;
 
-    if (resultfp)
+    if (resultfp) {
         *resultfp = fp;
-    if (resultvp)
+    }
+
+    if (resultvp) {
         *resultvp = (struct vnode *)fp->fp_glob->fg_data;
-    if (vidp)
+    }
+
+    if (vidp) {
         *vidp = (uint32_t)vnode_vid((struct vnode *)fp->fp_glob->fg_data);
+    }
     _proc_fdunlock(p);
 
     return (0);
@@ -342,7 +350,7 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
  *      ever called from accept1().
  */
 int
-fp_getfsock(proc_t p, int fd, struct fileproc **resultfp, struct socket **results)
+fp_getfsock(proc_t p, int fd, struct fileproc **resultfp, socket_t *results)
 {
     struct filedesc *fdp = p->p_fd;
     struct fileproc *fp;
@@ -358,12 +366,16 @@ fp_getfsock(proc_t p, int fd, struct fileproc **resultfp, struct socket **result
         _proc_fdunlock(p);
         return(EOPNOTSUPP);
     }
+
     fp->fp_glob->fg_count++;
 
-    if (resultfp)
+    if (resultfp) {
         *resultfp = fp;
-    if (results)
-        *results = (struct socket *)fp->fp_glob->fg_data;
+    }
+
+    if (results) {
+        *results = (socket_t)fp->fp_glob->fg_data;
+    }
     _proc_fdunlock(p);
 
     return (0);
@@ -396,11 +408,12 @@ int
 fp_drop(proc_t p, int fd, struct fileproc *fp, int locked)
 {
     struct filedesc *fdp = p->p_fd;
-    int     needwakeup = 0;
+    int needwakeup = 0;
 
     if (!locked) {
         _proc_fdlock_spin(p);
     }
+
     if ((fp == FILEPROC_NULL) && (fd < 0 || fd >= fdp->fd_nfiles ||
         (fp = fdp->fd_ofiles[fd]) == NULL ||
         ((fdp->fd_ofileflags[fd] & UF_RESERVED) &&
@@ -421,9 +434,11 @@ fp_drop(proc_t p, int fd, struct fileproc *fp, int locked)
             needwakeup = 1;
         }
     }
+
     if (!locked) {
         _proc_fdunlock(p);
     }
+
     if (needwakeup) {
         wakeup(&p->p_fpdrainwait);
     }
