@@ -37,7 +37,10 @@
 
 #include <sys/appleapiopts.h>
 #include <sys/cdefs.h>
+#include <sys/mount_internal.h>
 #include <sys/types.h>
+#include <sys/sem_internal.h>
+#include <sys/semaphore.h>
 #include <sys/wait.h>
 #include <mach/shared_region.h>
 
@@ -63,6 +66,7 @@
 #endif
 
 __BEGIN_DECLS
+#include <sys/munge.h>
 
 struct nosys_args {
 	int32_t dummy;

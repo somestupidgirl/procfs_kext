@@ -180,4 +180,12 @@ extern void     _FREE_ZONE(
     size_t          size,
     int             type);
 
+/*
+ * Note: Net/FreeBSD-compatible malloc() and free() to make porting less of a hassle.
+ *
+ *       - https://github.com/somestupidgirl/
+ */
+#define malloc(size, type, flags)    _MALLOC(size, type, flags)
+#define free(addr, type)             _FREE(addr, type)
+
 #endif  /* _SYS_MALLOC_H_ */

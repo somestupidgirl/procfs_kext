@@ -35,6 +35,13 @@
 #include <sys/param.h>
 #include <stdbool.h>
 
+/*
+ * Note: This seems to be XNU's version of the ps_strings structure in other BSDs like FreeBSD and NetBSD.
+ *       Thought noting this down could be useful when porting BSD functions that rely on the ps_strings
+ *       structure so that we know where to look.
+ *
+ *       - https://github.com/somestupidgirl
+ */
 struct exec_info {
 	char      path[MAXPATHLEN];
 	int       ac;              /* the number of argument strings */
@@ -44,8 +51,11 @@ struct exec_info {
 };
 
 /*
- * Address of exec_info structure. We only use this as a default in user
- * space.
+ * Note: Macro (PS_STRINGS) ported from NetBSD to complement XNU's exec_info structure.
+ *
+ *       Address of exec_info structure. We only use this as a default in user space.
+ *
+ *       - https://github.com/somestupidgirl
  */
 #define EXEC_INFO \
     ((struct exec_info *)(USRSTACK - sizeof(struct exec_info)))

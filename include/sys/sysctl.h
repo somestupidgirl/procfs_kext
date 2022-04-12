@@ -626,7 +626,7 @@ SYSCTL_DECL(_hw_features);
 #define KERN_SPECULATIVE_READS  64      /* int: whether speculative reads are disabled */
 #define KERN_OSVERSION          65      /* for build number i.e. 9A127 */
 #define KERN_SAFEBOOT           66      /* are we booted safe? */
-/*  67 was KERN_LCTX (login context) */
+                            /*  67 was KERN_LCTX (login context) */
 #define KERN_RAGEVNODE          68
 #define KERN_TTY                69      /* node: tty settings */
 #define KERN_CHECKOPENEVT       70      /* spi: check the VOPENEVT flag on vnodes at open time */

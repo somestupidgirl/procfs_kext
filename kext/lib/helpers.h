@@ -38,12 +38,6 @@
  */
 #define nitems(x)      ((int)sizeof((x)) / (int)sizeof((x)[0]))
 
-/*
- * BSD-style malloc
- */
-#define malloc(x,y,z)   _MALLOC(x,y,z)
-#define free(x,y)       _FREE(x,y)
-
 #pragma mark -
 #pragma mark Inline Helper Functions
 
