@@ -628,13 +628,16 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 // until we fill up the space or run out of threads.
                 proc_t p = proc_find(pid);
                 if (p != NULL) {
-                    _proc_fdlock_spin(p);
-                    struct fileproc *iter;
                     char fd_buffer[PROCESS_NAME_SIZE];
+
+                    _proc_fdlock_spin(p);
+
                     int i = 0;
+                    struct fileproc *iter;
                     _fdt_foreach(iter, p) {
                         // Need to unlock before copy out in case of fault and because it's a "long" operation.
                         _proc_fdunlock(p);
+
                         snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
                         int size = procfs_calc_dirent_size(fd_buffer);
 
@@ -648,8 +651,10 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         }
                         nextpos += size;
                         i++;
+
                         _proc_fdlock_spin(p);
                     }
+
                     _proc_fdunlock(p);
 
                     break;   // Exit from the outer loop.
