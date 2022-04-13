@@ -292,7 +292,7 @@ fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * 
  * Locks:   Internally takes and releases proc_fdlock
  */
 int
-fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **resultvp, uint32_t *vidp)
+fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **resultvp, uint32_t *vidp, vfs_context_t ctx)
 {
     struct fileproc *fp;
     struct filedesc *fdp;
@@ -301,15 +301,19 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
     thread_t th;
     uthread_t uth;
 
-    th = current_thread();
+    th = _vfs_context_thread(ctx);
     uth = (uthread_t)_get_bsdthread_info(th); // returns th->uthread
 
-    // Should set vp to uth->uu_cdir for fdcopy(p, vp) since
-    // we don't have direct access to struct uthread.
-    // Update: Doesn't work, vp is still NULL.
-    _bsd_threadcdir(uth, vp, vidp);
-
+    // void function that sets vp to uth->uu_cdir
+    // doesn't seem to stick, however, or perhaps
+    // uu_cdir is NULL by default just like p->p_fd.
+    // Even when we pull in sys/user.h and call the
+    // uu_cdir field from struct uthread directly
+    // it's also NULL. Not sure how to get around
+    // this.
+    _bsd_threadcdir(uth, NULL, vidp);
     if (vp == NULL) {
+        //vp = uth->uu_cdir;
         return (EFAULT);
     }
 

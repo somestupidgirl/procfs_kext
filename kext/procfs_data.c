@@ -250,7 +250,7 @@ procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
  * vnode and the file itself.
  */
 int
-procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 {
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
@@ -267,7 +267,7 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         // Get the vnode, vnode id and fileproc structure for the file.
         // The fileproc has an additional iocount, which we must remember
         // to release.
-        error = fp_getfvpandvid(p, fd, &fp, &vp, &vid);
+        error = fp_getfvpandvid(p, fd, &fp, &vp, &vid, ctx);
         if (error == 0) {
             // Get a hold on the vnode and check that it did not
             // change id.

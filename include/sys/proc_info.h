@@ -923,6 +923,4 @@ struct proc_fileportinfo {
 
 __END_DECLS
 
-extern int proc_fdlist(proc_t p, struct proc_fdinfo *buf, size_t *count);
-
 #endif /*_SYS_PROC_INFO_H */

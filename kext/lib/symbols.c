@@ -87,6 +87,7 @@ SYM_INIT(task_threads);
 SYM_INIT(thread_info);
 SYM_INIT(bsd_threadcdir);
 SYM_INIT(get_bsdthread_info);
+SYM_INIT(vfs_context_thread);
 
 // CPU
 SYM_INIT(cpuid_info);
@@ -160,6 +161,7 @@ resolve_symbols()
 	SYM_LOOKUP(thread_info);
 	SYM_LOOKUP(bsd_threadcdir);
 	SYM_LOOKUP(get_bsdthread_info);
+	SYM_LOOKUP(vfs_context_thread);
 
 	// CPU ID
 	SYM_LOOKUP(cpuid_info);
