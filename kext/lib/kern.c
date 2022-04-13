@@ -302,7 +302,7 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
     uthread_t uth;
 
     th = current_thread();
-    uth = _get_bsdthread_info(th); // returns th->uthread
+    uth = (uthread_t)_get_bsdthread_info(th); // returns th->uthread
 
     // Sets vp to uth->uu_cdir for fdcopy(p, vp) since
     // we don't have direct access to struct uthread.
