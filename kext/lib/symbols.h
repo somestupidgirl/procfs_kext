@@ -66,7 +66,7 @@ extern int (*_fill_taskprocinfo)(task_t task, struct proc_taskinfo_internal * pt
 extern int (*_fill_taskthreadinfo)(task_t task, uint64_t thaddr, bool thuniqueid, struct proc_threadinfo_internal * ptinfo, void * vpp, int *vidp);
 
 extern void (*_bsd_threadcdir)(void * uth, void *vptr, int *vidp);
-extern void (*_get_bsdthread_info)(thread_t);
+extern void *(*_get_bsdthread_info)(thread_t);
 extern thread_t (*_convert_port_to_thread)(ipc_port_t port);
 extern kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 extern kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);
