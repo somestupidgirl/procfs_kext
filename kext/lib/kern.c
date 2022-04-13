@@ -306,7 +306,7 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
 
     // Sets vp to uth->uu_cdir for fdcopy(p, vp) since
     // we don't have direct access to struct uthread.
-    _bsd_threadcdir(uth, *resultvp, vidp);
+    _bsd_threadcdir(uth, vp, vidp);
 
     _proc_fdlock_spin(p);
 
