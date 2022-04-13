@@ -304,39 +304,29 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
     th = current_thread();
     uth = (uthread_t)_get_bsdthread_info(th); // returns th->uthread
 
-    // Sets vp to uth->uu_cdir for fdcopy(p, vp) since
+    // Should set vp to uth->uu_cdir for fdcopy(p, vp) since
     // we don't have direct access to struct uthread.
+    // Update: Doesn't work, vp is still NULL.
     _bsd_threadcdir(uth, vp, vidp);
 
-    _proc_fdlock_spin(p);
+    if (vp == NULL) {
+        return (EFAULT);
+    }
 
     if (p->p_fd == NULL) {
         p->p_fd = _fdcopy(p, vp);
+        fdp = p->p_fd;
+        _fdfree(p);
+    } else {
+        fdp = p->p_fd;
     }
 
-    fdp = p->p_fd;
+    _proc_fdlock_spin(p);
 
-    if (fdp == NULL) {
-        _proc_fdunlock(p);
-        return (EBADF);
-    }
-
-    if (fd < 0) {
-        _proc_fdunlock(p);
-        return (EBADF);
-    }
-
-    if (fd >= fdp->fd_nfiles) {
-        _proc_fdunlock(p);
-        return (EBADF);
-    }
-
-    if ((fp = fdp->fd_ofiles[fd]) == NULL) {
-        _proc_fdunlock(p);
-        return (EBADF);
-    }
-
-    if (fdp->fd_ofileflags[fd] & UF_RESERVED) {
+    if (fdp == NULL || fd < 0 ||
+        (fd >= fdp->fd_nfiles) ||
+        (fp = fdp->fd_ofiles[fd]) == NULL ||
+        (fdp->fd_ofileflags[fd] & UF_RESERVED)) {
         _proc_fdunlock(p);
         return (EBADF);
     }

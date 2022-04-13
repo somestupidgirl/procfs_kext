@@ -286,7 +286,6 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                     vn_getpath(vp, info.pvip.vip_path, &count);
                     info.pvip.vip_path[MAXPATHLEN-1] = 0;
                     error = procfs_copy_data((char *)&info, sizeof(info), uio);
-                    _fdfree(p);
                 }
                 // Release the vnode hold.
                 vnode_put(vp);
