@@ -68,6 +68,23 @@
 #include <sys/kernel_types.h>
 #include <kern/locks.h>
 
+/*
+ * This structure is used for the management of descriptors.  It may be
+ * shared by multiple processes.
+ *
+ * A process is initially started out with NDFILE descriptors [XXXstored within
+ * this structureXXX], selected to be enough for typical applications based on
+ * the historical limit of 20 open files (and the usage of descriptors by
+ * shells).  If these descriptors are exhausted, a larger descriptor table
+ * may be allocated, up to a process' resource limit; [XXXthe internal arrays
+ * are then unusedXXX].  The initial expansion is set to NDEXTENT; each time
+ * it runs out, it is doubled until the resource limit is reached. NDEXTENT
+ * should be selected to be the biggest multiple of OFILESIZE (see below)
+ * that will fit in a power-of-two sized piece of memory.
+ */
+#define NDFILE          25              /* 125 bytes */
+#define NDEXTENT        50              /* 250 bytes in 256-byte alloc. */
+
 struct klist;
 struct kqwllist;
 

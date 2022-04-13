@@ -333,7 +333,6 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             error = _fill_socketinfo(so, &info.psi);
             if (error == 0) {
                 error = procfs_copy_data((char *)&info, sizeof(info), uio);
-                _fdfree(p);
             }
             // Release the hold on the fileproc structure
             fp_drop(p, fd, fp, FALSE);

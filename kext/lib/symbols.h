@@ -16,6 +16,9 @@
 #include <sys/proc_internal.h>
 #include <sys/vnode.h>
 
+struct uthread;
+typedef struct uthread * uthread_t;
+
 #pragma mark -
 #pragma mark Global Variables
 
@@ -51,6 +54,7 @@ extern int (*_proc_issetugid)(proc_t p);
 extern int (*_proc_gettty)(proc_t p, vnode_t *vp);
 extern int (*_proc_gettty_dev)(proc_t p, dev_t *dev);
 extern int (*_proc_get_darwinbgstate)(task_t task, uint32_t * flagsp);
+extern rlim_t (*_proc_limitgetcur)(proc_t p, int which, boolean_t to_lock_proc);
 
 extern int (*_proc_fdlist)(proc_t p, struct proc_fdinfo *buf, size_t *count);
 extern struct fdt_iterator (*_fdt_next)(proc_t p, int fd, bool only_settled);
@@ -61,6 +65,8 @@ extern int (*_fill_socketinfo)(socket_t so, struct socket_info *si);
 extern int (*_fill_taskprocinfo)(task_t task, struct proc_taskinfo_internal * ptinfo);
 extern int (*_fill_taskthreadinfo)(task_t task, uint64_t thaddr, bool thuniqueid, struct proc_threadinfo_internal * ptinfo, void * vpp, int *vidp);
 
+extern void (*_bsd_threadcdir)(void * uth, void *vptr, int *vidp);
+extern void (*_get_bsdthread_info)(thread_t);
 extern thread_t (*_convert_port_to_thread)(ipc_port_t port);
 extern kern_return_t (*_task_threads)(task_t task, thread_act_array_t *threads_out, mach_msg_type_number_t *count);
 extern kern_return_t (*_thread_info)(thread_t thread, thread_flavor_t flavor, thread_info_t thread_info, mach_msg_type_number_t *thread_info_count);

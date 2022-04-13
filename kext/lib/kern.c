@@ -9,11 +9,14 @@
 #include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/syslimits.h>
 #include <sys/types.h>
 #include <sys/vnode.h>
 #include <sys/vnode_internal.h>
 
+#include "helpers.h"
 #include "symbols.h"
 
 /*
@@ -294,12 +297,24 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
     struct fileproc *fp;
     struct filedesc *fdp;
 
+    vnode_t vp;
+    thread_t th;
+    uthread_t uth;
+
+    th = current_thread();
+    uth = _get_bsdthread_info(th); // returns th->uthread
+
+    // Sets vp to uth->uu_cdir for fdcopy(p, vp) since
+    // we don't have direct access to struct uthread.
+    _bsd_threadcdir(uth, *resultvp, vidp);
+
     _proc_fdlock_spin(p);
 
     if (p->p_fd == NULL) {
-        p->p_fd = _fdcopy(p, *resultvp);
-        fdp = p->p_fd;
+        p->p_fd = _fdcopy(p, vp);
     }
+
+    fdp = p->p_fd;
 
     if (fdp == NULL) {
         _proc_fdunlock(p);
@@ -316,8 +331,7 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
         return (EBADF);
     }
 
-    fp = fdp->fd_ofiles[fd];
-    if (fp == NULL) {
+    if ((fp = fdp->fd_ofiles[fd]) == NULL) {
         _proc_fdunlock(p);
         return (EBADF);
     }

@@ -73,6 +73,7 @@ SYM_INIT(fill_taskthreadinfo);
 
 // Process Misc
 SYM_INIT(proc_get_darwinbgstate);
+SYM_INIT(proc_limitgetcur);
 
 // File Descriptor
 SYM_INIT(proc_fdlist);
@@ -84,6 +85,8 @@ SYM_INIT(fdfree);
 SYM_INIT(convert_port_to_thread);
 SYM_INIT(task_threads);
 SYM_INIT(thread_info);
+SYM_INIT(bsd_threadcdir);
+SYM_INIT(get_bsdthread_info);
 
 // CPU
 SYM_INIT(cpuid_info);
@@ -139,9 +142,11 @@ resolve_symbols()
 	SYM_LOOKUP(fill_socketinfo);
 	SYM_LOOKUP(fill_taskprocinfo);
 	SYM_LOOKUP(fill_taskthreadinfo);
+	SYM_LOOKUP(bsd_threadcdir);
 
 	// Process Misc
 	SYM_LOOKUP(proc_get_darwinbgstate);
+	SYM_LOOKUP(proc_limitgetcur);
 
 	// File Descriptor
 	SYM_LOOKUP(proc_fdlist);
@@ -153,6 +158,8 @@ resolve_symbols()
 	SYM_LOOKUP(convert_port_to_thread);
 	SYM_LOOKUP(task_threads);
 	SYM_LOOKUP(thread_info);
+	SYM_LOOKUP(bsd_threadcdir);
+	SYM_LOOKUP(get_bsdthread_info);
 
 	// CPU ID
 	SYM_LOOKUP(cpuid_info);
