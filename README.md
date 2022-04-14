@@ -82,8 +82,6 @@ Finder support has not yet been implemented.
 Currently known issues:
 
  - Functions `procfs_read_thread_info`, `procfs_read_fd_data` and `procfs_read_socket_data` are currently ridden with bugs.
- - A bug in procfs_vnop_readdir causes the terminal session to freeze when executing ls on `/proc/<pid>/fd`.
- - A bug in procfs_vnop_readdir causes the terminal session to freeze when executing ls on `/proc/<pid>/threads`.
  - A bug in procfs_read_sid_data will result in a kernel panic when executing cat on `/proc/<pid>/sid`.
  - A bug in procfs_read_tty_data will result in a kernel panic when executing cat on `/proc/<pid>/tty`.
 
