@@ -18,9 +18,6 @@
 
 #include "kern.h"
 
-struct uthread;
-typedef struct uthread * uthread_t;
-
 #pragma mark -
 #pragma mark Global Variables
 

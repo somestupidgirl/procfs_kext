@@ -9,6 +9,7 @@
 #include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
+#include <sys/queue.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/syslimits.h>
@@ -18,6 +19,9 @@
 
 #include "helpers.h"
 #include "symbols.h"
+
+struct uthread;
+typedef struct uthread * uthread_t;
 
 /*
  * From bsd/kern/proc_info.c
@@ -304,19 +308,28 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
     th = _vfs_context_thread(ctx);
     uth = (uthread_t)_get_bsdthread_info(th); // returns th->uthread
 
-    // void function that sets vp to uth->uu_cdir
-    // doesn't seem to stick, however, or perhaps
-    // uu_cdir is NULL by default just like p->p_fd.
-    // Even when we pull in sys/user.h and call the
-    // uu_cdir field from struct uthread directly
-    // it's also NULL. Not sure how to get around
-    // this.
-    _bsd_threadcdir(uth, NULL, vidp);
+    // Should set vnode_t vp = uth->uu_cdir
+    // but uth->uu_cdir still appears to be
+    // NULL so vp remains NULL.
+    _bsd_threadcdir(uth, *resultvp, vidp);
+
+    // vp never gets any value beyond NULL.
     if (vp == NULL) {
         //vp = uth->uu_cdir;
         return (EFAULT);
     }
 
+    // Doesn't work. Causes some very weird
+    // behavior. Terminal session freezes,
+    // the entire system starts to run more
+    // slowly, applications stop responding.
+    // This isn't true for the entire system
+    // every single time, but the terminal
+    // session always freezes upon executing
+    // 'cat /proc/<pid>/fd/0/details' unless
+    // we include the above vp check to make
+    // it return an error message instead of
+    // crashing.
     if (p->p_fd == NULL) {
         p->p_fd = _fdcopy(p, vp);
         fdp = p->p_fd;
@@ -329,7 +342,7 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
 
     if (fdp == NULL || fd < 0 ||
         (fd >= fdp->fd_nfiles) ||
-        (fp = fdp->fd_ofiles[fd]) == NULL ||
+        ((fp = fdp->fd_ofiles[fd]) == NULL) ||
         (fdp->fd_ofileflags[fd] & UF_RESERVED)) {
         _proc_fdunlock(p);
         return (EBADF);
