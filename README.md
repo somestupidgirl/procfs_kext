@@ -5,6 +5,7 @@ A kext implementation of the /proc file system for OS X based on the XNU kernel 
 This is still very much at an 'alpha' stage and not all features are yet working as they should. It *will* cause kernel panics in certain areas.
 
 Tested on:
+
     - macOS Big Sur 11.6.3
 
 ## What is procfs?
@@ -71,27 +72,20 @@ Likewise you can use the `cat` command to get the contents of a file:
 Finder support has not yet been implemented.
 
 ## TODO:
- - misc: Fix Finder support.
- - procfs_data: Fix procfs_read_tty_data().
- - procfs_data: Fix procfs_read_fd_data().
- - procfs_data: Fix procfs_read_socket_data().
- - procfs_cpu: Implement AMD support for get_leaf7_ext_flags().
- - procfs_cpu: Implement support for AMD-specific flags in /proc/cpuinfo.
- - procfs_cpu: Implement functions to detect CPU power management features for /proc/cpuinfo.
- - procfs_cpu: Implement functions to detect CPU bugs for /proc/cpuinfo.
- - procfs_cpu: Fix microcode for /proc/cpuinfo -- might be an AMD issue.
- - procfs_cpu: Implement /proc/stat.
- - procfs_cpu: Implement /proc/loadavg.
- - misc: Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
- - misc: Implement all the linux-compatible features that we see in NetBSD and FreeBSD.
- - arm64: Add support for M1 macs.
+ - Add Finder support.
+ - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
+ - Implement more linux-compatible a la NetBSD and FreeBSD.
+ - Improve AMD support.
+ - Add support for ARM64.
 
 ## Issues
-Currently known issues that are being worked on:
+Currently known issues:
 
- - The fd functions are still very buggy since they use static internal functions that the symbol resolver can't resolve.
- - Executing `cat` on `/proc/<pid>/tty` *will* result in a kernel panic. This should be fixed soon.
- - Finder support has not been added yet so the proc directory will simply appear as an empty mount in the Finder.
+ - Functions `procfs_read_thread_info`, `procfs_read_fd_data` and `procfs_read_socket_data` are currently ridden with bugs.
+ - A bug in procfs_vnop_readdir causes the terminal session to freeze when executing ls on `/proc/<pid>/fd`.
+ - A bug in procfs_vnop_readdir causes the terminal session to freeze when executing ls on `/proc/<pid>/threads`.
+ - A bug in procfs_read_sid_data will result in a kernel panic when executing cat on `/proc/<pid>/sid`.
+ - A bug in procfs_read_tty_data will result in a kernel panic when executing cat on `/proc/<pid>/tty`.
 
 ## Contributing and Bug Reporting
 If you wish to contribute to this project then feel free to make a pull request. If you encounter any undocumented bugs then you may also file an issue under the "Issues" tab.
