@@ -300,39 +300,8 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
     struct fileproc *fp;
     struct filedesc *fdp;
 
-    vnode_t vp;
-    thread_t th;
-    uthread_t uth;
-
-    th = vfs_context_thread(ctx);
-    uth = (uthread_t)get_bsdthread_info(th); // returns th->uthread
-
-    // Should set vnode_t vp = uth->uu_cdir
-    // but uth->uu_cdir still appears to be
-    // NULL so vp remains NULL.
-    bsd_threadcdir(uth, *resultvp, vidp);
-
-    // vp never gets any value beyond NULL.
-    if (vp == NULL) {
-        //vp = uth->uu_cdir;
-        return (EFAULT);
-    }
-
-    // Doesn't work. Causes some very weird
-    // behavior. Terminal session freezes,
-    // the entire system starts to run more
-    // slowly, applications stop responding.
-    // This isn't true for the entire system
-    // every single time, but the terminal
-    // session always freezes upon executing
-    // 'cat /proc/<pid>/fd/0/details' unless
-    // we include the above vp check to make
-    // it return an error message instead of
-    // crashing.
     if (p->p_fd == NULL) {
-        p->p_fd = fdcopy(p, vp);
-        fdp = p->p_fd;
-        fdfree(p);
+        return (EFAULT);
     } else {
         fdp = p->p_fd;
     }
@@ -398,8 +367,22 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
 int
 fp_getfsock(proc_t p, int fd, struct fileproc **resultfp, socket_t *results)
 {
-    struct filedesc *fdp = p->p_fd;
+    struct filedesc *fdp;
     struct fileproc *fp;
+
+    if (p->p_fd == NULL) {
+        return (EFAULT);
+    } else {
+        fdp = p->p_fd;
+    }
+
+    if (*resultfp == NULL) {
+        return (EBADF);
+    }
+
+    if (results == NULL) {
+        return (ENOTSOCK);
+    }
 
     proc_fdlock_spin(p);
     if (fd < 0 || fd >= fdp->fd_nfiles ||
@@ -455,6 +438,10 @@ fp_drop(proc_t p, int fd, struct fileproc *fp, int locked)
 {
     struct filedesc *fdp = p->p_fd;
     int needwakeup = 0;
+
+    if (fdp == NULL) {
+        return (EFAULT);
+    }
 
     if (!locked) {
         proc_fdlock_spin(p);
