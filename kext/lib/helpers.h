@@ -6,41 +6,73 @@
 #define _procfs_helpers_h
 
 #include <stdint.h>
+#include <i386/limits.h>
 #include <mach/i386/vm_param.h>
-
-#include "symbols.h"
-
-#pragma mark -
-#pragma mark Definitions
-
-#define LBFSZ           (8 * 1024)
-
+#include <sys/types.h>
 
 #pragma mark -
-#pragma mark Macros
+#pragma mark NetBSD/mouse-BSD macros and definitions
 
 /*
- * Various conversion macros
+ * Buffer size definition from NetBSD's miscfs/procfs/procfs_linux.c
  */
-#define T2J(x)         ((long)(((x) * 100ULL) / (_stathz ? _stathz : _hz)))				/* ticks to jiffies */
-#define T2CS(x)        ((unsigned long)(((x) * 100ULL) / (_stathz ? _stathz : _hz)))	/* ticks to centiseconds */
-#define T2S(x)         ((x) / (_stathz ? _stathz : _hz))								/* ticks to seconds */
-#define B2K(x)         ((x) >> 10)														/* bytes to kbytes */
-#define B2P(x)         ((x) >> PAGE_SHIFT)												/* bytes to pages */
-#define P2B(x)         ((x) << PAGE_SHIFT)												/* pages to bytes */
-#define P2K(x)         ((x) << (PAGE_SHIFT - 10))										/* pages to kbytes */
-#define TV2J(x)	       ((x)->tv_sec * 100UL + (x)->tv_usec / 10000)
+#define LBFSZ           (8 * 1024)
 
-#define quad(hi,lo)    (((uint64_t)(hi)) << 32 | (lo))
+/*
+ * Conversion macros from NetBSD's miscfs/procfs/procfs_linux.c.
+ * Similar to P2B and P2K in FreeBSD.
+ */
+#define PGTOB(p)        ((unsigned long)(p) << PAGE_SHIFT)
+#define PGTOKB(p)       ((unsigned long)(p) << (PAGE_SHIFT - 10))
+
+#pragma mark -
+#pragma mark FreeBSD Macros and definitions
+
+/*
+ * File descriptor-related macros from FreeBSD
+ */
+#define NDFILE          20
+#define NDSLOTTYPE      u_long
+#define NDSLOTSIZE      sizeof(NDSLOTTYPE)
+#define NDENTRIES       (NDSLOTSIZE * CHAR_BIT)
+#define NDSLOT(x)       ((x) / NDENTRIES)
+#define NDBIT(x)        ((NDSLOTTYPE)1 << ((x) % NDENTRIES))
+#define NDSLOTS(x)      (((x) + NDENTRIES - 1) / NDENTRIES)
+
+/*
+ * Various conversion macros from FreeBSD
+ */
+#define B2K(x)          ((x) >> 10)														/* bytes to kbytes */
+#define B2P(x)          ((x) >> PAGE_SHIFT)												/* bytes to pages */
+#define P2B(x)          ((x) << PAGE_SHIFT)												/* pages to bytes */
+#define P2K(x)          ((x) << (PAGE_SHIFT - 10))										/* pages to kbytes */
+#define TV2J(x)	        ((x)->tv_sec * 100UL + (x)->tv_usec / 10000)
 
 /*
  * calculates the length of an array in number of items.
  */
-#define nitems(x)      ((int)sizeof((x)) / (int)sizeof((x)[0]))
+#define nitems(x)       ((int)sizeof((x)) / (int)sizeof((x)[0]))
 
 #pragma mark -
-#pragma mark Inline Helper Functions
+#pragma mark XNU macros and definitions
 
+/*
+ * Used in osfmk/i386/cpuid.c
+ */
+#define quad(hi, lo)    (((uint64_t)(hi)) << 32 | (lo))
+
+/*
+ * Multipliers used to encode 1*K .. 64*M in a 16 bit size field
+ */
+#define K               (1)
+#define M               (1024)
+
+#pragma mark -
+#pragma mark Static inline functions
+
+/*
+ * Misc conversion functions.
+ */
 static inline int
 isupper(char c)
 {
