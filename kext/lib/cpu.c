@@ -480,7 +480,7 @@ get_cpu_flags(void)
     /*
      * Main loop.
      */
-    if (_cpuid_info()->cpuid_features) {
+    if (cpuid_info()->cpuid_features) {
         size = (sizeof(feature_flags) * 2);
 
         char *flags[size];
@@ -489,7 +489,7 @@ get_cpu_flags(void)
             /* 
              * If the CPU supports a feature in the feature_list[]...
              */
-            if (_cpuid_info()->cpuid_features & feature_list[i]) {
+            if (cpuid_info()->cpuid_features & feature_list[i]) {
                 /*
                  * ...amend its flag to 'flags'.
                  */
@@ -517,7 +517,7 @@ get_cpu_ext_flags(void)
     int i = 0;
     int size = 0;
 
-    if (_cpuid_info()->cpuid_extfeatures) {
+    if (cpuid_info()->cpuid_extfeatures) {
         size = (sizeof(feature_ext_flags) * 2);
 
         char *flags[size];
@@ -529,7 +529,7 @@ get_cpu_ext_flags(void)
             /* 
              * If the CPU supports a feature in the feature_ext_list[]...
              */
-            if (_cpuid_info()->cpuid_extfeatures & feature_ext_list[i]) {
+            if (cpuid_info()->cpuid_extfeatures & feature_ext_list[i]) {
                 /*
                  * ...amend its flag to 'flags'.
                  */
@@ -563,15 +563,15 @@ get_leaf7_flags(void)
      * Enable reading the cpuid_leaf7_features on AMD chipsets.
      */
     uint32_t reg[4];
-    if (is_amd_cpu() && _cpuid_info()->cpuid_family >= 23){
+    if (is_amd_cpu() && cpuid_info()->cpuid_family >= 23){
         do_cpuid(0x7, reg);
-        _cpuid_info()->cpuid_leaf7_features = quad(reg[ecx], reg[ebx]) & ~CPUID_LEAF7_FEATURE_SMAP;
+        cpuid_info()->cpuid_leaf7_features = quad(reg[ecx], reg[ebx]) & ~CPUID_LEAF7_FEATURE_SMAP;
     }
 
     /*
      * Main loop.
      */
-    if (_cpuid_info()->cpuid_leaf7_features) {
+    if (cpuid_info()->cpuid_leaf7_features) {
         size = (sizeof(leaf7_feature_flags) * 2);
         char *flags[size];
 
@@ -579,7 +579,7 @@ get_leaf7_flags(void)
             /* 
              * If the CPU supports a feature in the leaf7_feature_list[]...
              */
-            if (_cpuid_info()->cpuid_leaf7_features & leaf7_feature_list[i]) {
+            if (cpuid_info()->cpuid_leaf7_features & leaf7_feature_list[i]) {
                 /*
                  * ...amend its flag to 'flags'.
                  */
@@ -614,16 +614,16 @@ get_leaf7_ext_flags(void)
      */
 #if 0
     uint32_t reg[4];
-    if (is_amd_cpu() && _cpuid_info()->cpuid_family >= 23){
+    if (is_amd_cpu() && cpuid_info()->cpuid_family >= 23){
         do_cpuid(0x7, reg);
-        _cpuid_info()->cpuid_leaf7_extfeatures = reg[ebx];
+        cpuid_info()->cpuid_leaf7_extfeatures = reg[ebx];
     }
 #endif
 
     /*
      * Main loop.
      */
-    if (_cpuid_info()->cpuid_leaf7_extfeatures) {
+    if (cpuid_info()->cpuid_leaf7_extfeatures) {
         size = (sizeof(leaf7_feature_ext_flags) * 2);
         char *flags[size];
 
@@ -631,7 +631,7 @@ get_leaf7_ext_flags(void)
             /* 
              * If the CPU supports a feature in the leaf7_feature_ext_list[]...
              */
-            if (_cpuid_info()->cpuid_leaf7_extfeatures & leaf7_feature_ext_list[i]) {
+            if (cpuid_info()->cpuid_leaf7_extfeatures & leaf7_feature_ext_list[i]) {
                 /*
                  * ...amend its flag to 'flags'.
                  */

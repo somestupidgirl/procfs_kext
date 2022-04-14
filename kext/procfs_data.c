@@ -97,7 +97,7 @@ procfs_read_sid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
-        _proc_list_lock();
+        proc_list_lock();
         struct pgrp *pgrp = p->p_pgrp;
         if (pgrp != NULL) {
             struct session *sp = pgrp->pg_session;
@@ -105,7 +105,7 @@ procfs_read_sid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
                 session_id = sp->s_sid;
             }
         }
-        _proc_list_unlock();
+        proc_list_unlock();
 
         error = procfs_copy_data((char *)&session_id, sizeof(session_id), uio);
     } else {
@@ -127,7 +127,7 @@ procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
-        _proc_list_lock();
+        proc_list_lock();
         struct pgrp * pgrp = p->p_pgrp;
         if (pgrp != NULL) {
             // Get the controlling terminal vnode from the process session,
@@ -146,7 +146,7 @@ procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 }
             }
         }
-        _proc_list_unlock();
+        proc_list_unlock();
     } else {
         error = ESRCH;
     }
@@ -329,7 +329,7 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
             bzero(&info, sizeof(info));
             fill_fileinfo(fp, p, fd, &info.pfi);
-            error = _fill_socketinfo(so, &info.psi);
+            error = fill_socketinfo(so, &info.psi);
             if (error == 0) {
                 error = procfs_copy_data((char *)&info, sizeof(info), uio);
             }
@@ -428,7 +428,7 @@ procfs_thread_node_size(pfsnode_t *pnp, __unused kauth_cred_t creds)
     int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != NULL) {
-        task_t task = _proc_task(p);
+        task_t task = proc_task(p);
         if (task != NULL) {
             size += sizeof(procfs_get_task_thread_count(task));
         }
@@ -453,12 +453,11 @@ procfs_fd_node_size(pfsnode_t *pnp, __unused kauth_cred_t creds)
     if (p == NULL) {
         count = 0;
     } else {
-        _proc_fdlock_spin(p);
-
+        proc_fdlock_spin(p);
         fdt_foreach(fp, p) {
             count++;
         }
-        _proc_fdunlock(p);
+        proc_fdunlock(p);
     }
     proc_rele(p);
 

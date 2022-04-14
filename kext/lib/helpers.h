@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <i386/limits.h>
 #include <mach/i386/vm_param.h>
+#include <sys/malloc.h>
 #include <sys/types.h>
 
 #pragma mark -
@@ -52,6 +53,12 @@
  * calculates the length of an array in number of items.
  */
 #define nitems(x)       ((int)sizeof((x)) / (int)sizeof((x)[0]))
+
+/*
+ * BSD malloc() and free()
+ */
+#define malloc(size, type, flags)    _MALLOC(size, type, flags)
+#define free(addr, type)             _FREE(addr, type)
 
 #pragma mark -
 #pragma mark XNU macros and definitions

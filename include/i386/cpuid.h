@@ -539,50 +539,6 @@ is_xeon_sp(uint8_t platid)
 	return 0;
 }
 
-extern int force_tecs_at_idle;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/*
- * External declarations
- */
-extern cpu_type_t       cpuid_cputype(void);
-extern cpu_subtype_t    cpuid_cpusubtype(void);
-extern void             cpuid_cpu_display(const char *);
-extern void             cpuid_feature_display(const char *);
-extern void             cpuid_extfeature_display(const char *);
-extern char *           cpuid_get_feature_names(uint64_t, char *, unsigned);
-extern char *           cpuid_get_extfeature_names(uint64_t, char *, unsigned);
-extern char *           cpuid_get_leaf7_feature_names(uint64_t, char *, unsigned);
-extern char *           cpuid_get_leaf7_extfeature_names(uint64_t, char *, unsigned);
-
-extern uint64_t         cpuid_features(void);
-extern uint64_t         cpuid_extfeatures(void);
-extern uint64_t         cpuid_leaf7_features(void);
-extern uint64_t         cpuid_leaf7_extfeatures(void);
-extern uint32_t         cpuid_family(void);
-extern uint32_t         cpuid_cpufamily(void);
-
-extern i386_cpu_info_t  *cpuid_info(void);
-extern void             cpuid_set_info(void);
-extern boolean_t        cpuid_vmm_present(void);
-extern uint32_t         cpuid_vmm_family(void);
-
-#if DEBUG || DEVELOPMENT
-extern uint64_t         cpuid_vmm_get_applepv_features(void);
-#endif /* DEBUG || DEVELOPMENT */
-
-extern i386_vmm_info_t  *cpuid_vmm_info(void);
-extern cwa_classifier_e cpuid_wa_required(cpu_wa_e wa);
-extern void cpuid_do_was(void);
-extern const char       *cpuid_vmm_family_string(void);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* ASSEMBLER */
 
 #endif /* _MACHINE_CPUID_H_ */

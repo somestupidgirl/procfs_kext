@@ -12,8 +12,6 @@
 #include <mach/mach_types.h>
 #include <mach/message.h>
 #include <mach/task.h>
-#include <mach/thread_act.h>
-#include <mach/thread_info.h>
 #include <sys/kauth.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
@@ -186,9 +184,6 @@ procfs_get_pid(proc_t p, void *udata)
 void
 procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds)
 {
-    int *p_nprocs = _nprocs;
-    int nprocs = *p_nprocs;
-
     uint32_t size = nprocs * sizeof(pid_t);
     pid_t *pidp = OSMalloc(size, procfs_osmalloc_tag);
 
@@ -198,7 +193,7 @@ procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t cre
     data.creds = creds;
     data.pids = pidp;
 
-    _proc_iterate(PROC_ALLPROCLIST, procfs_get_pid, &data, NULL, NULL);
+    proc_iterate(PROC_ALLPROCLIST, procfs_get_pid, &data, NULL, NULL);
 
     *pidpp = pidp;
     *sizep = size;
@@ -260,7 +255,7 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
     mach_msg_type_number_t count;
 
     // Get all of the threads in the task.
-    if (_task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
+    if (task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
         uint64_t thread_id_info[THREAD_IDENTIFIER_INFO_COUNT];
         uint64_t *threadid_ptr = (uint64_t *)OSMalloc(count * sizeof(uint64_t), procfs_osmalloc_tag);
         *thread_ids = threadid_ptr;
@@ -269,9 +264,9 @@ procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_c
         for (unsigned int i = 0; i < count && result == KERN_SUCCESS; i++) {
             unsigned int thread_info_count = THREAD_IDENTIFIER_INFO_COUNT;
             ipc_port_t thread_port = (ipc_port_t)threads[i];
-            thread_t thread = _convert_port_to_thread(thread_port);
+            thread_t thread = convert_port_to_thread(thread_port);
             if (thread != NULL) {
-                result = _thread_info(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&thread_id_info, &thread_info_count);
+                result = thread_info(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&thread_id_info, &thread_info_count);
                 if (result == KERN_SUCCESS) {
                     struct thread_identifier_info *idinfo = (struct thread_identifier_info *)thread_id_info;
                     *threadid_ptr++ = idinfo->thread_id;
@@ -388,6 +383,3 @@ procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid)
 
     return error;
 }
-
-
-

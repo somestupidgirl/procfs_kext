@@ -80,7 +80,7 @@ proc_pidshortbsdinfo(proc_t p, struct proc_bsdshortinfo * pbsd_shortp, int zombi
         pbsd_shortp->pbsi_flags |= PROC_FLAG_THCWD;
     }
 
-    if (_proc_issetugid(p) != 0)  {
+    if (proc_issetugid(p) != 0)  {
         pbsd_shortp->pbsi_flags |= PROC_FLAG_PSUGID;
     }
 
@@ -114,9 +114,8 @@ proc_pidshortbsdinfo(proc_t p, struct proc_bsdshortinfo * pbsd_shortp, int zombi
     };
 
     /* if process is a zombie skip bg state */
-    // FIXME:
-    if ((zombie == 0) && (proc_status != SZOMB) && (_proc_task(p) != TASK_NULL)) {
-        _proc_get_darwinbgstate(_proc_task(p), &pbsd_shortp->pbsi_flags);
+    if ((zombie == 0) && (proc_status != SZOMB) && (proc_task(p) != TASK_NULL)) {
+        proc_get_darwinbgstate(proc_task(p), &pbsd_shortp->pbsi_flags);
     }
 
     return 0;
@@ -129,7 +128,7 @@ int
 proc_pidtaskinfo(proc_t p, struct proc_taskinfo * ptinfo)
 {
     bzero(ptinfo, sizeof(struct proc_taskinfo));
-    _fill_taskprocinfo(_proc_task(p), (struct proc_taskinfo_internal *)ptinfo);
+    fill_taskprocinfo(proc_task(p), (struct proc_taskinfo_internal *)ptinfo);
 
     return 0;
 }
@@ -141,7 +140,7 @@ int
 proc_pidthreadinfo(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo)
 {
     bzero(pthinfo, sizeof(struct proc_threadinfo));
-    _fill_taskthreadinfo(_proc_task(p), (uint64_t)arg, thuniqueid, (struct proc_threadinfo_internal *)pthinfo, NULL, NULL);
+    fill_taskthreadinfo(proc_task(p), (uint64_t)arg, thuniqueid, (struct proc_threadinfo_internal *)pthinfo, NULL, NULL);
 
     return 0;
 }
@@ -191,7 +190,7 @@ fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fs
     context = vfs_context_create((vfs_context_t)0);
 
     if (!error) {
-        error = _vn_stat(vp, &sb, NULL, 1, 0, context);
+        error = vn_stat(vp, &sb, NULL, 1, 0, context);
         munge_vinfo_stat(&sb, &vinfo->vi_stat);
     }
 
@@ -305,13 +304,13 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
     thread_t th;
     uthread_t uth;
 
-    th = _vfs_context_thread(ctx);
-    uth = (uthread_t)_get_bsdthread_info(th); // returns th->uthread
+    th = vfs_context_thread(ctx);
+    uth = (uthread_t)get_bsdthread_info(th); // returns th->uthread
 
     // Should set vnode_t vp = uth->uu_cdir
     // but uth->uu_cdir still appears to be
     // NULL so vp remains NULL.
-    _bsd_threadcdir(uth, *resultvp, vidp);
+    bsd_threadcdir(uth, *resultvp, vidp);
 
     // vp never gets any value beyond NULL.
     if (vp == NULL) {
@@ -331,25 +330,25 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
     // it return an error message instead of
     // crashing.
     if (p->p_fd == NULL) {
-        p->p_fd = _fdcopy(p, vp);
+        p->p_fd = fdcopy(p, vp);
         fdp = p->p_fd;
-        _fdfree(p);
+        fdfree(p);
     } else {
         fdp = p->p_fd;
     }
 
-    _proc_fdlock_spin(p);
+    proc_fdlock_spin(p);
 
     if (fdp == NULL || fd < 0 ||
         (fd >= fdp->fd_nfiles) ||
         ((fp = fdp->fd_ofiles[fd]) == NULL) ||
         (fdp->fd_ofileflags[fd] & UF_RESERVED)) {
-        _proc_fdunlock(p);
+        proc_fdunlock(p);
         return (EBADF);
     }
 
     if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_VNODE) {
-        _proc_fdunlock(p);
+        proc_fdunlock(p);
         return (ENOTSUP);
     }
 
@@ -366,7 +365,7 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
     if (vidp) {
         *vidp = (uint32_t)vnode_vid((struct vnode *)fp->fp_glob->fg_data);
     }
-    _proc_fdunlock(p);
+    proc_fdunlock(p);
 
     return (0);
 }
@@ -402,15 +401,15 @@ fp_getfsock(proc_t p, int fd, struct fileproc **resultfp, socket_t *results)
     struct filedesc *fdp = p->p_fd;
     struct fileproc *fp;
 
-    _proc_fdlock_spin(p);
+    proc_fdlock_spin(p);
     if (fd < 0 || fd >= fdp->fd_nfiles ||
             (fp = fdp->fd_ofiles[fd]) == NULL ||
             (fdp->fd_ofileflags[fd] & UF_RESERVED)) {
-        _proc_fdunlock(p);
+        proc_fdunlock(p);
         return (EBADF);
     }
     if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_SOCKET) {
-        _proc_fdunlock(p);
+        proc_fdunlock(p);
         return(EOPNOTSUPP);
     }
 
@@ -423,7 +422,7 @@ fp_getfsock(proc_t p, int fd, struct fileproc **resultfp, socket_t *results)
     if (results) {
         *results = (socket_t)fp->fp_glob->fg_data;
     }
-    _proc_fdunlock(p);
+    proc_fdunlock(p);
 
     return (0);
 }
@@ -458,7 +457,7 @@ fp_drop(proc_t p, int fd, struct fileproc *fp, int locked)
     int needwakeup = 0;
 
     if (!locked) {
-        _proc_fdlock_spin(p);
+        proc_fdlock_spin(p);
     }
 
     if ((fp == FILEPROC_NULL) && (fd < 0 || fd >= fdp->fd_nfiles ||
@@ -466,7 +465,7 @@ fp_drop(proc_t p, int fd, struct fileproc *fp, int locked)
         ((fdp->fd_ofileflags[fd] & UF_RESERVED) &&
         !(fdp->fd_ofileflags[fd] & UF_CLOSING)))) {
         if (!locked) {
-            _proc_fdunlock(p);
+            proc_fdunlock(p);
         }
         return EBADF;
     }
@@ -483,7 +482,7 @@ fp_drop(proc_t p, int fd, struct fileproc *fp, int locked)
     }
 
     if (!locked) {
-        _proc_fdunlock(p);
+        proc_fdunlock(p);
     }
 
     if (needwakeup) {

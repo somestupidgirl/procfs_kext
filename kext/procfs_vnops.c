@@ -265,10 +265,10 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                     // Check whether it is a valid file descriptor.
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
                     if (target_proc != NULL) { // target_proc is released at loop end.
-                        _proc_fdlock_spin(target_proc);
-                        struct fdt_iterator iter = _fdt_next(target_proc, id - 1, true);
+                        proc_fdlock_spin(target_proc);
+                        struct fdt_iterator iter = fdt_next(target_proc, id - 1, true);
                         valid = iter.fdti_fd == id;
-                        _proc_fdunlock(target_proc);
+                        proc_fdunlock(target_proc);
                     }
                 }
 
@@ -342,7 +342,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                             uint64_t *thread_ids;
                             int thread_count;
                             
-                            task_t task = _proc_task(target_proc);
+                            task_t task = proc_task(target_proc);
                             int result =  procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
                             if (result == KERN_SUCCESS) {
                                 boolean_t found = FALSE;
@@ -587,7 +587,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 // until we fill up the space or run out of threads.
                 proc_t p = proc_find(pid);
                 if (p != NULL) {
-                    task_t task = _proc_task(p);
+                    task_t task = proc_task(p);
                     int thread_count;
                     uint64_t *thread_ids;
                     error = procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
@@ -632,10 +632,10 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                     struct fileproc *iter;
                     char fd_buffer[PROCESS_NAME_SIZE];
 
-                    _proc_fdlock_spin(p);
+                    proc_fdlock_spin(p);
                     fdt_foreach(iter, p) {
                         // Need to unlock before copy out in case of fault and because it's a "long" operation.
-                        _proc_fdunlock(p);
+                        proc_fdunlock(p);
 
                         snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
                         int size = procfs_calc_dirent_size(fd_buffer);
@@ -650,9 +650,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         }
                         nextpos += size;
                         i++;
-                        _proc_fdlock_spin(p);
+                        proc_fdlock_spin(p);
                     }
-                    _proc_fdunlock(p);
+                    proc_fdunlock(p);
 
                     break;   // Exit from the outer loop.
                 } else {

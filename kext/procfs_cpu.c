@@ -37,7 +37,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
      * Not to be conflated with cpu_cores (number of cores)
      * as these are not the same.
      */
-    uint32_t max_cpus = *_processor_count;
+    uint32_t max_cpus = processor_count;
 
     /*
      * Initialize the processor counter.
@@ -55,7 +55,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     /*
      * Initialize the TSC frequency variables.
      */
-    uint64_t freq = *_tscFreq;
+    uint64_t freq = tscFreq;
     int fqmhz = 0, fqkhz = 0;
 
     /* 
@@ -80,26 +80,26 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
      * to get the information we need. The cpuid_info() function sets up
      * the i386_cpu_info structure and returns a pointer to the structure.
      */
-    char *vendor_id = _cpuid_info()->cpuid_vendor;
-    uint8_t cpu_family = _cpuid_info()->cpuid_family;
-    uint8_t model = _cpuid_info()->cpuid_model + (_cpuid_info()->cpuid_extmodel << 4);
-    char *model_name = _cpuid_info()->cpuid_brand_string;
-    uint32_t microcode = _cpuid_info()->cpuid_microcode_version; // FIXME
-    uint32_t cache_size = _cpuid_info()->cpuid_cache_size;
-    uint8_t stepping = _cpuid_info()->cpuid_stepping;
-    uint32_t cpu_cores = _cpuid_info()->core_count;
+    char *vendor_id = cpuid_info()->cpuid_vendor;
+    uint8_t cpu_family = cpuid_info()->cpuid_family;
+    uint8_t model = cpuid_info()->cpuid_model + (cpuid_info()->cpuid_extmodel << 4);
+    char *model_name = cpuid_info()->cpuid_brand_string;
+    uint32_t microcode = cpuid_info()->cpuid_microcode_version; // FIXME
+    uint32_t cache_size = cpuid_info()->cpuid_cache_size;
+    uint8_t stepping = cpuid_info()->cpuid_stepping;
+    uint32_t cpu_cores = cpuid_info()->core_count;
     uint32_t cpuid_level = cpu_cores;
-    uint32_t tlb_size = _cpuid_info()->cache_linesize * 40;
-    uint32_t clflush_size = _cpuid_info()->cache_linesize;
+    uint32_t tlb_size = cpuid_info()->cache_linesize * 40;
+    uint32_t clflush_size = cpuid_info()->cache_linesize;
     uint32_t cache_alignment = clflush_size;
-    uint32_t addr_bits_phys = _cpuid_info()->cpuid_address_bits_physical;
-    uint32_t addr_bits_virt = _cpuid_info()->cpuid_address_bits_virtual;
+    uint32_t addr_bits_phys = cpuid_info()->cpuid_address_bits_physical;
+    uint32_t addr_bits_virt = cpuid_info()->cpuid_address_bits_virtual;
 
     /*
      * Check if the FPU feature is present.
      */
     char *fpu, *fpu_exception;
-    if (_cpuid_info()->cpuid_features & CPUID_FEATURE_FPU) {
+    if (cpuid_info()->cpuid_features & CPUID_FEATURE_FPU) {
         fpu = "yes";
         fpu_exception = "yes";
     } else {
@@ -139,7 +139,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
      * Allocate memory.
      */
     buffer_size = (LBFSZ * 4);
-    buffer = _MALLOC(buffer_size, M_TEMP, M_WAITOK);
+    buffer = malloc(buffer_size, M_TEMP, M_WAITOK);
 
     /*
      * Get the userspace virtual address.
@@ -291,8 +291,8 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
              * An unknown bug is causing the variable to reduce the
              * count down to 23 unless we do this.
              */
-            if (max_cpus != *_processor_count) {
-                max_cpus = *_processor_count;
+            if (max_cpus != processor_count) {
+                max_cpus = processor_count;
             }
         } else if (cnt_cpus > max_cpus) {
             /*
@@ -302,7 +302,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
              * Note: Freeing the memory after breaking the loop
              * results in a kernel panic for some reason.
              */
-            _FREE(&buffer, M_TEMP);
+            free(&buffer, M_TEMP);
             break;
         }
     }

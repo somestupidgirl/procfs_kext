@@ -36,63 +36,38 @@ SYM_INIT(processor_count);
 SYM_INIT(tscFreq);
 SYM_INIT(dead_mountp);
 
-// Process Locks
+// Functions
+SYM_INIT(vnode_lock);
+SYM_INIT(vnode_unlock);
 SYM_INIT(proc_list_lock);
 SYM_INIT(proc_list_unlock);
 SYM_INIT(proc_fdlock);
 SYM_INIT(proc_fdlock_spin);
 SYM_INIT(proc_fdunlock);
-SYM_INIT(vnode_lock);
-SYM_INIT(vnode_unlock);
-
-// Process Iteration
 SYM_INIT(proc_iterate);
-
-// Process Group and Session
 SYM_INIT(proc_pgrp);
-SYM_INIT(tty_pgrp);
 SYM_INIT(proc_session);
-
-// UID/GID
-SYM_INIT(proc_issetugid);
-
-// Process TTY
 SYM_INIT(proc_gettty);
 SYM_INIT(proc_gettty_dev);
-
-// Process Start Time
 SYM_INIT(proc_starttime);
-
-// Process Task
+SYM_INIT(proc_issetugid);
 SYM_INIT(proc_task);
-
-// Process Info
+SYM_INIT(proc_get_darwinbgstate);
+SYM_INIT(proc_limitgetcur);
 SYM_INIT(fill_socketinfo);
 SYM_INIT(fill_taskprocinfo);
 SYM_INIT(fill_taskthreadinfo);
-
-// Process Misc
-SYM_INIT(proc_get_darwinbgstate);
-SYM_INIT(proc_limitgetcur);
-
-// File Descriptor
 SYM_INIT(proc_fdlist);
 SYM_INIT(fdt_next);
 SYM_INIT(fdcopy);
 SYM_INIT(fdfree);
-
-// Thread
 SYM_INIT(convert_port_to_thread);
 SYM_INIT(task_threads);
 SYM_INIT(thread_info);
 SYM_INIT(bsd_threadcdir);
 SYM_INIT(get_bsdthread_info);
 SYM_INIT(vfs_context_thread);
-
-// CPU
 SYM_INIT(cpuid_info);
-
-// Vnode
 SYM_INIT(vn_stat);
 
 kern_return_t
@@ -109,64 +84,39 @@ resolve_symbols()
 	SYM_LOOKUP(tscFreq);
 	SYM_LOOKUP(dead_mountp);
 
-	// Process Locks
+	// Functions
+	SYM_LOOKUP(vnode_lock);
+	SYM_LOOKUP(vnode_unlock);
 	SYM_LOOKUP(proc_list_lock);
 	SYM_LOOKUP(proc_list_unlock);
 	SYM_LOOKUP(proc_fdlock);
 	SYM_LOOKUP(proc_fdlock_spin);
 	SYM_LOOKUP(proc_fdunlock);
-	SYM_LOOKUP(vnode_lock);
-	SYM_LOOKUP(vnode_unlock);
-
-	// Process Iteration
 	SYM_LOOKUP(proc_iterate);
-
-	// Process Group and Session
 	SYM_LOOKUP(proc_pgrp);
-	SYM_LOOKUP(tty_pgrp);
 	SYM_LOOKUP(proc_session);
-
-	// UID/GID
-	SYM_LOOKUP(proc_issetugid);
-
-	// Process TTY
 	SYM_LOOKUP(proc_gettty);
 	SYM_LOOKUP(proc_gettty_dev);
-
-	// Process Start Time
 	SYM_LOOKUP(proc_starttime);
-
-	// Process Task
+	SYM_LOOKUP(proc_issetugid);
 	SYM_LOOKUP(proc_task);
-
-	// Process Info
+	SYM_LOOKUP(proc_get_darwinbgstate);
+	SYM_LOOKUP(proc_limitgetcur);
 	SYM_LOOKUP(fill_socketinfo);
 	SYM_LOOKUP(fill_taskprocinfo);
 	SYM_LOOKUP(fill_taskthreadinfo);
 	SYM_LOOKUP(bsd_threadcdir);
-
-	// Process Misc
-	SYM_LOOKUP(proc_get_darwinbgstate);
-	SYM_LOOKUP(proc_limitgetcur);
-
-	// File Descriptor
 	SYM_LOOKUP(proc_fdlist);
 	SYM_LOOKUP(fdt_next);
 	SYM_LOOKUP(fdcopy);
 	SYM_LOOKUP(fdfree);
-
-	// Thread
 	SYM_LOOKUP(convert_port_to_thread);
 	SYM_LOOKUP(task_threads);
 	SYM_LOOKUP(thread_info);
 	SYM_LOOKUP(bsd_threadcdir);
 	SYM_LOOKUP(get_bsdthread_info);
 	SYM_LOOKUP(vfs_context_thread);
-
-	// CPU ID
 	SYM_LOOKUP(cpuid_info);
-
-	// Vnode
 	SYM_LOOKUP(vn_stat);
 				   
 	return KERN_SUCCESS;
