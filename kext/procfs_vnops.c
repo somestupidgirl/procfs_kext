@@ -612,13 +612,12 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                             thread_ids = NULL;
                         }
                     }
+                    proc_rele(p);
                     break;   // Exit from the outer loop.
                 } else {
                     // No process for the current pid.
                     error = ENOENT;
                 }
-                proc_rele(p);
-
                 if (error != 0) {
                     break;
                 }
@@ -636,13 +635,13 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                     fdt_foreach(iter, p) {
                         // Need to unlock before copy out in case of fault and because it's a "long" operation.
                         proc_fdunlock(p);
-
                         snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
                         int size = procfs_calc_dirent_size(fd_buffer);
 
                         // Copy out only if we are past the start offset.
                         if (nextpos >= startpos) {
                             error = procfs_copyout_dirent(VDIR, procfs_get_fileid(pid, i, base_node_id), fd_buffer, uio, &size);
+
                             if (error != 0 || size == 0) {
                                 break;
                             }
@@ -653,14 +652,12 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         proc_fdlock_spin(p);
                     }
                     proc_fdunlock(p);
-
+                    proc_rele(p);
                     break;   // Exit from the outer loop.
                 } else {
                     // No process for the current pid.
                     error = ENOENT;
                 }
-                proc_rele(p);
-
                 if (error != 0) {
                     break;
                 }
