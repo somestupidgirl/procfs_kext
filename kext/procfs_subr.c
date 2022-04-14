@@ -376,10 +376,10 @@ procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid)
     proc_t p = proc_find(pid);
     if (p != NULL) {
         error = procfs_check_can_access_process(creds, p);
+        proc_rele(p);
     } else {
         error = ESRCH;
     }
-    proc_rele(p);
 
     return error;
 }

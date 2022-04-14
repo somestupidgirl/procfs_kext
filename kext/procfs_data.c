@@ -57,10 +57,10 @@ procfs_read_ppid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p != NULL) {
         int ppid = proc_ppid(p);
         error = procfs_copy_data((char *)&ppid, sizeof(ppid), uio);
+        proc_rele(p);
     } else {
         error = ESRCH;
     }
-    proc_rele(p);
 
     return error;
 }
@@ -78,10 +78,10 @@ procfs_read_pgid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p != NULL) {
         pid_t pgrpid = proc_pgrpid(p);
         error = procfs_copy_data((char *)&pgrpid, sizeof(pgrpid), uio);
+        proc_rele(p);
     } else {
         error = ESRCH;
     }
-    proc_rele(p);
 
     return error;
 }
@@ -108,10 +108,10 @@ procfs_read_sid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
         proc_list_unlock();
 
         error = procfs_copy_data((char *)&session_id, sizeof(session_id), uio);
+        proc_rele(p);
     } else {
         error = ESRCH;
     }
-    proc_rele(p);
 
     return error;
 }
@@ -147,10 +147,10 @@ procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             }
         }
         proc_list_unlock();
+        proc_rele(p);
     } else {
         error = ESRCH;
     }
-    proc_rele(p);
 
     return error;
 }
@@ -176,9 +176,9 @@ procfs_read_proc_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         } else {
             error = ESRCH;
-        } 
+        }
+        proc_rele(p);
     }
-    proc_rele(p);
 
     return error;
 }
@@ -206,8 +206,8 @@ procfs_read_task_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         } else {
             error = ESRCH;
         }
+        proc_rele(p);
     }
-    proc_rele(p);
 
     return error;
 }
@@ -234,9 +234,9 @@ procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             error = procfs_copy_data((char *)&info, sizeof(info), uio);
         } else {
             error = ESRCH;
-        } 
+        }
+        proc_rele(p);
     }
-    proc_rele(p);
 
     return error;
 }
@@ -293,10 +293,10 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
             // Release the hold on the fileproc structure
             fp_drop(p, fd, fp, FALSE);
         }
+        proc_rele(p);
     } else {
         error = ESRCH;
     }
-    proc_rele(p);
     
     return error;
 }
@@ -336,10 +336,10 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             // Release the hold on the fileproc structure
             fp_drop(p, fd, fp, FALSE);
         }
+        proc_rele(p);
     } else {
         error = ESRCH;
     }
-    proc_rele(p);
 
     return error;
 }
@@ -458,8 +458,8 @@ procfs_fd_node_size(pfsnode_t *pnp, __unused kauth_cred_t creds)
             count++;
         }
         proc_fdunlock(p);
+        proc_rele(p);
     }
-    proc_rele(p);
 
     return count;
 }
