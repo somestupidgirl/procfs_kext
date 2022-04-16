@@ -88,11 +88,11 @@ procfs_structure_init(void)
                         PFScpuinfo, next_node_id++, 0, 0, NULL, procfs_docpuinfo);
 
         // A link in the root node to the current process entry. This will become a symbolic link.
-        add_node(root_node, "curproc", PFScurproc, next_node_id++, 0, 0, NULL, NULL);
+        pfssnode_t *curproc = add_node(root_node, "curproc", PFScurproc, next_node_id++, 0, 0, NULL, NULL);
 
         // A pseudo-entry below "byname" that is replaced by nodes for all of the visible processes.
         // NOTE: this must be the last child entry for the "byname" node.
-        add_directory(proc_by_name_dir, "__Process_N__",
+        pfssnode_t *proc_name_dir = add_directory(proc_by_name_dir, "__Process_N__",
                         PFSprocnamedir, next_node_id++, PSN_FLAG_PROCESS, 0, procfs_process_node_size, NULL);
 
         // A pseudo-entry below "/" that is replaced by nodes for all of the visible processes.
@@ -124,10 +124,10 @@ procfs_structure_init(void)
 
         // Files that returns the process's pid, parent pid, process group id,
         // session id and controlling terminal name.
-        add_file(one_proc_dir, "pid", next_node_id++, PSN_FLAG_PROCESS, sizeof(pid_t), NULL, procfs_read_pid_data);
-        add_file(one_proc_dir, "ppid", next_node_id++, PSN_FLAG_PROCESS, sizeof(pid_t), NULL, procfs_read_ppid_data);
-        add_file(one_proc_dir, "pgid", next_node_id++, PSN_FLAG_PROCESS, sizeof(pid_t), NULL, procfs_read_pgid_data);
-        add_file(one_proc_dir, "sid", next_node_id++, PSN_FLAG_PROCESS, sizeof(pid_t), NULL, procfs_read_sid_data);
+        add_file(one_proc_dir, "pid", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_pid_data);
+        add_file(one_proc_dir, "ppid", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_ppid_data);
+        add_file(one_proc_dir, "pgid", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_pgid_data);
+        add_file(one_proc_dir, "sid", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_sid_data);
         add_file(one_proc_dir, "tty", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_tty_data);
         add_file(one_proc_dir, "info", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_bsdshortinfo), NULL, procfs_read_proc_info);
         add_file(one_proc_dir, "taskinfo", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_taskinfo), NULL, procfs_read_task_info);
@@ -137,7 +137,7 @@ procfs_structure_init(void)
 
         // --- Per file descriptor files.
         add_file(one_fd_dir, "details", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_threadinfo), NULL, procfs_read_fd_data);
-        add_file(one_fd_dir, "socket", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_socket_data);
+        add_file(one_fd_dir, "socket", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct socket_fdinfo), NULL, procfs_read_socket_data);
     }
 }
 
