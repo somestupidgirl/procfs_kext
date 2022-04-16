@@ -20,9 +20,6 @@
 #include "helpers.h"
 #include "symbols.h"
 
-struct uthread;
-typedef struct uthread * uthread_t;
-
 /*
  * From bsd/kern/proc_info.c
  */
