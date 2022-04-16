@@ -93,21 +93,11 @@ procfs_read_pgid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_sid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error = 0;
-    pid_t session_id = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
-        proc_list_lock();
-        struct pgrp *pgrp = p->p_pgrp;
-        if (pgrp != NULL) {
-            struct session *sp = pgrp->pg_session;
-            if (sp != NULL) {
-                session_id = sp->s_sid;
-            }
-        }
-        proc_list_unlock();
-
-        error = procfs_copy_data((char *)&session_id, sizeof(session_id), uio);
+        pid_t sid = proc_sessionid(p);
+        error = procfs_copy_data((const char *)&sid, sizeof(sid), uio);
         proc_rele(p);
     } else {
         error = ESRCH;
