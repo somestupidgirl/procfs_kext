@@ -2,14 +2,13 @@
 A kext implementation of the /proc file system for OS X based on the XNU kernel patch by Kim Topley: https://github.com/kimtopley/ProcFS
 
 ## Important notice
-This is still very much at an 'alpha' stage and not all features are yet working as they should. It may cause kernel panics in certain areas.
+This is still at somewhat of an 'alpha' stage, however most of the original features are stable and working at this point. The ones that aren't are the ones that handle the file descriptor data. For now they just have guards in place to return error messages instead of causing kernel panics. This should get fixed in the upcoming weeks.
 
 Tested on:
 
     - macOS Big Sur 11.6.3
 
 ## What is procfs?
-
 *From Kim Topley's original Readme:*
 
 *procfs* lets you view the processes running on a UNIX system as nodes in the file system, where each process is represented by a single directory named from its process id. Typically, the file system is mounted at `/proc`, so the directory for process 1 would be called `/proc/1`. Beneath a process’ directory are further directories and files that give more information about the process, such as its process id, its active threads, the files that it has open, and so on. *procfs* first appeared in an early version of AT&T’s UNIX and was later implemented in various forms in System V, BSD, Solaris and Linux. You can find a history of the implementation of *procfs* at https://en.wikipedia.org/wiki/Procfs.
@@ -61,27 +60,31 @@ Once mounted you can execute the `ls` command to list the contents:
 
     ls -l ~/proc
 
-This should also work recursively:
+Or recursively:
 
-    ls ~/proc/*/*/*
+    ls ~/proc/*/*/*/*
+
+Note: Finder support has not yet been implemented so the contents of the proc folder will not be visible there. Currently only terminal is supported.
 
 Likewise you can use the `cat` command to get the contents of a file:
 
     cat ~/proc/curproc/details
 
-Finder support has not yet been implemented.
+For files that display only raw data you can pipe it via `hexdump` to read the contents in a hexadecimal format:
+
+    cat proc ~/proc/curproc/details | hexdump -C
 
 ## TODO:
  - Add Finder support.
  - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
  - Implement more linux-compatible a la NetBSD and FreeBSD.
- - Improve AMD support.
- - Add support for ARM64.
+ - Improve AMD support for CPU-related portion.
+ - Add support for ARM64 once I can afford a new MBP.
 
 ## Issues
 Currently known issues:
 
- - Functions `procfs_read_thread_info`, `procfs_read_fd_data` and `procfs_read_socket_data` are currently not working.
+ - Functions `procfs_read_fd_data` and `procfs_read_socket_data` are currently not working as intended.
 
 ## Contributing and Bug Reporting
 If you wish to contribute to this project then feel free to make a pull request. If you encounter any undocumented bugs then you may also file an issue under the "Issues" tab.
