@@ -40,9 +40,6 @@ SYM_INIT(pgrp_unlock);
 SYM_INIT(pgrp_iterate);
 
 SYM_INIT(proc_session);
-SYM_INIT(setsid);
-SYM_INIT(setsid_internal);
-SYM_INIT(session_find_internal);
 SYM_INIT(session_rele);
 SYM_INIT(session_lock);
 SYM_INIT(session_unlock);
@@ -117,9 +114,6 @@ resolve_symbols(void)
 	SYM_LOOKUP(pgrp_iterate);
 
 	SYM_LOOKUP(proc_session);
-	SYM_LOOKUP(setsid);
-	SYM_LOOKUP(setsid_internal);
-	SYM_LOOKUP(session_find_internal);
 	SYM_LOOKUP(session_rele);
 	SYM_LOOKUP(session_lock);
 	SYM_LOOKUP(session_unlock);

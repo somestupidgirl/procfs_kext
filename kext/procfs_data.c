@@ -117,26 +117,22 @@ procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
-        proc_list_lock();
-        struct pgrp * pgrp = p->p_pgrp;
-        if (pgrp != NULL) {
-            // Get the controlling terminal vnode from the process session,
-            // if it has one.
-            struct session *sp = pgrp->pg_session;
-            if (sp != NULL) {
-                vnode_t cttyvp;
-                cttyvp = sp->s_ttyvp;
-                if (cttyvp != NULL) {
-                    // Convert the vnode to a full path.
-                    int name_len = MAXPATHLEN;
-                    char name_buf[MAXPATHLEN + 1];
-                    
-                    vn_getpath(cttyvp, name_buf, &name_len);
-                    error = procfs_copy_data((const char *)&name_buf, name_len, uio);
-                }
+        // Get the controlling terminal vnode from the process session,
+        // if it has one.
+        struct session *sp = proc_session(p);
+        if (sp != SESSION_NULL) {
+            session_lock(sp);
+            vnode_t cttyvp = sp->s_ttyvp;
+            session_unlock(sp);
+            if (cttyvp != NULLVP) {
+                // Convert the vnode to a full path.
+                int name_len = MAXPATHLEN;
+                char name_buf[MAXPATHLEN + 1];
+                vn_getpath(cttyvp, name_buf, &name_len);
+                error = procfs_copy_data((const char *)&name_buf, name_len, uio);
             }
+            session_rele(sp);
         }
-        proc_list_unlock();
         proc_rele(p);
     } else {
         error = ESRCH;

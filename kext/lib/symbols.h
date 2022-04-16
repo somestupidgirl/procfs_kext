@@ -154,24 +154,6 @@ extern struct session *         (*_proc_session)(proc_t p);
 extern void                     (*_session_rele)(struct session *sess);
 #define                         session_rele(sess) \
                                 _session_rele(sess)
-
-extern struct session *         (*_session_find_internal)(pid_t sessid);
-#define                         session_find_internal(sess) \
-                                _session_find_internal(sess)
-
-/*
- * Create a new session and set the process group ID to the session ID
- * Returns 0 on success, EPERM on failure.
- */
-extern int                      (*_setsid)(proc_t p, __unused struct setsid_args *uap, int32_t *retval);
-#define                         setsid(p, uap, retval) \
-                                _setsid(p, uap, retval)
-/*
- * Core implementation of setsid().
- */
-extern int                      (*_setsid_internal)(struct proc *p);
-#define                         setsid_internal(p) \
-                                _setsid_internal(p)
 /*
  * Mutex lock for session.
  */
