@@ -2,7 +2,7 @@
 A kext implementation of the /proc file system for OS X based on the XNU kernel patch by Kim Topley: https://github.com/kimtopley/ProcFS
 
 ## Important notice
-This is still very much at an 'alpha' stage and not all features are yet working as they should. It *will* cause kernel panics in certain areas.
+This is still very much at an 'alpha' stage and not all features are yet working as they should. It may cause kernel panics in certain areas.
 
 Tested on:
 
@@ -81,9 +81,7 @@ Finder support has not yet been implemented.
 ## Issues
 Currently known issues:
 
- - Functions `procfs_read_thread_info`, `procfs_read_fd_data` and `procfs_read_socket_data` are currently ridden with bugs.
- - A bug in procfs_read_sid_data will result in a kernel panic when executing cat on `/proc/<pid>/sid`.
- - A bug in procfs_read_tty_data will result in a kernel panic when executing cat on `/proc/<pid>/tty`.
+ - Functions `procfs_read_thread_info`, `procfs_read_fd_data` and `procfs_read_socket_data` are currently not working.
 
 ## Contributing and Bug Reporting
 If you wish to contribute to this project then feel free to make a pull request. If you encounter any undocumented bugs then you may also file an issue under the "Issues" tab.
