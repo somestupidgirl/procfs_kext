@@ -40,7 +40,7 @@ int
 procfs_read_pid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     int pid = pnp->node_id.nodeid_pid;
-    int error = procfs_copy_data((char *)&pid, sizeof(pid), uio);
+    int error = procfs_copy_data((const char *)&pid, sizeof(pid), uio);
     return error;
 }
 
@@ -56,7 +56,7 @@ procfs_read_ppid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         int ppid = proc_ppid(p);
-        error = procfs_copy_data((char *)&ppid, sizeof(ppid), uio);
+        error = procfs_copy_data((const char *)&ppid, sizeof(ppid), uio);
         proc_rele(p);
     } else {
         error = ESRCH;
@@ -77,7 +77,7 @@ procfs_read_pgid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p != NULL) {
         pid_t pgrpid = proc_pgrpid(p);
-        error = procfs_copy_data((char *)&pgrpid, sizeof(pgrpid), uio);
+        error = procfs_copy_data((const char *)&pgrpid, sizeof(pgrpid), uio);
         proc_rele(p);
     } else {
         error = ESRCH;
@@ -132,7 +132,7 @@ procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                     char name_buf[MAXPATHLEN + 1];
                     
                     vn_getpath(cttyvp, name_buf, &name_len);
-                    error = procfs_copy_data(name_buf, name_len, uio);
+                    error = procfs_copy_data((const char *)&name_buf, name_len, uio);
                 }
             }
         }
@@ -163,7 +163,7 @@ procfs_read_proc_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         // Get the BSD-centric process info and copy it out.
         error = proc_pidshortbsdinfo(p, &info, 0);
         if (error == 0) {
-            error = procfs_copy_data((char *)&info, sizeof(info), uio);
+            error = procfs_copy_data((const char *)&info, sizeof(info), uio);
         } else {
             error = ESRCH;
         }
@@ -192,7 +192,7 @@ procfs_read_task_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         // Get the task info and copy it out.
         error = proc_pidtaskinfo(p, &info);
         if (error == 0) {
-            error = procfs_copy_data((char *)&info, sizeof(info), uio);
+            error = procfs_copy_data((const char *)&info, sizeof(info), uio);
         } else {
             error = ESRCH;
         }
@@ -221,7 +221,7 @@ procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         // Get the task info and copy it out.
         error = proc_pidthreadinfo(p, threadid, TRUE, &info);
         if (error == 0) {
-            error = procfs_copy_data((char *)&info, sizeof(info), uio);
+            error = procfs_copy_data((const char *)&info, sizeof(info), uio);
         } else {
             error = ESRCH;
         }
@@ -275,7 +275,7 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                     int count = MAXPATHLEN;
                     vn_getpath(vp, info.pvip.vip_path, &count);
                     info.pvip.vip_path[MAXPATHLEN-1] = 0;
-                    error = procfs_copy_data((char *)&info, sizeof(info), uio);
+                    error = procfs_copy_data((const char *)&info, sizeof(info), uio);
                 }
                 // Release the vnode hold.
                 vnode_put(vp);
@@ -321,7 +321,7 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             fill_fileinfo(fp, p, fd, &info.pfi);
             error = fill_socketinfo(so, &info.psi);
             if (error == 0) {
-                error = procfs_copy_data((char *)&info, sizeof(info), uio);
+                error = procfs_copy_data((const char *)&info, sizeof(info), uio);
             }
             // Release the hold on the fileproc structure
             fp_drop(p, fd, fp, FALSE);
@@ -468,10 +468,19 @@ int
 procfs_copy_data(const char *data, int data_len, uio_t uio)
 {
     int error = 0;
+
     off_t start_offset = uio_offset(uio);
     data_len -= start_offset;
-    if (data_len >= 0) {
-        error = uiomove(data + start_offset, (int)data_len, uio);
+
+    if ((data_len >= 0) && (data != NULL)) {
+        error = uiomove(data + start_offset, data_len, uio);
+    } else if ((data_len >= 0) && (data == NULL)) {
+        error = EFAULT;
+    } else if ((data_len <= 0) && (data != NULL)) {
+        error = EIO;
+    } else {
+        error = ENOTSUP;
     }
+
     return error;
 }
