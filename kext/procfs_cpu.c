@@ -10,6 +10,7 @@
 #include <i386/tsc.h>
 #include <libkern/libkern.h>
 #include <libkern/OSMalloc.h>
+#include <libkern/version.h>
 #include <libkext/libkext.h>
 #include <mach/machine.h>
 #include <sys/errno.h>
@@ -305,4 +306,28 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     free(buffer, M_TEMP);
 
     return 0;
+}
+
+int
+procfs_doversion(__unused pfsnode_t pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    int error = 0;
+    int len = 0;
+    int xlen = 0;
+
+    size_t bufsz = (LBFSZ * 4);
+    char *buf = malloc(bufsz, M_TEMP, M_WAITOK);
+
+    vm_offset_t uva = uio_offset(uio);
+    vm_offset_t pageno = trunc_page(uva);
+    off_t page_offset = (uva - pageno);
+
+    len = snprintf(buf, bufsz, "Darwin version %d.%d", version_major, version_minor);
+    xlen = imin((len - page_offset), uio_resid(uio));
+
+    error = uiomove(buf, xlen, uio);
+
+    free(buf, M_TEMP);
+
+    return error;
 }

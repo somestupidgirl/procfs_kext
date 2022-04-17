@@ -76,7 +76,8 @@ typedef enum {
     PFScurproc,     /* symbolic link for curproc */
     PFSprocnamedir, /* directory for a process labeled with its command line */
     PFSfd,          /* a directory containing the processes open fd's */
-    PFScpuinfo,     /* /proc/cpuinfo */
+    PFScpuinfo,     /* Linux-compatible /proc/cpuinfo */
+    PFSversion,     /* Linux-compatible /proc/version */
 } pfstype;
 
 typedef struct pfsnode pfsnode_t;
@@ -335,7 +336,8 @@ procfs_should_access_check(pfsmount_t *pmp)
 static inline boolean_t
 procfs_is_directory_type(pfstype type)
 {
-    return type != PFSfile && type != PFScurproc && type != PFScpuinfo;
+    return type != PFScurproc && type != PFSfile
+        && type != PFScpuinfo && type != PFSversion;
 }
 
 /* Gets the pid_t for the process corresponding to a pfsnode_t. */
@@ -399,7 +401,9 @@ extern int procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 extern int procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
+/* Linux-compatible features */
 extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_doversion(pfsnode_t pnp, uio_t uio, vfs_context_t ctx);
 
 /* Functions that return the data size for a node. */
 extern size_t procfs_get_node_size_attr(pfsnode_t *pnp, kauth_cred_t creds);

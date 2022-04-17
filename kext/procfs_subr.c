@@ -86,7 +86,8 @@ boolean_t
 procfs_node_type_has_pid(pfstype node_type)
 {
     return node_type != PFSroot && node_type != PFScurproc
-                    && node_type != PFSdir;
+        && node_type != PFSdir && node_type != PFScpuinfo
+        && node_type != PFSversion;
 }
 
 /*

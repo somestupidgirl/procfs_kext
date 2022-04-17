@@ -83,12 +83,15 @@ procfs_structure_init(void)
         pfssnode_t *proc_by_name_dir = add_directory(root_node, "byname",
                         PFSdir, next_node_id++, 0, 0, NULL, NULL);
 
-        // A file that displays information about the CPU, emulating the Linux /proc/cpuinfo feature.
+        // Linux-compatible /proc/cpuinfo
         pfssnode_t *cpuinfo = add_node(root_node, "cpuinfo",
                         PFScpuinfo, next_node_id++, 0, 0, NULL, procfs_docpuinfo);
 
         // A link in the root node to the current process entry. This will become a symbolic link.
         pfssnode_t *curproc = add_node(root_node, "curproc", PFScurproc, next_node_id++, 0, 0, NULL, NULL);
+
+        // Linux-compatible /proc/version
+        pfssnode_t *version = add_node(root_node, "version", PFSversion, next_node_id++, 0, 0, NULL, procfs_doversion);
 
         // A pseudo-entry below "byname" that is replaced by nodes for all of the visible processes.
         // NOTE: this must be the last child entry for the "byname" node.
