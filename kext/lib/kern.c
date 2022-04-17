@@ -297,41 +297,39 @@ fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **res
     struct fileproc *fp;
     struct filedesc *fdp;
 
-    if (p->p_fd == NULL) {
-        return (EFAULT);
-    } else {
+    if (p != PROC_NULL) {
+        proc_fdlock_spin(p);
         fdp = p->p_fd;
-    }
 
-    proc_fdlock_spin(p);
+        if (fdp == NULL || fd < 0 || fd >= fdp->fd_nfiles ||
+           (fp = fdp->fd_ofiles[fd]) == NULL ||
+           (fdp->fd_ofileflags[fd]) & UF_RESERVED) {
+            proc_fdunlock(p);
+            return (EBADF);
+        }
 
-    if (fdp == NULL || fd < 0 ||
-        (fd >= fdp->fd_nfiles) ||
-        ((fp = fdp->fd_ofiles[fd]) == NULL) ||
-        (fdp->fd_ofileflags[fd] & UF_RESERVED)) {
+        if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_VNODE) {
+            proc_fdunlock(p);
+            return (ENOTSUP);
+        }
+
+        fp->fp_glob->fg_count++;
+
+        if (resultfp) {
+            *resultfp = fp;
+        }
+
+        if (resultvp) {
+            *resultvp = (struct vnode *)fp->fp_glob->fg_data;
+        }
+
+        if (vidp) {
+            *vidp = (uint32_t)vnode_vid((struct vnode *)fp->fp_glob->fg_data);
+        }
         proc_fdunlock(p);
-        return (EBADF);
+    } else {
+        return (ESRCH);
     }
-
-    if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_VNODE) {
-        proc_fdunlock(p);
-        return (ENOTSUP);
-    }
-
-    fp->fp_glob->fg_count++;
-
-    if (resultfp) {
-        *resultfp = fp;
-    }
-
-    if (resultvp) {
-        *resultvp = (struct vnode *)fp->fp_glob->fg_data;
-    }
-
-    if (vidp) {
-        *vidp = (uint32_t)vnode_vid((struct vnode *)fp->fp_glob->fg_data);
-    }
-    proc_fdunlock(p);
 
     return (0);
 }
@@ -367,42 +365,44 @@ fp_getfsock(proc_t p, int fd, struct fileproc **resultfp, socket_t *results)
     struct filedesc *fdp;
     struct fileproc *fp;
 
-    if (p->p_fd == NULL) {
-        return (EFAULT);
-    } else {
+    if (p != PROC_NULL) {
         fdp = p->p_fd;
-    }
 
-    if (*resultfp == NULL) {
-        return (EBADF);
-    }
+        if (*resultfp == NULL) {
+            proc_rele(p);
+            return (EBADF);
+        }
 
-    if (results == NULL) {
-        return (ENOTSOCK);
-    }
+        if (results == NULL) {
+            proc_rele(p);
+            return (ENOTSOCK);
+        }
 
-    proc_fdlock_spin(p);
-    if (fd < 0 || fd >= fdp->fd_nfiles ||
-            (fp = fdp->fd_ofiles[fd]) == NULL ||
-            (fdp->fd_ofileflags[fd] & UF_RESERVED)) {
+        proc_fdlock_spin(p);
+        if (fd < 0 || fd >= fdp->fd_nfiles ||
+           (fp = fdp->fd_ofiles[fd]) == NULL ||
+           (fdp->fd_ofileflags[fd] & UF_RESERVED)) {
+            proc_fdunlock(p);
+            return (EBADF);
+        }
+        if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_SOCKET) {
+            proc_fdunlock(p);
+            return(EOPNOTSUPP);
+        }
+
+        fp->fp_glob->fg_count++;
+
+        if (resultfp) {
+            *resultfp = fp;
+        }
+
+        if (results) {
+            *results = (socket_t)fp->fp_glob->fg_data;
+        }
         proc_fdunlock(p);
-        return (EBADF);
+    } else {
+        return (ESRCH);
     }
-    if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_SOCKET) {
-        proc_fdunlock(p);
-        return(EOPNOTSUPP);
-    }
-
-    fp->fp_glob->fg_count++;
-
-    if (resultfp) {
-        *resultfp = fp;
-    }
-
-    if (results) {
-        *results = (socket_t)fp->fp_glob->fg_data;
-    }
-    proc_fdunlock(p);
 
     return (0);
 }
@@ -433,44 +433,46 @@ fp_getfsock(proc_t p, int fd, struct fileproc **resultfp, socket_t *results)
 int
 fp_drop(proc_t p, int fd, struct fileproc *fp, int locked)
 {
-    struct filedesc *fdp = p->p_fd;
+    struct filedesc *fdp;
     int needwakeup = 0;
 
-    if (fdp == NULL) {
-        return (EFAULT);
-    }
+    if (p != PROC_NULL) {
+        fdp = p->p_fd;
 
-    if (!locked) {
-        proc_fdlock_spin(p);
-    }
+        if (!locked) {
+            proc_fdlock_spin(p);
+        }
 
-    if ((fp == FILEPROC_NULL) && (fd < 0 || fd >= fdp->fd_nfiles ||
-        (fp = fdp->fd_ofiles[fd]) == NULL ||
-        ((fdp->fd_ofileflags[fd] & UF_RESERVED) &&
-        !(fdp->fd_ofileflags[fd] & UF_CLOSING)))) {
+        if ((fp == FILEPROC_NULL) && (fd < 0 || fd >= fdp->fd_nfiles ||
+            (fp = fdp->fd_ofiles[fd]) == NULL ||
+            ((fdp->fd_ofileflags[fd] & UF_RESERVED) &&
+            !(fdp->fd_ofileflags[fd] & UF_CLOSING)))) {
+            if (!locked) {
+                proc_fdunlock(p);
+            }
+            return (EBADF);
+        }
+
+        if (1 == os_ref_release_locked(&fp->fp_iocount)) {
+            if (fp->fp_flags & FP_SELCONFLICT) {
+                fp->fp_flags &= ~FP_SELCONFLICT;
+            }
+
+            if (p->p_fpdrainwait) {
+                p->p_fpdrainwait = 0;
+                needwakeup = 1;
+            }
+        }
+
         if (!locked) {
             proc_fdunlock(p);
         }
-        return EBADF;
-    }
 
-    if (1 == os_ref_release_locked(&fp->fp_iocount)) {
-        if (fp->fp_flags & FP_SELCONFLICT) {
-            fp->fp_flags &= ~FP_SELCONFLICT;
+        if (needwakeup) {
+            wakeup(&p->p_fpdrainwait);
         }
-
-        if (p->p_fpdrainwait) {
-            p->p_fpdrainwait = 0;
-            needwakeup = 1;
-        }
-    }
-
-    if (!locked) {
-        proc_fdunlock(p);
-    }
-
-    if (needwakeup) {
-        wakeup(&p->p_fpdrainwait);
+    } else {
+        return (ESRCH);
     }
 
     return 0;
