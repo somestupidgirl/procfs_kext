@@ -1,9 +1,9 @@
 /*
  * Copyright (c) 2022 Sunneva Jonsdottir
  *
- * procfs_cpu.c
+ * procfs_linux.c
  *
- * Functions to provide CPU information and statistics.
+ * Linux-compatible features.
  */
 #include <string.h>
 #include <i386/cpuid.h>
@@ -308,6 +308,9 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     return 0;
 }
 
+/*
+ * WIP
+ */
 int
 procfs_doversion(__unused pfsnode_t pnp, uio_t uio, __unused vfs_context_t ctx)
 {
