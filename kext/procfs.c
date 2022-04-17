@@ -14,6 +14,7 @@
 #include <libkext/libkext.h>
 #include <mach/kmod.h>
 #include <mach/mach_types.h>
+#include <os/log.h>
 #include <sys/mount.h>
 
 #include <miscfs/procfs/procfs.h>
@@ -92,43 +93,38 @@ procfs_start(kmod_info_t *ki, __unused void *d)
     int ret = 0;
     uuid_string_t uuid;
 
-    LOG_DBG("%s \n", version);     /* Print darwin kernel version */
+    os_log(OS_LOG_TYPE_DEFAULT, "%s \n", version);     /* Print darwin kernel version */
 
     ret = libkext_vma_uuid(ki->address, uuid);
     kassert(ret == 0);
-    LOG_DBG("kext executable uuid %s \n", uuid);
+    os_log(OS_LOG_TYPE_DEFAULT, "kext executable uuid %s \n", uuid);
 
     ret = resolve_symbols();
     if (ret != KERN_SUCCESS) {
-        LOG_ERR("resolve_symbols() failed errno:  %d \n", ret);
-        goto out_error;
+        os_log(OS_LOG_TYPE_DEFAULT, "resolve_symbols() failed errno:  %d \n", ret);
+        return KERN_FAILURE;
     }
 
     ret = procfs_init(vfsc);
     if (ret != 0) {
-        LOG_ERR("procfs_init() failed errno:  %d \n", ret);
-        goto out_error;
+        os_log(OS_LOG_TYPE_DEFAULT, "procfs_init() failed errno:  %d \n", ret);
+        return KERN_FAILURE;
     }
-    LOG_DBG("lock group(%s) allocated \n", PROCFS_LCKGRP_NAME);
+    os_log(OS_LOG_TYPE_DEFAULT, "lock group(%s) allocated \n", PROCFS_LCKGRP_NAME);
 
     ret = vfs_fsadd(&procfs_vfsentry, &procfs_vfs_table_ref);
     if (ret != 0) {
-        LOG_ERR("vfs_fsadd() failure  errno: %d \n", ret);
+        os_log(OS_LOG_TYPE_DEFAULT, "vfs_fsadd() failure  errno: %d \n", ret);
         procfs_vfs_table_ref = NULL;
-        goto out_vfsadd;
+        procfs_fini();
+        return KERN_FAILURE;
     }
-    LOG_DBG("%s file system registered", procfs_vfsentry.vfe_fsname);
+    os_log(OS_LOG_TYPE_DEFAULT, "%s file system registered", procfs_vfsentry.vfe_fsname);
 
-    LOG_DBG("loaded %s version %s build %s (%s) \n",
+    os_log(OS_LOG_TYPE_DEFAULT, "loaded %s version %s build %s (%s) \n",
         BUNDLEID_S, KEXTVERSION_S, KEXTBUILD_S, __TS__);
 
     return KERN_SUCCESS;
-
-out_vfsadd:
-    procfs_fini();
-
-out_error:
-    return KERN_FAILURE;
 }
 
 kern_return_t
@@ -139,26 +135,23 @@ procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 
     ret = libkext_vma_uuid(ki->address, uuid);
     if (ret != 0) {
-        LOG_ERR("util_vma_uuid() failed  errno: %d \n", ret);
-        goto out_error;
+        os_log(OS_LOG_TYPE_DEFAULT, "util_vma_uuid() failed  errno: %d \n", ret);
+        return KERN_FAILURE;
     }
 
     ret = vfs_fsremove(procfs_vfs_table_ref);
     if (ret != 0) {
-        LOG_ERR("vfs_fsremove() failure  errno: %d \n", ret);
-        goto out_error;
+        os_log(OS_LOG_TYPE_DEFAULT, "vfs_fsremove() failure  errno: %d \n", ret);
+        return KERN_FAILURE;
     }
 
     procfs_fini();
     libkext_massert();
 
-    LOG_DBG("unloaded %s version %s build %s (%s) \n",
+    os_log(OS_LOG_TYPE_DEFAULT, "unloaded %s version %s build %s (%s) \n",
         BUNDLEID_S, KEXTVERSION_S, KEXTBUILD_S, __TS__);
 
     return KERN_SUCCESS;
-
-out_error:
-    return KERN_FAILURE;
 }
 
 KMOD_EXPLICIT_DECL (BUNDLEID_S, KEXTBUILD_S, procfs_start, procfs_stop)

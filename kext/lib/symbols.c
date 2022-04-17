@@ -3,8 +3,7 @@
  *
  * symbols.c
  *
- * This file holds a function for resolving given symbols.
- * It gets called only once during the kext's start routine.
+ * This file holds a function for resolving private KPI symbols.
  */
 #include <libklookup/klookup.h>
 #include <mach/kern_return.h>
@@ -12,10 +11,33 @@
 #include "symbols.h"
 
 /*
- * Initialize the symbols with NULL. 
+ * Declares a symbol, initializing it with NULL.
+ * This must be done before we resolve them in
+ * the resolve_symbols() routine below.
+ *
+ * They receive their respective types from the
+ * symbols.h header. 
  */
-#define SYM_INIT(sym) __typeof(_##sym) _##sym = NULL
+#define SYM_INIT(sym) \
+	__typeof(_##sym) _##sym = NULL
 
+/*
+ * Defines a symbol using the SymbolLookup()
+ * function.
+ *
+ * Caution: If a symbol can't be resolved it
+ * will result in a panic on system startup.
+ * This should get fixed in the future.
+ */
+#define SYM_LOOKUP(sym) { \
+    if (!(_##sym = SymbolLookup("_"#sym))) { \
+        return KERN_FAILURE; \
+    } \
+}
+
+/*
+ * Initialize our symbols.
+ */
 SYM_INIT(initproc);
 SYM_INIT(allproc);
 SYM_INIT(nprocs);
@@ -50,11 +72,13 @@ SYM_INIT(tty_lock);
 SYM_INIT(tty_unlock);
 
 SYM_INIT(proc_fdlist);
+SYM_INIT(fdalloc);
 SYM_INIT(fdt_next);
 SYM_INIT(fdt_prev);
 SYM_INIT(fdcopy);
 SYM_INIT(fdfree);
 SYM_INIT(proc_fdlock);
+SYM_INIT(proc_fdlock_assert);
 SYM_INIT(proc_fdlock_spin);
 SYM_INIT(proc_fdunlock);
 
@@ -79,14 +103,22 @@ SYM_INIT(tscFreq);
 SYM_INIT(cpuid_info);
 
 /*
- * Resolve the symbols.
+ * Routine: resolve_symbols()
+ *
+ * Called only once by procfs_start() to resolve
+ * private KPI symbols on kext startup. This allows
+ * us to call them like normal functions without
+ * having to call SymbolLookup() at the start of
+ * every function that requires the private KPI.
+ *
+ * When adding new symbols they must also be added
+ * to the symbols.h header.
+ *
+ * Return values:
+ *
+ *		KERN_SUCCESS (0) if successful.
+ *		KERN_FAILURE (5) if unsuccessful.
  */
-#define SYM_LOOKUP(sym) { \
-    if (!(_##sym = SymbolLookup("_"#sym))) { \
-        return KERN_FAILURE; \
-    } \
-}
-
 kern_return_t
 resolve_symbols(void)
 {
@@ -124,11 +156,13 @@ resolve_symbols(void)
 	SYM_LOOKUP(tty_unlock);
 
 	SYM_LOOKUP(proc_fdlist);
+	SYM_LOOKUP(fdalloc);
 	SYM_LOOKUP(fdt_next);
 	SYM_LOOKUP(fdt_prev);
 	SYM_LOOKUP(fdcopy);
 	SYM_LOOKUP(fdfree);
 	SYM_LOOKUP(proc_fdlock);
+	SYM_LOOKUP(proc_fdlock_assert);
 	SYM_LOOKUP(proc_fdlock_spin);
 	SYM_LOOKUP(proc_fdunlock);
 

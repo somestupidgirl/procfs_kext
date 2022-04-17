@@ -202,6 +202,9 @@ extern void                     (*_tty_unlock)(struct tty *tp);
 #pragma mark -
 #pragma mark File descriptor
 
+extern int                      (*_fdalloc)(proc_t p, int want, int *result);
+#define                         fdalloc(p, want, result) \
+                                _fdalloc(p, want, result)
 /*
  * Copies a filedesc structure.  This is normally used as part of
  * forkproc() when forking a new process, to copy the per process
@@ -220,11 +223,29 @@ extern void                     (*_fdfree)(proc_t p);
 #define                         fdfree(p) \
                                 _fdfree(p)
 /*
+ * Filedesc table iteration: next.
+ */
+extern struct fdt_iterator      (*_fdt_next)(proc_t p, int fd, bool only_settled);
+#define                         fdt_next(p, fd, only_settled) \
+                                _fdt_next(p, fd, only_settled)
+/*
+ * Filedesc table iteration: previous.
+ */
+extern struct fdt_iterator      (*_fdt_prev)(proc_t p, int fd, bool only_settled);
+#define                         fdt_prev(p, fd, only_settled) \
+                                _fdt_prev(p, fd, only_settled)
+/*
  * Mutex lock for process file descriptor.
  */
 extern void                     (*_proc_fdlock)(proc_t p);
 #define                         proc_fdlock(p) \
                                 _proc_fdlock(p)
+/*
+ * Mutex lock assert for process file descriptor.
+ */
+extern void                     (*_proc_fdlock_assert)(proc_t p, int assertflags);
+#define                         proc_fdlock_assert(p, assertflags) \
+                                _proc_fdlock_assert(p, assertflags)
 /*
  * Mutex spinlock for process file descriptor.
  */
@@ -237,18 +258,6 @@ extern void                     (*_proc_fdlock_spin)(proc_t p);
 extern void                     (*_proc_fdunlock)(proc_t p);
 #define                         proc_fdunlock(p) \
                                 _proc_fdunlock(p)
-/*
- * Filedesc table iteration: next.
- */
-extern struct fdt_iterator      (*_fdt_next)(proc_t p, int fd, bool only_settled);
-#define                         fdt_next(p, fd, only_settled) \
-                                _fdt_next(p, fd, only_settled)
-/*
- * Filedesc table iteration: previous.
- */
-extern struct fdt_iterator      (*_fdt_prev)(proc_t p, int fd, bool only_settled);
-#define                         fdt_prev(p, fd, only_settled) \
-                                _fdt_prev(p, fd, only_settled)
 
 #pragma mark -
 #pragma mark KPI functions from libproc.

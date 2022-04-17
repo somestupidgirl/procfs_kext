@@ -374,7 +374,7 @@ procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid)
     int error = 0;
 
     proc_t p = proc_find(pid);
-    if (p != NULL) {
+    if (p != PROC_NULL) {
         error = procfs_check_can_access_process(creds, p);
         proc_rele(p);
     } else {

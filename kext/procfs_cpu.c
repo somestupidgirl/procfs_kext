@@ -297,15 +297,12 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         } else if (cnt_cpus > max_cpus) {
             /*
              * If the counter exceeds the processor count,
-             * free the associated memory and break the loop.
-             *
-             * Note: Freeing the memory after breaking the loop
-             * results in a kernel panic for some reason.
+             * break the loop.
              */
-            free(&buffer, M_TEMP);
             break;
         }
     }
+    free(buffer, M_TEMP);
 
     return 0;
 }

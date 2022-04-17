@@ -243,7 +243,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
         pfssnode_t *dir_snode = dir_pnp->node_structure_node;
         pfssnode_t *match_node;
         pfsid_t match_node_id;
-        proc_t target_proc = NULL;
+        proc_t target_proc = PROC_NULL;
         TAILQ_FOREACH(match_node, &dir_snode->psn_children, psn_next) {
             assert(error == 0);
             pfstype node_type = match_node->psn_node_type;
@@ -264,7 +264,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                 if (id != -1) {
                     // Check whether it is a valid file descriptor.
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
-                    if (target_proc != NULL) { // target_proc is released at loop end.
+                    if (target_proc != PROC_NULL) { // target_proc is released at loop end.
                         proc_fdlock_spin(target_proc);
                         struct fdt_iterator iter = fdt_next(target_proc, id - 1, true);
                         valid = iter.fdti_fd == id;
@@ -305,7 +305,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
 
                     // The pid must match an existing process.
                     target_proc = proc_find(match_node_id.nodeid_pid);
-                    if (target_proc == NULL) {
+                    if (target_proc == PROC_NULL) {
                         // No matching process.
                         error = ENOENT;
                         break;
@@ -372,8 +372,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                 }
             }
         }
-
-        if (target_proc != NULL) {
+        if (target_proc != PROC_NULL) {
             proc_rele(target_proc);
         }
 
@@ -555,7 +554,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                         // Use the process id plus process command line, to create a
                         // unqiue entry. Skip if the process has gone away.
                         proc_t p = proc_find(this_pid);
-                        if (p == NULL) {
+                        if (p == PROC_NULL) {
                             // Process disappeared.
                             continue;
                         }
@@ -586,7 +585,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 // entries for those that should appear after the start position,
                 // until we fill up the space or run out of threads.
                 proc_t p = proc_find(pid);
-                if (p != NULL) {
+                if (p != PROC_NULL) {
                     task_t task = proc_task(p);
                     int thread_count;
                     uint64_t *thread_ids;
@@ -626,7 +625,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 // and write entries for those that should appear after the start position,
                 // until we fill up the space or run out of threads.
                 proc_t p = proc_find(pid);
-                if (p != NULL) {
+                if (p != PROC_NULL) {
                     int i = 0;
                     struct fileproc *iter;
                     char fd_buffer[PROCESS_NAME_SIZE];

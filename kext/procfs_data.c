@@ -54,7 +54,7 @@ procfs_read_ppid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     int error = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    if (p != NULL) {
+    if (p != PROC_NULL) {
         int ppid = proc_ppid(p);
         error = procfs_copy_data((const char *)&ppid, sizeof(ppid), uio);
         proc_rele(p);
@@ -75,7 +75,7 @@ procfs_read_pgid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     int error = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    if (p != NULL) {
+    if (p != PROC_NULL) {
         pid_t pgrpid = proc_pgrpid(p);
         error = procfs_copy_data((const char *)&pgrpid, sizeof(pgrpid), uio);
         proc_rele(p);
@@ -95,7 +95,7 @@ procfs_read_sid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
     int error = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    if (p != NULL) {
+    if (p != PROC_NULL) {
         pid_t sid = proc_sessionid(p);
         error = procfs_copy_data((const char *)&sid, sizeof(sid), uio);
         proc_rele(p);
@@ -116,7 +116,7 @@ procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     int error = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    if (p != NULL) {
+    if (p != PROC_NULL) {
         // Get the controlling terminal vnode from the process session,
         // if it has one.
         struct session *sp = proc_session(p);
@@ -130,6 +130,8 @@ procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 char name_buf[MAXPATHLEN + 1];
                 vn_getpath(cttyvp, name_buf, &name_len);
                 error = procfs_copy_data((const char *)&name_buf, name_len, uio);
+            } else {
+                error = ENOTTY;
             }
             session_rele(sp);
         }
@@ -153,7 +155,7 @@ procfs_read_proc_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     int error = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    if (p != NULL) {
+    if (p != PROC_NULL) {
         struct proc_bsdshortinfo info; // Mac OS X >= 10.7 has proc_bsdshortinfo
 
         // Get the BSD-centric process info and copy it out.
@@ -182,7 +184,7 @@ procfs_read_task_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     int error = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    if (p != NULL) {
+    if (p != PROC_NULL) {
         struct proc_taskinfo info;
 
         // Get the task info and copy it out.
@@ -210,7 +212,7 @@ procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     int error = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    if (p != NULL) {
+    if (p != PROC_NULL) {
         struct proc_threadinfo info;
         uint64_t threadid = pnp->node_id.nodeid_objectid;
         
@@ -238,23 +240,23 @@ procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 {
+    int error = 0;
+
     // We need the file descriptor and the process id. We get
     // both of them from the node id.
-    int pid = pnp->node_id.nodeid_pid;
     int fd = pnp->node_id.nodeid_objectid;
-    
-    int error = 0;
-    proc_t p = proc_find(pid);
-    if (p != NULL) {
+    proc_t p = proc_find(pnp->node_id.nodeid_pid);
+
+    if (p != PROC_NULL) {
         struct fileproc *fp;
         vnode_t vp;
         uint32_t vid;
-        
+
         // Get the vnode, vnode id and fileproc structure for the file.
         // The fileproc has an additional iocount, which we must remember
         // to release.
         error = fp_getfvpandvid(p, fd, &fp, &vp, &vid, ctx);
-        if (error == 0) {
+        if (error == 0 && fp != NULL) {
             // Get a hold on the vnode and check that it did not
             // change id.
             error = vnode_getwithvid(vp, vid);
@@ -293,15 +295,14 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 int
 procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    // We need the file descriptor and the process id. We get
-    // both of them from the node id.
-    int pid = pnp->node_id.nodeid_pid;
-    int fd = pnp->node_id.nodeid_objectid;
-
     int error = 0;
 
-    proc_t p = proc_find(pid);
-    if (p != NULL) {
+    // We need the file descriptor and the process id. We get
+    // both of them from the node id.
+    int fd = pnp->node_id.nodeid_objectid;
+    proc_t p = proc_find(pnp->node_id.nodeid_pid);
+
+    if (p != PROC_NULL) {
         struct fileproc *fp;
         socket_t so;
 
@@ -310,7 +311,7 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         // Otherwise, the fileproc has an additional iocount, which we
         // must remember to release.
         error = fp_getfsock(p, fd, &fp, &so);
-        if (error == 0) {
+        if (error == 0 && fp != FILEPROC_NULL) {
             struct socket_fdinfo info;
 
             bzero(&info, sizeof(info));
@@ -390,7 +391,7 @@ procfs_process_node_size(pfsnode_t *pnp, kauth_cred_t creds)
     size_t size = 0;
     int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
-    if (p != NULL) {
+    if (p != PROC_NULL) {
         if (size == 0) {
             size += sizeof(procfs_get_process_count(creds));
         }
@@ -413,7 +414,7 @@ procfs_thread_node_size(pfsnode_t *pnp, __unused kauth_cred_t creds)
     size_t size = 0;
     int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
-    if (p != NULL) {
+    if (p != PROC_NULL) {
         task_t task = proc_task(p);
         if (task != NULL) {
             size += sizeof(procfs_get_task_thread_count(task));
@@ -436,7 +437,7 @@ procfs_fd_node_size(pfsnode_t *pnp, __unused kauth_cred_t creds)
     int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
 
-    if (p == NULL) {
+    if (p == PROC_NULL) {
         count = 0;
     } else {
         proc_fdlock_spin(p);

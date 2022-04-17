@@ -197,7 +197,7 @@ fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fs
         goto out;
     }
 
-    if (vnode_mount(vp) != *_dead_mountp) {
+    if (vnode_mount(vp) != dead_mountp) {
         vinfo->vi_fsid = vp->v_mount->mnt_vfsstat.f_fsid;
     } else {
         vinfo->vi_fsid.val[0] = 0;
