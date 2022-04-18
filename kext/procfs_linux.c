@@ -5,6 +5,7 @@
  *
  * Linux-compatible features.
  */
+#include <stdint.h>
 #include <string.h>
 #include <i386/cpuid.h>
 #include <i386/tsc.h>
@@ -13,6 +14,7 @@
 #include <libkern/version.h>
 #include <libkext/libkext.h>
 #include <mach/machine.h>
+#include <os/log.h>
 #include <sys/errno.h>
 #include <sys/malloc.h>
 #include <sys/proc_reg.h>
@@ -23,6 +25,9 @@
 #include "lib/symbols.h"
 #include "lib/helpers.h"
 
+/*
+ * Linux-compatible /proc/cpuinfo
+ */
 int
 procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
@@ -309,33 +314,30 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 }
 
 /*
- * WIP
+ * Linux-compatible /proc/version
  */
 int
 procfs_doversion(__unused pfsnode_t pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     int error = 0;
-    int len = 0;
-    int xlen = 0;
+    int len = 0, xlen = 0;
 
-    size_t bufsz = (LBFSZ * 4);
-    char *buf = malloc(bufsz, M_TEMP, M_WAITOK);
+    vm_offset_t off = uio_offset(uio);
+    vm_offset_t pgno = trunc_page(off);
+    off_t pgoff = (off - pgno);
 
-    vm_offset_t uva = uio_offset(uio);
-    vm_offset_t pageno = trunc_page(uva);
-    off_t page_offset = (uva - pageno);
+    const char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 
-    len = snprintf(buf, bufsz, "Darwin version %d.%d\n",
-                                version_major,
-                                version_minor);
+    /*
+     * FIXME: Print out the kernel version string.
+     *        /proc/version currently doesn't return
+     *        any data at all.
+     */
+    len = snprintf(buf, LBFSZ, "%s\n",
+                                version);
 
-    xlen = imin((len - page_offset), uio_resid(uio));
-
-    if (xlen < 0) {
-        error = EIO;
-    } else {
-        error = uiomove(buf, xlen, uio);
-    }
+    xlen = imin((len - pgoff), (len - off));
+    error = uiomove(buf, xlen, uio);
 
     free(buf, M_TEMP);
 
