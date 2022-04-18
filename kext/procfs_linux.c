@@ -325,10 +325,17 @@ procfs_doversion(__unused pfsnode_t pnp, uio_t uio, __unused vfs_context_t ctx)
     vm_offset_t pageno = trunc_page(uva);
     off_t page_offset = (uva - pageno);
 
-    len = snprintf(buf, bufsz, "Darwin version %d.%d", version_major, version_minor);
+    len = snprintf(buf, bufsz, "Darwin version %d.%d\n",
+                                version_major,
+                                version_minor);
+
     xlen = imin((len - page_offset), uio_resid(uio));
 
-    error = uiomove(buf, xlen, uio);
+    if (xlen < 0) {
+        error = EIO;
+    } else {
+        error = uiomove(buf, xlen, uio);
+    }
 
     free(buf, M_TEMP);
 
