@@ -247,7 +247,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             /*
              * How many bytes to copy.
              */
-            xlen = imin(len - page_offset, uio_resid(uio));
+            xlen = (len - page_offset);
 
             /*
              * Do the move into userspace.
@@ -330,13 +330,11 @@ procfs_doversion(__unused pfsnode_t pnp, uio_t uio, __unused vfs_context_t ctx)
 
     /*
      * FIXME: Print out the kernel version string.
-     *        /proc/version currently doesn't return
-     *        any data at all.
      */
     len = snprintf(buf, LBFSZ, "%s\n",
                                 version);
 
-    xlen = imin((len - pgoff), (len - off));
+    xlen = (len - pgoff);
     error = uiomove(buf, xlen, uio);
 
     free(buf, M_TEMP);
