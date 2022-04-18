@@ -317,7 +317,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
  * Linux-compatible /proc/version
  */
 int
-procfs_doversion(__unused pfsnode_t pnp, uio_t uio, __unused vfs_context_t ctx)
+procfs_doversion(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
     int error = 0;
     int len = 0, xlen = 0;
@@ -329,7 +329,7 @@ procfs_doversion(__unused pfsnode_t pnp, uio_t uio, __unused vfs_context_t ctx)
     const char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 
     /*
-     * FIXME: Print out the kernel version string.
+     * Print out the kernel version string.
      */
     len = snprintf(buf, LBFSZ, "%s\n",
                                 version);

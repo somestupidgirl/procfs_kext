@@ -403,7 +403,7 @@ extern int procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 
 /* Linux-compatible features */
 extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_doversion(pfsnode_t pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_doversion(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* Functions that return the data size for a node. */
 extern size_t procfs_get_node_size_attr(pfsnode_t *pnp, kauth_cred_t creds);
