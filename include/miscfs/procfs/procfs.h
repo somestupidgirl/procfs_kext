@@ -76,7 +76,6 @@ typedef enum {
     PFScurproc,     /* symbolic link for curproc */
     PFSprocnamedir, /* directory for a process labeled with its command line */
     PFSfd,          /* a directory containing the processes open fd's */
-    PFScmdline,     /* process command line args */
     PFScpuinfo,     /* Linux-compatible /proc/cpuinfo */
     PFSversion,     /* Linux-compatible /proc/version */
 } pfstype;
@@ -338,8 +337,7 @@ static inline boolean_t
 procfs_is_directory_type(pfstype type)
 {
     return type != PFScurproc && type != PFSfile
-        && type != PFScmdline && type != PFScpuinfo
-        && type != PFSversion;
+        && type != PFScpuinfo && type != PFSversion;
 }
 
 /* Gets the pid_t for the process corresponding to a pfsnode_t. */
