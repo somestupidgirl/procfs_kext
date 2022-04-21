@@ -37,16 +37,10 @@ procfs_docmdline(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     int error = 0;
 
     /*
-     * Find process.
+     * Find a process.
      */
     int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
-
-    struct exec_info pss;
-    struct uio auio;
-    struct iovec aiov;
-    struct vmspace *vm;
-    const char *buf;
 
     /*
      * Set up variables for the uio move.
@@ -61,7 +55,7 @@ procfs_docmdline(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     /*
      * Allocate a temporary buffer to hold the arguments.
      */
-    buf = malloc(PAGE_SIZE, M_TEMP, M_WAITOK);
+    const char *buf = malloc(PAGE_SIZE, M_TEMP, M_WAITOK);
 
     if (p != PROC_NULL) {
         /*
@@ -79,23 +73,22 @@ procfs_docmdline(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 char *comm = proc_best_name(p);
                 len = snprintf(buf, PAGE_SIZE, "(%s)\n", comm) + 1;
                 xlen = (len - pgoff);
-                error = uiomove(arg, xlen, uio);
+                error = uiomove(buf, xlen, uio);
             } else {
-                // TODO
                 len = snprintf(buf, PAGE_SIZE, "Feature not yet implemented.\n");
                 xlen = (len - pgoff);
                 error = uiomove(buf, xlen, uio);
             }
-            /*
-             * Free the allocated buffer.
-             */
-            free(buf, M_TEMP);
         }
         /*
          * Release the process.
          */
         proc_rele(p);
     }
+    /*
+     * Free the allocated buffer.
+     */
+    free(buf, M_TEMP);
 
     return error;
 }
