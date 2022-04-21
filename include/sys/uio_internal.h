@@ -125,15 +125,15 @@ union iovecs {
 /* WARNING - use accessor calls for uio_iov and uio_resid since these */
 /* fields vary depending on the originating address space. */
 struct uio {
-	union iovecs    uio_iovs;               /* current iovec */
-	int                             uio_iovcnt;             /* active iovecs */
-	off_t                   uio_offset;
+	union iovecs    uio_iovs;       /* current iovec */
+	int             uio_iovcnt;     /* active iovecs */
+	off_t           uio_offset;
 	enum uio_seg    uio_segflg;
 	enum uio_rw     uio_rw;
 	user_size_t     uio_resid_64;
-	int                             uio_size;               /* size for use with kfree */
-	int                             uio_max_iovs;   /* max number of iovecs this uio_t can hold */
-	u_int32_t               uio_flags;
+	int             uio_size;       /* size for use with kfree */
+	int             uio_max_iovs;   /* max number of iovecs this uio_t can hold */
+	u_int32_t       uio_flags;
 };
 
 /* values for uio_flags */
