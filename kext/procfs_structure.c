@@ -105,6 +105,9 @@ procfs_structure_init(void)
         pfssnode_t *one_proc_dir = add_directory(root_node, "__Process__",
                        PFSproc, next_node_id++, PSN_FLAG_PROCESS, 0, procfs_process_node_size, NULL);
 
+        pfssnode_t *cmdline = add_node(one_proc_dir, "cmdline",
+                        PFScmdline, next_node_id++, 0, 0, NULL, procfs_docmdline);
+
         // A directory below the node for a process to hold all the file descriptors for that process.
         pfssnode_t *fd_dir = add_directory(one_proc_dir, "fd",
                        PFSdir, next_node_id++, PSN_FLAG_PROCESS, 0, NULL, NULL);

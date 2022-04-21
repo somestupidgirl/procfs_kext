@@ -77,6 +77,7 @@ LDFLAGS+= 	$(SDKFLAGS) \
 			-Xlinker -object_path_lto lib/kern.o \
 			-Xlinker -object_path_lto lib/symbols.o \
 			-Xlinker -object_path_lto procfs.o \
+			-Xlinker -object_path_lto procfs_cmdline.o \
 			-Xlinker -object_path_lto procfs_data.o \
 			-Xlinker -object_path_lto procfs_linux.o \
 			-Xlinker -object_path_lto procfs_node.o \
