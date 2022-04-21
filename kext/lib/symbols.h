@@ -75,6 +75,14 @@ extern int                      (*_proc_starttime)(proc_t p, struct timeval *tv)
 extern int                      (*_proc_issetugid)(proc_t p);
 #define                         proc_issetugid(p) \
                                 _proc_issetugid(p)
+
+extern void                     (*_psignal)(proc_t p, int signum);
+#define                         psignal(p, signum) \
+                                _psignal(p, signum)
+
+extern int                      (*_tsleep)(void *chan, int pri, const char *wmesg, int timo);
+#define                         tsleep(chan, pri, wmesg, timo) \
+                                _tsleep(chan, pri, wmesg, timo)
 /*
  * Mutex lock for process.
  */

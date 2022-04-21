@@ -50,6 +50,8 @@ SYM_INIT(proc_task);
 SYM_INIT(proc_starttime);
 SYM_INIT(proc_issetugid);
 SYM_INIT(proc_get_darwinbgstate);
+SYM_INIT(psignal);
+SYM_INIT(tsleep);
 SYM_INIT(proc_lock);
 SYM_INIT(proc_unlock);
 SYM_INIT(proc_list_lock);
@@ -137,6 +139,8 @@ resolve_symbols(void)
 	SYM_LOOKUP(proc_starttime);
 	SYM_LOOKUP(proc_issetugid);
 	SYM_LOOKUP(proc_get_darwinbgstate);
+	SYM_LOOKUP(psignal);
+	SYM_LOOKUP(tsleep);
 	SYM_LOOKUP(proc_lock);
 	SYM_LOOKUP(proc_unlock);
 	SYM_LOOKUP(proc_list_lock);
