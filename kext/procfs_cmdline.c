@@ -10,6 +10,8 @@
 #include <libkern/libkern.h>
 #include <libkext/libkext.h>
 #include <mach/i386/vm_param.h>
+#include <mach/vm_map.h>
+#include <mach/vm_types.h>
 #include <os/log.h>
 #include <sys/errno.h>
 #include <sys/exec.h>
@@ -74,6 +76,11 @@ procfs_docmdline(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             if ((p->p_stat == SZOMB) || (p->p_flag & P_SYSTEM) != 0) {
                 char *comm = proc_best_name(p);
                 len = snprintf(buf, PAGE_SIZE, "(%s)\n", comm) + 1;
+
+                /*
+                 * Do the uio move.
+                 */
+                error = uiomove(buf, (len - pgoff), uio);
             } else {
                 /*
                  * Read in the exec_info structure.
@@ -93,13 +100,12 @@ procfs_docmdline(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 // TODO
 
                 len = snprintf(buf, PAGE_SIZE, "Error: Feature not yet implemented.\n");
-            }
-            /*
-             * Do the uio move.
-             */
-            xlen = (len - pgoff);
-            error = uiomove(buf, xlen, uio);
 
+                /*
+                 * Do the uio move.
+                 */
+                error = uiomove(buf, (len - pgoff), uio);
+            }
             /*
              * Free the allocated buffer.
              */
