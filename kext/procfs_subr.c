@@ -41,8 +41,9 @@ procfs_allocvp(pfstype pfs_type)
 
     case PFSfile:           /* FALLTHROUGH */
     case PFScpuinfo:        /* FALLTHROUGH */
-    case PFSloadavg:
-    case PFSversion:
+    case PFSloadavg:        /* FALLTHROUGH */
+    case PFSpartitions:     /* FALLTHROUGH */
+    case PFSversion:        /* FALLTHROUGH */
         return VREG;
 
     case PFSprocnamedir:    /* FALLTHROUGH */

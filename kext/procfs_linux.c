@@ -15,9 +15,13 @@
 #include <libkext/libkext.h>
 #include <mach/machine.h>
 #include <os/log.h>
+//#include <sys/disklabel.h>
+//#include <sys/disktab.h>
 #include <sys/errno.h>
 #include <sys/malloc.h>
 #include <sys/proc_reg.h>
+#include <sys/queue.h>
+//#include <sys/sdt_impl.h>
 #include <sys/sysctl.h>
 
 #include <miscfs/procfs/procfs.h>
@@ -344,6 +348,36 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         nprocs,         /* number of tasks */
         lastpid         /* the last pid */
     );
+
+    xlen = (len - pgoff);
+    error = uiomove(buf, xlen, uio);
+
+    free(buf, M_TEMP);
+
+    return error;
+}
+
+/*
+ * Linux-compatible /proc/partitions
+ */
+int
+procfs_dopartitions(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    int error = 0;
+    int len = 0, xlen = 0;
+
+    vm_offset_t off = uio_offset(uio);
+    vm_offset_t pgno = trunc_page(off);
+    off_t pgoff = (off - pgno);
+
+    int major = 0, minor = 0, block_size = 0;
+    char *name = "sda";
+
+    const char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
+
+    len = snprintf(buf, LBFSZ, "major minor  #blocks  name\n"
+                               "%d %d %d %s\n",
+                               major, minor, block_size, name);
 
     xlen = (len - pgoff);
     error = uiomove(buf, xlen, uio);

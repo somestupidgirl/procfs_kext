@@ -78,6 +78,7 @@ typedef enum {
     PFSfd,          /* a directory containing the processes open fd's */
     PFScpuinfo,     /* Linux-compatible /proc/cpuinfo */
     PFSloadavg,     /* Linux-compatible /proc/loadavg */
+    PFSpartitions,  /* Linux-compatible /proc/partitions */
     PFSversion,     /* Linux-compatible /proc/version */
 } pfstype;
 
@@ -339,7 +340,7 @@ procfs_is_directory_type(pfstype type)
 {
     return type != PFScurproc && type != PFSloadavg
         && type != PFSfile && type != PFScpuinfo
-        && type != PFSversion;
+        && type != PFSpartitions && type != PFSversion;
 }
 
 /* Gets the pid_t for the process corresponding to a pfsnode_t. */
@@ -407,6 +408,7 @@ extern int procfs_docmdline(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 /* Linux-compatible features */
 extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doloadavg(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_dopartitions(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doversion(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* Functions that return the data size for a node. */
