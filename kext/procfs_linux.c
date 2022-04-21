@@ -18,6 +18,7 @@
 #include <sys/errno.h>
 #include <sys/malloc.h>
 #include <sys/proc_reg.h>
+#include <sys/sysctl.h>
 
 #include <miscfs/procfs/procfs.h>
 
@@ -311,6 +312,45 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     free(buffer, M_TEMP);
 
     return 0;
+}
+
+/*
+ * Linux-compatible /proc/loadavg
+ */
+int
+procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    int error = 0;
+    int len = 0, xlen = 0;
+    vm_offset_t off = uio_offset(uio);
+    vm_offset_t pgno = trunc_page(off);
+    off_t pgoff = (off - pgno);
+
+    int lastpid = 30000;
+
+    const char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
+
+    averunnable.fscale = FSCALE;
+
+    len = snprintf(buf, LBFSZ,
+        "%d.%02d %d.%02d %d.%02d %d/%d %d\n",
+        (int)(averunnable.ldavg[0] /       averunnable.fscale),
+        (int)(averunnable.ldavg[0] * 100 / averunnable.fscale % 100),
+        (int)(averunnable.ldavg[1] /       averunnable.fscale),
+        (int)(averunnable.ldavg[1] * 100 / averunnable.fscale % 100),
+        (int)(averunnable.ldavg[2] /       averunnable.fscale),
+        (int)(averunnable.ldavg[2] * 100 / averunnable.fscale % 100),
+        1,              /* number of running tasks */
+        nprocs,         /* number of tasks */
+        lastpid         /* the last pid */
+    );
+
+    xlen = (len - pgoff);
+    error = uiomove(buf, xlen, uio);
+
+    free(buf, M_TEMP);
+
+    return error;
 }
 
 /*

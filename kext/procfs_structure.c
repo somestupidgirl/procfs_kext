@@ -91,6 +91,10 @@ procfs_structure_init(void)
         pfssnode_t *curproc = add_node(root_node, "curproc",
                         PFScurproc, next_node_id++, 0, 0, NULL, NULL);
 
+        // Linux-compatible /proc/cpuinfo
+        pfssnode_t *loadavg = add_node(root_node, "loadavg",
+                        PFSloadavg, next_node_id++, 0, 0, NULL, procfs_doloadavg);
+
         // Linux-compatible /proc/version
         pfssnode_t *version = add_node(root_node, "version",
                         PFSversion, next_node_id++, 0, 0, NULL, procfs_doversion);

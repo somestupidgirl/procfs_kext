@@ -524,8 +524,6 @@ SYSCTL_DECL(_hw_features);
 #define SYSCTL_SKMEM 1
 #endif /* SYSCTL_SKMEM_UPDATE_FIELD */
 
-
-#ifdef SYSCTL_DEF_ENABLED
 /*
  * Top-level identifiers
  */
@@ -1183,11 +1181,10 @@ extern struct loadavg averunnable;
 #define CTL_DEBUG_VALUE         1       /* int: variable value */
 #define CTL_DEBUG_MAXID         20
 
-
+#if 0
 #if (CTL_MAXID != 9) || (KERN_MAXID != 72) || (VM_MAXID != 6) || (HW_MAXID != 28) || (USER_MAXID != 21) || (CTL_DEBUG_MAXID != 20)
 #error Use the SYSCTL_*() macros and OID_AUTO instead!
 #endif
-
-#endif /* SYSCTL_DEF_ENABLED */
+#endif
 
 #endif  /* !_SYS_SYSCTL_H_ */

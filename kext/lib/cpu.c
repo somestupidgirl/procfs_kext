@@ -15,11 +15,20 @@
 #include <sys/errno.h>
 #include <sys/malloc.h>
 #include <sys/proc_reg.h>
+#include <sys/sysctl.h>
 #include <sys/types.h>
 
 #include "cpu.h"
 #include "symbols.h"
 #include "helpers.h"
+
+/*
+ * Load average of runnable processes.
+ */
+struct loadavg averunnable = {
+    { 0, 0, 0},
+    FSCALE
+};
 
 #pragma mark -
 #pragma mark Feature Lists

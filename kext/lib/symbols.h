@@ -14,6 +14,7 @@
 #include <sys/filedesc.h>
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
+#include <sys/sysctl.h>
 #include <sys/vnode.h>
 
 struct tty;
@@ -388,5 +389,9 @@ extern unsigned int             (*_processor_count);
 extern uint64_t                 (*_tscFreq);
 #define                         tscFreq \
                                 *_tscFreq
+
+extern void                     (*_compute_averunnable)(void *);
+#define                         compute_averunnable(x) \
+                                _compute_averunnable(x)
 
 #endif /* _symbols_h */

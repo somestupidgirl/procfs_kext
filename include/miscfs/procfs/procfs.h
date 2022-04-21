@@ -77,6 +77,7 @@ typedef enum {
     PFSprocnamedir, /* directory for a process labeled with its command line */
     PFSfd,          /* a directory containing the processes open fd's */
     PFScpuinfo,     /* Linux-compatible /proc/cpuinfo */
+    PFSloadavg,     /* Linux-compatible /proc/loadavg */
     PFSversion,     /* Linux-compatible /proc/version */
 } pfstype;
 
@@ -336,8 +337,9 @@ procfs_should_access_check(pfsmount_t *pmp)
 static inline boolean_t
 procfs_is_directory_type(pfstype type)
 {
-    return type != PFScurproc && type != PFSfile
-        && type != PFScpuinfo && type != PFSversion;
+    return type != PFScurproc && type != PFSloadavg
+        && type != PFSfile && type != PFScpuinfo
+        && type != PFSversion;
 }
 
 /* Gets the pid_t for the process corresponding to a pfsnode_t. */
@@ -400,10 +402,11 @@ extern int procfs_read_task_info(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_docmdline(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* Linux-compatible features */
 extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_docmdline(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_doloadavg(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doversion(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* Functions that return the data size for a node. */
