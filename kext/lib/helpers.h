@@ -10,7 +10,7 @@
 #include <mach/i386/vm_param.h>
 #include <sys/malloc.h>
 #include <sys/proc.h>
-#include <sys/proc_interna.h>
+#include <sys/proc_internal.h>
 #include <sys/types.h>
 
 #pragma mark -
