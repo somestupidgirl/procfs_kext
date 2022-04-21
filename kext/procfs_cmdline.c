@@ -7,7 +7,6 @@
  */
 #include <stdint.h>
 #include <string.h>
-#include <kern/bits.h>
 #include <libkern/libkern.h>
 #include <libkext/libkext.h>
 #include <mach/i386/vm_param.h>
@@ -20,6 +19,7 @@
 #include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
+#include <sys/syslimits.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/uio_internal.h>
