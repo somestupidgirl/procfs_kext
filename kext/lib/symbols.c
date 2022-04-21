@@ -44,6 +44,8 @@ SYM_INIT(nprocs);
 SYM_INIT(maxproc);
 SYM_INIT(maxprocperuid);
 SYM_INIT(hard_maxproc);
+
+SYM_INIT(proc_best_name);
 SYM_INIT(proc_task);
 SYM_INIT(proc_starttime);
 SYM_INIT(proc_issetugid);
@@ -128,15 +130,17 @@ resolve_symbols(void)
 	SYM_LOOKUP(maxproc);
 	SYM_LOOKUP(maxprocperuid);
 	SYM_LOOKUP(hard_maxproc);
-	SYM_LOOKUP(proc_iterate);
+
+	SYM_LOOKUP(proc_best_name);
+	SYM_LOOKUP(proc_task);
 	SYM_LOOKUP(proc_starttime);
 	SYM_LOOKUP(proc_issetugid);
 	SYM_LOOKUP(proc_get_darwinbgstate);
-	SYM_LOOKUP(proc_task);
 	SYM_LOOKUP(proc_lock);
 	SYM_LOOKUP(proc_unlock);
 	SYM_LOOKUP(proc_list_lock);
 	SYM_LOOKUP(proc_list_unlock);
+	SYM_LOOKUP(proc_iterate);
 
 	SYM_LOOKUP(proc_pgrp);
 	SYM_LOOKUP(pg_rele);

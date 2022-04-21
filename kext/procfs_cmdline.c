@@ -72,7 +72,8 @@ procfs_docmdline(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
              * ps(1) would display.
              */
             if (p->p_stat != SZOMB || (p->p_flag & P_SYSTEM) != 0) {
-                len = snprintf(buf, PAGE_SIZE, "(%s)\n", p->p_comm) + 1;
+                char *comm = proc_best_name(p);
+                len = snprintf(buf, PAGE_SIZE, "(%s)\n", comm) + 1;
             } else {
                 /*
                  * Read in the exec_info structure.

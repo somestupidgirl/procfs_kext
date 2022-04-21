@@ -50,6 +50,12 @@ extern int                      (*_hard_maxproc);
 #pragma mark Process misc functions.
 
 /*
+ * Returns the 32-byte name if it exists, otherwise returns the 16-byte name
+ */
+extern char *                   (*_proc_best_name)(proc_t p);
+#define                         proc_best_name(p) \
+                                _proc_best_name(p)
+/*
  * Returns the task field in struct proc.
  */
 extern task_t                   (*_proc_task)(proc_t proc);
