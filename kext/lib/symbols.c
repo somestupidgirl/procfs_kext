@@ -105,7 +105,7 @@ SYM_INIT(dead_mountp);
 SYM_INIT(processor_count);
 SYM_INIT(tscFreq);
 SYM_INIT(cpuid_info);
-SYM_INIT(compute_averunnable);
+SYM_INIT(avenrun);
 
 /*
  * Routine: resolve_symbols()
@@ -194,7 +194,7 @@ resolve_symbols(void)
 	SYM_LOOKUP(processor_count);
 	SYM_LOOKUP(tscFreq);
 	SYM_LOOKUP(cpuid_info);
-	SYM_LOOKUP(compute_averunnable);
+	SYM_LOOKUP(avenrun);
 				   
 	return KERN_SUCCESS;
 }

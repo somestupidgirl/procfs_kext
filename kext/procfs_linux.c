@@ -318,6 +318,18 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     return 0;
 }
 
+extern struct loadavg averunnable;
+
+/*
+ * Constants for averages over 1, 5, and 15 minutes
+ * when sampling at 5 second intervals.
+ */
+static fixpt_t cexp[3] = {
+    (fixpt_t)(0.9200444146293232 * FSCALE), /* exp(-1/12) */
+    (fixpt_t)(0.9834714538216174 * FSCALE), /* exp(-1/60) */
+    (fixpt_t)(0.9944598480048967 * FSCALE), /* exp(-1/180) */
+};
+
 /*
  * Linux-compatible /proc/loadavg
  */
@@ -334,16 +346,25 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
     const char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 
-    averunnable.fscale = FSCALE;
+    unsigned int nrun = *(unsigned int *)avenrun;
+    struct loadavg *avg = &averunnable;
+    int i;
+
+    avg->fscale = FSCALE;
+
+    for (i = 0; i < 3; i++) {
+        avg->ldavg[i] = (cexp[i] * avg->ldavg[i] +
+            nrun * avg->fscale * (avg->fscale - cexp[i])) >> FSHIFT;
+    }
 
     len = snprintf(buf, LBFSZ,
         "%d.%02d %d.%02d %d.%02d %d/%d %d\n",
-        (int)(averunnable.ldavg[0] /       averunnable.fscale),
-        (int)(averunnable.ldavg[0] * 100 / averunnable.fscale % 100),
-        (int)(averunnable.ldavg[1] /       averunnable.fscale),
-        (int)(averunnable.ldavg[1] * 100 / averunnable.fscale % 100),
-        (int)(averunnable.ldavg[2] /       averunnable.fscale),
-        (int)(averunnable.ldavg[2] * 100 / averunnable.fscale % 100),
+        (int)(avg->ldavg[0] /       avg->fscale),
+        (int)(avg->ldavg[0] * 100 / avg->fscale % 100),
+        (int)(avg->ldavg[1] /       avg->fscale),
+        (int)(avg->ldavg[1] * 100 / avg->fscale % 100),
+        (int)(avg->ldavg[2] /       avg->fscale),
+        (int)(avg->ldavg[2] * 100 / avg->fscale % 100),
         1,              /* number of running tasks */
         nprocs,         /* number of tasks */
         lastpid         /* the last pid */

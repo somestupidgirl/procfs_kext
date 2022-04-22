@@ -398,8 +398,8 @@ extern uint64_t                 (*_tscFreq);
 #define                         tscFreq \
                                 *_tscFreq
 
-extern void                     (*_compute_averunnable)(void *);
-#define                         compute_averunnable(x) \
-                                _compute_averunnable(x)
+extern uint32_t                 (*_avenrun)[3];
+#define                         avenrun \
+                                *_avenrun
 
 #endif /* _symbols_h */
