@@ -5,6 +5,7 @@
  *
  * Helper functions for procfs_cpu.c
  */
+#include <stddef.h>
 #include <string.h>
 #include <i386/cpuid.h>
 #include <i386/pmCPU.h>
@@ -13,9 +14,12 @@
 #include <libkext/libkext.h>
 #include <mach/machine.h>
 #include <sys/errno.h>
+#include <sys/fcntl.h>
+#include <sys/ioccom.h>
 #include <sys/malloc.h>
 #include <sys/proc_reg.h>
 #include <sys/sysctl.h>
+#include <sys/systm.h>
 #include <sys/types.h>
 
 #include "cpu.h"
@@ -26,12 +30,88 @@
  * Load average of runnable processes.
  */
 struct loadavg averunnable = {
-    { 0, 0, 0},
-    FSCALE
+    { 0, 0, 0}, FSCALE };
+
+boolean_t
+is_amd_cpu(void)
+{
+    uint32_t ourcpuid[4];
+
+    do_cpuid(0, ourcpuid);
+    if (ourcpuid[ebx] == 0x68747541 &&
+        ourcpuid[ecx] == 0x444D4163 &&
+        ourcpuid[edx] == 0x69746E65) {
+        return TRUE;
+    }
+
+    return FALSE;
 };
 
-#pragma mark -
-#pragma mark Feature Lists
+boolean_t
+is_intel_cpu(void)
+{
+    uint32_t ourcpuid[4];
+
+    do_cpuid(0, ourcpuid);
+    if (ourcpuid[ebx] == 0x756E6547 &&
+        ourcpuid[ecx] == 0x6C65746E &&
+        ourcpuid[edx] == 0x49656E69) {
+        return TRUE;
+    }
+
+    if (!is_amd_cpu()) {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+uint32_t
+extract_bitfield(uint32_t infield, uint32_t width, uint32_t offset)
+{
+    uint32_t bitmask;
+    uint32_t outfield;
+
+    if ((offset+width) == 32) {
+        bitmask = (0xFFFFFFFF<<offset);
+    } else {
+        bitmask = (0xFFFFFFFF<<offset) ^ (0xFFFFFFFF<<(offset+width));
+    }
+
+    outfield = (infield & bitmask) >> offset;
+    return outfield;
+}
+
+uint32_t
+get_bitfield_width(uint32_t number)
+{
+    uint32_t fieldwidth;
+
+    number--;
+    if (number == 0) {
+        return 0;
+    }
+
+    __asm__ volatile ( "bsr %%eax, %%ecx\n\t"
+                      : "=c" (fieldwidth)
+                      : "a"(number));
+
+    return fieldwidth+1;  /* bsr returns the position, we want the width */
+}
+
+int
+get_microcode_version(void)
+{
+    int version = 0;
+
+    if (is_amd_cpu() == TRUE) {
+        version = (int)rdmsr64(MSR_UCODE_AMD_PATCHLEVEL);
+    } else if (is_intel_cpu() == TRUE) {
+        version = (int)(rdmsr64(MSR_IA32_BIOS_SIGN_ID) >> 32);
+    }
+
+    return version;
+}
 
 uint64_t feature_list[] = {
     /* 0 */  CPUID_FEATURE_FPU,
@@ -95,84 +175,6 @@ uint64_t feature_list[] = {
     /* 58 */ CPUID_FEATURE_RDRAND,
     /* 59 */ CPUID_FEATURE_VMM,
 };
-
-uint64_t feature_ext_list[] = {
-    /* 0 */ CPUID_EXTFEATURE_SYSCALL,
-    /* 1 */ CPUID_EXTFEATURE_XD,
-    /* 2 */ CPUID_EXTFEATURE_1GBPAGE,
-    /* 3 */ CPUID_EXTFEATURE_RDTSCP,
-    /* 4 */ CPUID_EXTFEATURE_EM64T,
-    /* 5 */ CPUID_EXTFEATURE_LAHF,
-    /* 6 */ CPUID_EXTFEATURE_LZCNT,
-    /* 7 */ CPUID_EXTFEATURE_PREFETCHW
-};
-
-uint64_t leaf7_feature_list[] = {
-    /* 0 */  CPUID_LEAF7_FEATURE_RDWRFSGS,
-    /* 1 */  CPUID_LEAF7_FEATURE_TSCOFF,
-    /* 2 */  CPUID_LEAF7_FEATURE_SGX,
-    /* 3 */  CPUID_LEAF7_FEATURE_BMI1,
-    /* 4 */  CPUID_LEAF7_FEATURE_HLE,
-    /* 5 */  CPUID_LEAF7_FEATURE_AVX2,
-    /* 6 */  CPUID_LEAF7_FEATURE_FDPEO,
-    /* 7 */  CPUID_LEAF7_FEATURE_SMEP,
-    /* 8 */  CPUID_LEAF7_FEATURE_BMI2,
-    /* 9 */  CPUID_LEAF7_FEATURE_ERMS,
-    /* 10 */ CPUID_LEAF7_FEATURE_INVPCID,
-    /* 11 */ CPUID_LEAF7_FEATURE_RTM,
-    /* 12 */ CPUID_LEAF7_FEATURE_PQM,
-    /* 13 */ CPUID_LEAF7_FEATURE_FPU_CSDS,
-    /* 14 */ CPUID_LEAF7_FEATURE_MPX,
-    /* 15 */ CPUID_LEAF7_FEATURE_PQE,
-    /* 16 */ CPUID_LEAF7_FEATURE_AVX512F,
-    /* 17 */ CPUID_LEAF7_FEATURE_AVX512DQ,
-    /* 18 */ CPUID_LEAF7_FEATURE_RDSEED,
-    /* 19 */ CPUID_LEAF7_FEATURE_ADX,
-    /* 20 */ CPUID_LEAF7_FEATURE_SMAP,
-    /* 21 */ CPUID_LEAF7_FEATURE_AVX512IFMA,
-    /* 22 */ CPUID_LEAF7_FEATURE_CLFSOPT,
-    /* 23 */ CPUID_LEAF7_FEATURE_CLWB,
-    /* 24 */ CPUID_LEAF7_FEATURE_IPT,
-    /* 25 */ CPUID_LEAF7_FEATURE_AVX512CD,
-    /* 26 */ CPUID_LEAF7_FEATURE_SHA,
-    /* 27 */ CPUID_LEAF7_FEATURE_AVX512BW,
-    /* 28 */ CPUID_LEAF7_FEATURE_AVX512VL,
-    /* 29 */ CPUID_LEAF7_FEATURE_PREFETCHWT1,
-    /* 30 */ CPUID_LEAF7_FEATURE_AVX512VBMI,
-    /* 31 */ CPUID_LEAF7_FEATURE_UMIP,
-    /* 32 */ CPUID_LEAF7_FEATURE_PKU,
-    /* 33 */ CPUID_LEAF7_FEATURE_OSPKE,
-    /* 34 */ CPUID_LEAF7_FEATURE_WAITPKG,
-    /* 35 */ CPUID_LEAF7_FEATURE_GFNI,
-    /* 36 */ CPUID_LEAF7_FEATURE_VAES,
-    /* 37 */ CPUID_LEAF7_FEATURE_VPCLMULQDQ,
-    /* 38 */ CPUID_LEAF7_FEATURE_AVX512VNNI,
-    /* 39 */ CPUID_LEAF7_FEATURE_AVX512BITALG,
-    /* 40 */ CPUID_LEAF7_FEATURE_AVX512VPCDQ,
-    /* 41 */ CPUID_LEAF7_FEATURE_RDPID,
-    /* 42 */ CPUID_LEAF7_FEATURE_CLDEMOTE,
-    /* 43 */ CPUID_LEAF7_FEATURE_MOVDIRI,
-    /* 44 */ CPUID_LEAF7_FEATURE_MOVDIRI64B,
-    /* 45 */ CPUID_LEAF7_FEATURE_SGXLC
-};
-
-uint64_t leaf7_feature_ext_list[] = {
-    /* 0 */  CPUID_LEAF7_EXTFEATURE_AVX5124VNNIW,
-    /* 1 */  CPUID_LEAF7_EXTFEATURE_AVX5124FMAPS,
-    /* 2 */  CPUID_LEAF7_EXTFEATURE_FSREPMOV,
-    /* 3 */  CPUID_LEAF7_EXTFEATURE_SRBDS_CTRL,
-    /* 4 */  CPUID_LEAF7_EXTFEATURE_MDCLEAR,
-    /* 5 */  CPUID_LEAF7_EXTFEATURE_TSXFA,
-    /* 6 */  CPUID_LEAF7_EXTFEATURE_IBRS,
-    /* 7 */  CPUID_LEAF7_EXTFEATURE_STIBP,
-    /* 8 */  CPUID_LEAF7_EXTFEATURE_L1DF,
-    /* 9 */  CPUID_LEAF7_EXTFEATURE_ACAPMSR,
-    /* 10 */ CPUID_LEAF7_EXTFEATURE_CCAPMSR,
-    /* 11 */ CPUID_LEAF7_EXTFEATURE_SSBD
-};
-
-#pragma mark -
-#pragma mark Feature Flag Arrays
 
 const char *
 feature_flags[] = {
@@ -238,6 +240,57 @@ feature_flags[] = {
     /* 59 */ "vmm",
 };
 
+char *
+get_cpu_flags(void)
+{
+    int i = 0;
+    int size = 0;
+
+    /*
+     * Main loop.
+     */
+    if (cpuid_info()->cpuid_features) {
+        size = (sizeof(feature_flags) * 2);
+
+        char *flags[size];
+
+        while (i < nitems(feature_flags)) {
+            /* 
+             * If the CPU supports a feature in the feature_list[]...
+             */
+            if (cpuid_info()->cpuid_features & feature_list[i]) {
+                /*
+                 * ...amend its flag to 'flags'.
+                 */
+                strlcat(flags, feature_flags[i], sizeof(flags));
+                strlcat(flags, " ", sizeof(flags));
+            }
+            /*
+             * Add 1 to the counter for each iteration.
+             */
+            i++;
+        }
+        return flags;
+
+    } else {
+        size = 8;
+        char *flags[size];
+        strlcat(flags,"", sizeof(flags));
+        return flags;
+    }
+}
+
+uint64_t feature_ext_list[] = {
+    /* 0 */ CPUID_EXTFEATURE_SYSCALL,
+    /* 1 */ CPUID_EXTFEATURE_XD,
+    /* 2 */ CPUID_EXTFEATURE_1GBPAGE,
+    /* 3 */ CPUID_EXTFEATURE_RDTSCP,
+    /* 4 */ CPUID_EXTFEATURE_EM64T,
+    /* 5 */ CPUID_EXTFEATURE_LAHF,
+    /* 6 */ CPUID_EXTFEATURE_LZCNT,
+    /* 7 */ CPUID_EXTFEATURE_PREFETCHW
+};
+
 const char *
 feature_ext_flags[] = {
     /* 0 */ "syscall",
@@ -248,6 +301,97 @@ feature_ext_flags[] = {
     /* 5 */ "lahf",
     /* 6 */ "lzcnt",
     /* 7 */ "prefetchcw"
+};
+
+char *
+get_cpu_ext_flags(void)
+{
+    int i = 0;
+    int size = 0;
+
+    if (cpuid_info()->cpuid_extfeatures) {
+        size = (sizeof(feature_ext_flags) * 2);
+
+        char *flags[size];
+
+        /*
+         * Main loop.
+         */
+        while (i < nitems(feature_ext_flags)) {
+            /* 
+             * If the CPU supports a feature in the feature_ext_list[]...
+             */
+            if (cpuid_info()->cpuid_extfeatures & feature_ext_list[i]) {
+                /*
+                 * ...amend its flag to 'flags'.
+                 */
+                strlcat(flags, feature_ext_flags[i], sizeof(flags));
+                strlcat(flags, " ", sizeof(flags));
+            }
+            /*
+             * Add 1 to the counter for each iteration.
+             */
+            i++;
+        }
+        return flags;
+
+    } else {
+        size = 8;
+        char *flags[size];
+
+        strlcat(flags,"", sizeof(flags));
+
+        return flags;
+    }
+}
+
+uint64_t leaf7_feature_list[] = {
+    /* 0 */  CPUID_LEAF7_FEATURE_RDWRFSGS,
+    /* 1 */  CPUID_LEAF7_FEATURE_TSCOFF,
+    /* 2 */  CPUID_LEAF7_FEATURE_SGX,
+    /* 3 */  CPUID_LEAF7_FEATURE_BMI1,
+    /* 4 */  CPUID_LEAF7_FEATURE_HLE,
+    /* 5 */  CPUID_LEAF7_FEATURE_AVX2,
+    /* 6 */  CPUID_LEAF7_FEATURE_FDPEO,
+    /* 7 */  CPUID_LEAF7_FEATURE_SMEP,
+    /* 8 */  CPUID_LEAF7_FEATURE_BMI2,
+    /* 9 */  CPUID_LEAF7_FEATURE_ERMS,
+    /* 10 */ CPUID_LEAF7_FEATURE_INVPCID,
+    /* 11 */ CPUID_LEAF7_FEATURE_RTM,
+    /* 12 */ CPUID_LEAF7_FEATURE_PQM,
+    /* 13 */ CPUID_LEAF7_FEATURE_FPU_CSDS,
+    /* 14 */ CPUID_LEAF7_FEATURE_MPX,
+    /* 15 */ CPUID_LEAF7_FEATURE_PQE,
+    /* 16 */ CPUID_LEAF7_FEATURE_AVX512F,
+    /* 17 */ CPUID_LEAF7_FEATURE_AVX512DQ,
+    /* 18 */ CPUID_LEAF7_FEATURE_RDSEED,
+    /* 19 */ CPUID_LEAF7_FEATURE_ADX,
+    /* 20 */ CPUID_LEAF7_FEATURE_SMAP,
+    /* 21 */ CPUID_LEAF7_FEATURE_AVX512IFMA,
+    /* 22 */ CPUID_LEAF7_FEATURE_CLFSOPT,
+    /* 23 */ CPUID_LEAF7_FEATURE_CLWB,
+    /* 24 */ CPUID_LEAF7_FEATURE_IPT,
+    /* 25 */ CPUID_LEAF7_FEATURE_AVX512CD,
+    /* 26 */ CPUID_LEAF7_FEATURE_SHA,
+    /* 27 */ CPUID_LEAF7_FEATURE_AVX512BW,
+    /* 28 */ CPUID_LEAF7_FEATURE_AVX512VL,
+    /* 29 */ CPUID_LEAF7_FEATURE_PREFETCHWT1,
+    /* 30 */ CPUID_LEAF7_FEATURE_AVX512VBMI,
+    /* 31 */ CPUID_LEAF7_FEATURE_UMIP,
+    /* 32 */ CPUID_LEAF7_FEATURE_PKU,
+    /* 33 */ CPUID_LEAF7_FEATURE_OSPKE,
+    /* 34 */ CPUID_LEAF7_FEATURE_WAITPKG,
+    /* 35 */ CPUID_LEAF7_FEATURE_GFNI,
+    /* 36 */ CPUID_LEAF7_FEATURE_VAES,
+    /* 37 */ CPUID_LEAF7_FEATURE_VPCLMULQDQ,
+    /* 38 */ CPUID_LEAF7_FEATURE_AVX512VNNI,
+    /* 39 */ CPUID_LEAF7_FEATURE_AVX512BITALG,
+    /* 40 */ CPUID_LEAF7_FEATURE_AVX512VPCDQ,
+    /* 41 */ CPUID_LEAF7_FEATURE_RDPID,
+    /* 42 */ CPUID_LEAF7_FEATURE_CLDEMOTE,
+    /* 43 */ CPUID_LEAF7_FEATURE_MOVDIRI,
+    /* 44 */ CPUID_LEAF7_FEATURE_MOVDIRI64B,
+    /* 45 */ CPUID_LEAF7_FEATURE_SGXLC
 };
 
 const char *
@@ -300,6 +444,71 @@ leaf7_feature_flags[] = {
     /* 45 */ "sgxlc"
 };
 
+char*
+get_leaf7_flags(void)
+{
+    int i = 0;
+    int size = 0;
+
+    /*
+     * Enable reading the cpuid_leaf7_features on AMD chipsets.
+     */
+    uint32_t reg[4];
+    if (is_amd_cpu() && cpuid_info()->cpuid_family >= 23){
+        do_cpuid(0x7, reg);
+        cpuid_info()->cpuid_leaf7_features = quad(reg[ecx], reg[ebx]) & ~CPUID_LEAF7_FEATURE_SMAP;
+    }
+
+    /*
+     * Main loop.
+     */
+    if (cpuid_info()->cpuid_leaf7_features) {
+        size = (sizeof(leaf7_feature_flags) * 2);
+        char *flags[size];
+
+        while (i < nitems(leaf7_feature_flags)) {
+            /* 
+             * If the CPU supports a feature in the leaf7_feature_list[]...
+             */
+            if (cpuid_info()->cpuid_leaf7_features & leaf7_feature_list[i]) {
+                /*
+                 * ...amend its flag to 'flags'.
+                 */
+                strlcat(flags, leaf7_feature_flags[i], sizeof(flags));
+                strlcat(flags, " ", sizeof(flags));
+            }
+            /*
+             * Add 1 to the counter for each iteration.
+             */
+            i++;
+        }
+        return flags;
+
+    } else {
+        size = 8;
+        char *flags[size];
+
+        strlcat(flags,"", sizeof(flags));
+
+        return flags;
+    }
+}
+
+uint64_t leaf7_feature_ext_list[] = {
+    /* 0 */  CPUID_LEAF7_EXTFEATURE_AVX5124VNNIW,
+    /* 1 */  CPUID_LEAF7_EXTFEATURE_AVX5124FMAPS,
+    /* 2 */  CPUID_LEAF7_EXTFEATURE_FSREPMOV,
+    /* 3 */  CPUID_LEAF7_EXTFEATURE_SRBDS_CTRL,
+    /* 4 */  CPUID_LEAF7_EXTFEATURE_MDCLEAR,
+    /* 5 */  CPUID_LEAF7_EXTFEATURE_TSXFA,
+    /* 6 */  CPUID_LEAF7_EXTFEATURE_IBRS,
+    /* 7 */  CPUID_LEAF7_EXTFEATURE_STIBP,
+    /* 8 */  CPUID_LEAF7_EXTFEATURE_L1DF,
+    /* 9 */  CPUID_LEAF7_EXTFEATURE_ACAPMSR,
+    /* 10 */ CPUID_LEAF7_EXTFEATURE_CCAPMSR,
+    /* 11 */ CPUID_LEAF7_EXTFEATURE_SSBD
+};
+
 const char *
 leaf7_feature_ext_flags[] = {
     /* 0 */  "avx5124vnniw",
@@ -315,6 +524,58 @@ leaf7_feature_ext_flags[] = {
     /* 10 */ "ccapmsr",
     /* 11 */ "ssbd"
 };
+
+char *
+get_leaf7_ext_flags(void)
+{
+    int i = 0;
+    int size = 0;
+
+    /*
+     * FIXME: Enable reading the cpuid_leaf7_extfeatures on AMD chipsets.
+     */
+#if 0
+    uint32_t reg[4];
+    if (is_amd_cpu() && cpuid_info()->cpuid_family >= 23){
+        do_cpuid(0x7, reg);
+        cpuid_info()->cpuid_leaf7_extfeatures = reg[ebx];
+    }
+#endif
+
+    /*
+     * Main loop.
+     */
+    if (cpuid_info()->cpuid_leaf7_extfeatures) {
+        size = (sizeof(leaf7_feature_ext_flags) * 2);
+        char *flags[size];
+
+        while (i < nitems(leaf7_feature_ext_flags)) {
+            /* 
+             * If the CPU supports a feature in the leaf7_feature_ext_list[]...
+             */
+            if (cpuid_info()->cpuid_leaf7_extfeatures & leaf7_feature_ext_list[i]) {
+                /*
+                 * ...amend its flag to 'flags'.
+                 */
+                strlcat(flags[size], leaf7_feature_ext_flags[i], sizeof(flags));
+                strlcat(flags, " ", sizeof(flags));
+            }
+            /*
+             * Add 1 to the counter for each iteration.
+             */
+            i++;
+        }
+        return flags;
+
+    } else {
+        size = 8;
+        char *flags[size];
+
+        strlcat(flags,"", sizeof(flags));
+
+        return flags;
+    }
+}
 
 const char *
 amd_feature_flags[] = {
@@ -409,257 +670,3 @@ x86_64_bug_flags[] = {
     /* 13 */ "itlb_multihit",       /* CPU may incur MCE during certain page attribute changes */
     /* 14 */ "srbds"                /* CPU may leak RNG bits if not mitigated */
 };
-
-#pragma mark -
-#pragma mark Functions
-
-boolean_t
-is_amd_cpu(void)
-{
-    uint32_t ourcpuid[4];
-
-    do_cpuid(0, ourcpuid);
-    if (ourcpuid[ebx] == 0x68747541 &&
-        ourcpuid[ecx] == 0x444D4163 &&
-        ourcpuid[edx] == 0x69746E65) {
-        return TRUE;
-    }
-
-    return FALSE;
-};
-
-boolean_t
-is_intel_cpu(void)
-{
-    uint32_t ourcpuid[4];
-
-    do_cpuid(0, ourcpuid);
-    if (ourcpuid[ebx] == 0x756E6547 &&
-        ourcpuid[ecx] == 0x6C65746E &&
-        ourcpuid[edx] == 0x49656E69) {
-        return TRUE;
-    }
-
-    if (!is_amd_cpu()) {
-        return TRUE;
-    }
-
-    return FALSE;
-}
-
-uint32_t
-extract_bitfield(uint32_t infield, uint32_t width, uint32_t offset)
-{
-    uint32_t bitmask;
-    uint32_t outfield;
-
-    if ((offset+width) == 32) {
-        bitmask = (0xFFFFFFFF<<offset);
-    } else {
-        bitmask = (0xFFFFFFFF<<offset) ^ (0xFFFFFFFF<<(offset+width));
-    }
-
-    outfield = (infield & bitmask) >> offset;
-    return outfield;
-}
-
-uint32_t
-get_bitfield_width(uint32_t number)
-{
-    uint32_t fieldwidth;
-
-    number--;
-    if (number == 0) {
-        return 0;
-    }
-
-    __asm__ volatile ( "bsr %%eax, %%ecx\n\t"
-                      : "=c" (fieldwidth)
-                      : "a"(number));
-
-    return fieldwidth+1;  /* bsr returns the position, we want the width */
-}
-
-char *
-get_cpu_flags(void)
-{
-    int i = 0;
-    int size = 0;
-
-    /*
-     * Main loop.
-     */
-    if (cpuid_info()->cpuid_features) {
-        size = (sizeof(feature_flags) * 2);
-
-        char *flags[size];
-
-        while (i < nitems(feature_flags)) {
-            /* 
-             * If the CPU supports a feature in the feature_list[]...
-             */
-            if (cpuid_info()->cpuid_features & feature_list[i]) {
-                /*
-                 * ...amend its flag to 'flags'.
-                 */
-                strlcat(flags, feature_flags[i], sizeof(flags));
-                strlcat(flags, " ", sizeof(flags));
-            }
-            /*
-             * Add 1 to the counter for each iteration.
-             */
-            i++;
-        }
-        return flags;
-
-    } else {
-        size = 8;
-        char *flags[size];
-        strlcat(flags,"", sizeof(flags));
-        return flags;
-    }
-}
-
-char *
-get_cpu_ext_flags(void)
-{
-    int i = 0;
-    int size = 0;
-
-    if (cpuid_info()->cpuid_extfeatures) {
-        size = (sizeof(feature_ext_flags) * 2);
-
-        char *flags[size];
-
-        /*
-         * Main loop.
-         */
-        while (i < nitems(feature_ext_flags)) {
-            /* 
-             * If the CPU supports a feature in the feature_ext_list[]...
-             */
-            if (cpuid_info()->cpuid_extfeatures & feature_ext_list[i]) {
-                /*
-                 * ...amend its flag to 'flags'.
-                 */
-                strlcat(flags, feature_ext_flags[i], sizeof(flags));
-                strlcat(flags, " ", sizeof(flags));
-            }
-            /*
-             * Add 1 to the counter for each iteration.
-             */
-            i++;
-        }
-        return flags;
-
-    } else {
-        size = 8;
-        char *flags[size];
-
-        strlcat(flags,"", sizeof(flags));
-
-        return flags;
-    }
-}
-
-char*
-get_leaf7_flags(void)
-{
-    int i = 0;
-    int size = 0;
-
-    /*
-     * Enable reading the cpuid_leaf7_features on AMD chipsets.
-     */
-    uint32_t reg[4];
-    if (is_amd_cpu() && cpuid_info()->cpuid_family >= 23){
-        do_cpuid(0x7, reg);
-        cpuid_info()->cpuid_leaf7_features = quad(reg[ecx], reg[ebx]) & ~CPUID_LEAF7_FEATURE_SMAP;
-    }
-
-    /*
-     * Main loop.
-     */
-    if (cpuid_info()->cpuid_leaf7_features) {
-        size = (sizeof(leaf7_feature_flags) * 2);
-        char *flags[size];
-
-        while (i < nitems(leaf7_feature_flags)) {
-            /* 
-             * If the CPU supports a feature in the leaf7_feature_list[]...
-             */
-            if (cpuid_info()->cpuid_leaf7_features & leaf7_feature_list[i]) {
-                /*
-                 * ...amend its flag to 'flags'.
-                 */
-                strlcat(flags, leaf7_feature_flags[i], sizeof(flags));
-                strlcat(flags, " ", sizeof(flags));
-            }
-            /*
-             * Add 1 to the counter for each iteration.
-             */
-            i++;
-        }
-        return flags;
-
-    } else {
-        size = 8;
-        char *flags[size];
-
-        strlcat(flags,"", sizeof(flags));
-
-        return flags;
-    }
-}
-
-char *
-get_leaf7_ext_flags(void)
-{
-    int i = 0;
-    int size = 0;
-
-    /*
-     * FIXME: Enable reading the cpuid_leaf7_extfeatures on AMD chipsets.
-     */
-#if 0
-    uint32_t reg[4];
-    if (is_amd_cpu() && cpuid_info()->cpuid_family >= 23){
-        do_cpuid(0x7, reg);
-        cpuid_info()->cpuid_leaf7_extfeatures = reg[ebx];
-    }
-#endif
-
-    /*
-     * Main loop.
-     */
-    if (cpuid_info()->cpuid_leaf7_extfeatures) {
-        size = (sizeof(leaf7_feature_ext_flags) * 2);
-        char *flags[size];
-
-        while (i < nitems(leaf7_feature_ext_flags)) {
-            /* 
-             * If the CPU supports a feature in the leaf7_feature_ext_list[]...
-             */
-            if (cpuid_info()->cpuid_leaf7_extfeatures & leaf7_feature_ext_list[i]) {
-                /*
-                 * ...amend its flag to 'flags'.
-                 */
-                strlcat(flags[size], leaf7_feature_ext_flags[i], sizeof(flags));
-                strlcat(flags, " ", sizeof(flags));
-            }
-            /*
-             * Add 1 to the counter for each iteration.
-             */
-            i++;
-        }
-        return flags;
-
-    } else {
-        size = 8;
-        char *flags[size];
-
-        strlcat(flags,"", sizeof(flags));
-
-        return flags;
-    }
-}

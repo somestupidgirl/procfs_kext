@@ -95,7 +95,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     uint8_t cpu_family = cpuid_info()->cpuid_family;
     uint8_t model = cpuid_info()->cpuid_model + (cpuid_info()->cpuid_extmodel << 4);
     char *model_name = cpuid_info()->cpuid_brand_string;
-    uint32_t microcode = cpuid_info()->cpuid_microcode_version; // FIXME
+    int microcode = get_microcode_version();
     uint32_t cache_size = cpuid_info()->cpuid_cache_size;
     uint8_t stepping = cpuid_info()->cpuid_stepping;
     uint32_t cpu_cores = cpuid_info()->core_count;
@@ -193,7 +193,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 "cpu family\t\t: %u\n"
                 "model\t\t\t: %u\n"
                 "model name\t\t: %s\n"
-                "microcode\t\t: %u\n"
+                "microcode\t\t: 0x%07x\n"
                 "stepping\t\t: %u\n"
                 "cpu MHz\t\t\t: %d.%02d\n"
                 "cache size\t\t: %d KB\n"
