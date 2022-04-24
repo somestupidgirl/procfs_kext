@@ -95,7 +95,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     uint8_t cpu_family = cpuid_info()->cpuid_family;
     uint8_t model = cpuid_info()->cpuid_model + (cpuid_info()->cpuid_extmodel << 4);
     char *model_name = cpuid_info()->cpuid_brand_string;
-    int microcode = get_microcode_version();
+    int microcode = (int)get_microcode_version();
     uint32_t cache_size = cpuid_info()->cpuid_cache_size;
     uint8_t stepping = cpuid_info()->cpuid_stepping;
     uint32_t cpu_cores = cpuid_info()->core_count;
@@ -317,18 +317,6 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
     return 0;
 }
-
-extern struct loadavg averunnable;
-
-/*
- * Constants for averages over 1, 5, and 15 minutes
- * when sampling at 5 second intervals.
- */
-static fixpt_t cexp[3] = {
-    (fixpt_t)(0.9200444146293232 * FSCALE), /* exp(-1/12) */
-    (fixpt_t)(0.9834714538216174 * FSCALE), /* exp(-1/60) */
-    (fixpt_t)(0.9944598480048967 * FSCALE), /* exp(-1/180) */
-};
 
 /*
  * Linux-compatible /proc/loadavg

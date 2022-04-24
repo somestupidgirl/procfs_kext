@@ -32,6 +32,17 @@
 struct loadavg averunnable = {
     { 0, 0, 0}, FSCALE };
 
+/*
+ * Constants for averages over 1, 5, and 15 minutes
+ * when sampling at 5 second intervals.
+ */
+fixpt_t
+cexp[3] = {
+    (fixpt_t)(0.9200444146293232 * FSCALE), /* exp(-1/12) */
+    (fixpt_t)(0.9834714538216174 * FSCALE), /* exp(-1/60) */
+    (fixpt_t)(0.9944598480048967 * FSCALE), /* exp(-1/180) */
+};
+
 boolean_t
 is_amd_cpu(void)
 {
@@ -99,18 +110,40 @@ get_bitfield_width(uint32_t number)
     return fieldwidth+1;  /* bsr returns the position, we want the width */
 }
 
-int
+uint32_t
 get_microcode_version(void)
 {
-    int version = 0;
+    uint32_t version = 0;
 
     if (is_amd_cpu() == TRUE) {
-        version = (int)rdmsr64(MSR_UCODE_AMD_PATCHLEVEL);
+        version = (uint32_t)rdmsr64(MSR_UCODE_AMD_PATCHLEVEL);
     } else if (is_intel_cpu() == TRUE) {
-        version = (int)(rdmsr64(MSR_IA32_BIOS_SIGN_ID) >> 32);
+        version = (uint32_t)(rdmsr64(MSR_IA32_BIOS_SIGN_ID) >> 32);
     }
 
     return version;
+}
+
+uint32_t
+cpuid_set_microcode_version(void)
+{
+    i386_cpu_info_t *info_p;
+    uint32_t reg[4];
+
+    /*
+     * Get processor signature and decode
+     * and bracket this with the approved procedure for reading the
+     * the microcode version number a.k.a. signature a.k.a. BIOS ID
+     */
+    if (is_intel_cpu()) {
+        wrmsr64(MSR_IA32_BIOS_SIGN_ID, 0);
+        do_cpuid(1, reg);
+        info_p->cpuid_microcode_version = (uint32_t)(rdmsr64(MSR_IA32_BIOS_SIGN_ID) >> 32);
+    } else if (is_amd_cpu()) {
+        wrmsr64(MSR_UCODE_AMD_PATCHLOADER, 0);
+        do_cpuid(1, reg);
+        info_p->cpuid_microcode_version = (uint32_t)(rdmsr64(MSR_UCODE_AMD_PATCHLEVEL));
+    }
 }
 
 uint64_t feature_list[] = {
