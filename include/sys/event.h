@@ -103,6 +103,22 @@ struct kevent64_s {
 	uint64_t        ext[2];         /* filter-specific extensions */
 };
 
+struct kevent_qos_s {
+    uint64_t        ident;          /* identifier for this event */
+    int16_t         filter;         /* filter for event */
+    uint16_t        flags;          /* general flags */
+    int32_t         qos;            /* quality of service */
+    uint64_t        udata;          /* opaque user data identifier */
+    uint32_t        fflags;         /* filter-specific flags */
+    uint32_t        xflags;         /* extra filter-specific flags */
+    int64_t         data;           /* filter-specific data */
+    uint64_t        ext[4];         /* filter-specific extensions */
+};
+
+/*
+ * Type definition for names/ids of dynamically allocated kqueues.
+ */
+typedef uint64_t kqueue_id_t;
 
 #define EV_SET(kevp, a, b, c, d, e, f) do {     \
 	struct kevent *__kevp__ = (kevp);       \
@@ -367,6 +383,23 @@ enum {
 struct proc;
 struct knote;
 SLIST_HEAD(klist, knote);
+
+struct kevent_ctx_s {
+    uint64_t         kec_data_avail;    /* address of remaining data size */
+    user_addr_t      kec_data_out;      /* extra data pointer */
+    user_size_t      kec_data_size;     /* total extra data size */
+    user_size_t      kec_data_resid;    /* residual extra data size */
+    uint64_t         kec_deadline;      /* wait deadline unless KEVENT_FLAG_IMMEDIATE */
+    struct fileproc *kec_fp;            /* fileproc to pass to fp_drop or NULL */
+    int              kec_fd;            /* fd to pass to fp_drop or -1 */
+
+    /* the fields below are only set during process / scan */
+    int              kec_process_nevents;       /* user-level event count */
+    int              kec_process_noutputs;      /* number of events output */
+    unsigned int     kec_process_flags;         /* kevent flags, only set for process  */
+    user_addr_t      kec_process_eventlist;     /* user-level event list address */
+};
+typedef struct kevent_ctx_s *kevent_ctx_t;
 
 /* Flags for pending events notified by kernel via return-to-kernel ast */
 #define R2K_WORKLOOP_PENDING_EVENTS             0x1

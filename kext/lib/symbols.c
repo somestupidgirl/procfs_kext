@@ -45,8 +45,11 @@ SYM_INIT(maxproc);
 SYM_INIT(maxprocperuid);
 SYM_INIT(hard_maxproc);
 
+SYM_INIT(forkproc);
+SYM_INIT(forkproc_free);
 SYM_INIT(proc_best_name);
 SYM_INIT(proc_task);
+SYM_INIT(proc_thread);
 SYM_INIT(proc_starttime);
 SYM_INIT(proc_issetugid);
 SYM_INIT(proc_get_darwinbgstate);
@@ -92,6 +95,7 @@ SYM_INIT(fill_socketinfo);
 
 SYM_INIT(thread_info);
 SYM_INIT(get_bsdthread_info);
+SYM_INIT(uthread_alloc);
 SYM_INIT(convert_port_to_thread);
 SYM_INIT(task_threads);
 SYM_INIT(vfs_context_thread);
@@ -134,8 +138,11 @@ resolve_symbols(void)
 	SYM_LOOKUP(maxprocperuid);
 	SYM_LOOKUP(hard_maxproc);
 
+	SYM_LOOKUP(forkproc);
+	SYM_LOOKUP(forkproc_free);
 	SYM_LOOKUP(proc_best_name);
 	SYM_LOOKUP(proc_task);
+	SYM_LOOKUP(proc_thread);
 	SYM_LOOKUP(proc_starttime);
 	SYM_LOOKUP(proc_issetugid);
 	SYM_LOOKUP(proc_get_darwinbgstate);
@@ -180,10 +187,11 @@ resolve_symbols(void)
 	SYM_LOOKUP(fill_socketinfo);
 
 	SYM_LOOKUP(thread_info);
+	SYM_LOOKUP(get_bsdthread_info);
+	SYM_LOOKUP(uthread_alloc);
 	SYM_LOOKUP(task_threads);
 	SYM_LOOKUP(convert_port_to_thread);
 	SYM_LOOKUP(vfs_context_thread);
-	SYM_LOOKUP(get_bsdthread_info);
 
 	SYM_LOOKUP(vn_stat);
 	SYM_LOOKUP(vnode_lock);

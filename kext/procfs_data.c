@@ -245,7 +245,6 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
     // both of them from the node id.
     int fd = pnp->node_id.nodeid_objectid;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-
     if (p != PROC_NULL) {
         struct fileproc *fp;
         vnode_t vp;
@@ -254,7 +253,7 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
         // Get the vnode, vnode id and fileproc structure for the file.
         // The fileproc has an additional iocount, which we must remember
         // to release.
-        error = fp_getfvpandvid(p, fd, &fp, &vp, &vid, ctx);
+        error = fp_getfvpandvid(p, fd, &fp, &vp, &vid);
         if (error == 0 && fp != NULL) {
             // Get a hold on the vnode and check that it did not
             // change id.

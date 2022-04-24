@@ -14,6 +14,7 @@
 #include <sys/socket.h>
 #include <sys/syslimits.h>
 #include <sys/types.h>
+#include <sys/user.h>
 #include <sys/vnode.h>
 #include <sys/vnode_internal.h>
 
@@ -291,41 +292,73 @@ fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * 
  * Locks:   Internally takes and releases proc_fdlock
  */
 int
-fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **resultvp, uint32_t *vidp, vfs_context_t ctx)
+fp_getfvpandvid(proc_t p, int fd, struct fileproc **resultfp, struct vnode **resultvp, uint32_t *vidp)
 {
     struct fileproc *fp;
     struct filedesc *fdp;
 
+    task_t task = proc_task(p);
+    thread_t thread = proc_thread(p);
+    uthread_t uthread = uthread_alloc(task, thread, 0);
+
     if (p != PROC_NULL) {
-        proc_fdlock_spin(p);
-        fdp = p->p_fd;
+        // Please work god damn it!
+        if (p->p_fd == NULL) {
+            p->p_fd = fdcopy(p, (vnode_t)uthread->uu_cdir);
+            if (p->p_fd != NULL) {
+                fdp = p->p_fd;
+                fdfree(p);
+            }
+        } else {
+            fdp = p->p_fd;
+        }
 
-        if (fdp == NULL || fd < 0 || fd >= fdp->fd_nfiles ||
-           (fp = fdp->fd_ofiles[fd]) == NULL ||
-           (fdp->fd_ofileflags[fd]) & UF_RESERVED) {
+        if (fdp != NULL) {
+            proc_fdlock_spin(p);
+
+            if (fd < 0) {
+                proc_fdunlock(p);
+                return (EBADF);
+            }
+
+            if (fd >= fdp->fd_nfiles) {
+                proc_fdunlock(p);
+                return (EBADF);
+            }
+
+            if ((fp = fdp->fd_ofiles[fd]) == NULL) {
+                proc_fdunlock(p);
+                return (EBADF);
+            }
+
+            if ((fdp->fd_ofileflags[fd]) & UF_RESERVED) {
+                proc_fdunlock(p);
+                return (EBADF);
+            }
+
+            if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_VNODE) {
+                proc_fdunlock(p);
+                return (ENOTSUP);
+            }
+
+            fp->fp_glob->fg_count++;
+
+            if (resultfp) {
+                *resultfp = fp;
+            }
+
+            if (resultvp) {
+                *resultvp = (struct vnode *)fp->fp_glob->fg_data;
+            }
+
+            if (vidp) {
+                *vidp = (uint32_t)vnode_vid((struct vnode *)fp->fp_glob->fg_data);
+            }
+
             proc_fdunlock(p);
-            return (EBADF);
+        } else {
+            return (ESRCH);
         }
-
-        if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_VNODE) {
-            proc_fdunlock(p);
-            return (ENOTSUP);
-        }
-
-        fp->fp_glob->fg_count++;
-
-        if (resultfp) {
-            *resultfp = fp;
-        }
-
-        if (resultvp) {
-            *resultvp = (struct vnode *)fp->fp_glob->fg_data;
-        }
-
-        if (vidp) {
-            *vidp = (uint32_t)vnode_vid((struct vnode *)fp->fp_glob->fg_data);
-        }
-        proc_fdunlock(p);
     } else {
         return (ESRCH);
     }
