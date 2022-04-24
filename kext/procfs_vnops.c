@@ -7,7 +7,6 @@
  * Vnode operations for the ProcFS file system.
  */
 #include <libkern/libkern.h>
-#include <libkext/libkext.h>
 #include <sys/dirent.h>
 #include <sys/errno.h>
 #include <sys/filedesc.h>

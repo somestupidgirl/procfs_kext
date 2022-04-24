@@ -28,7 +28,7 @@
 
 #include <miscfs/procfs/procfs.h>
 
-#include "lib/helpers.h"
+#include "lib/malloc.h"
 #include "lib/symbols.h"
 
 int

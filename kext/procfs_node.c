@@ -8,7 +8,6 @@
  */
 #include <kern/assert.h>
 #include <libkern/OSMalloc.h>
-#include <libkext/libkext.h>
 #include <sys/malloc.h>
 #include <sys/systm.h>
 #include <sys/types.h>

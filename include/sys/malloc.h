@@ -146,15 +146,6 @@
 #define FREE(addr, type) \
     _FREE((void *)addr, type)
 
-#define REALLOC(space, cast, addr, size, type, flags) \
-    (space) = (cast)_REALLOC(addr, size, type, flags)
-
-#define MALLOC_ZONE(space, cast, size, type, flags) \
-    (space) = (cast)_MALLOC_ZONE(size, type, flags)
-
-#define FREE_ZONE(addr, size, type) \
-    _FREE_ZONE((void *)addr, size, type)
-
 extern void     *_MALLOC(
     size_t          size,
     int             type,
@@ -162,22 +153,6 @@ extern void     *_MALLOC(
 
 extern void     _FREE(
     void            *addr,
-    int             type);
-
-extern void     *_REALLOC(
-    void            *addr,
-    size_t          size,
-    int             type,
-    int             flags);
-
-extern void     *_MALLOC_ZONE(
-    size_t          size,
-    int             type,
-    int             flags);
-
-extern void     _FREE_ZONE(
-    void            *elem,
-    size_t          size,
     int             type);
 
 #endif  /* _SYS_MALLOC_H_ */

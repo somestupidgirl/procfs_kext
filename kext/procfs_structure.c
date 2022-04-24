@@ -21,7 +21,6 @@
 #include <kern/assert.h>
 #include <kern/debug.h>
 #include <libkern/OSMalloc.h>
-#include <libkext/libkext.h>
 #include <mach/boolean.h>
 #include <sys/proc_info.h>
 #include <sys/vnode.h>

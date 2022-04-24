@@ -12,7 +12,6 @@
 #include <libkern/libkern.h>
 #include <libkern/OSMalloc.h>
 #include <libkern/version.h>
-#include <libkext/libkext.h>
 #include <mach/machine.h>
 #include <os/log.h>
 //#include <sys/disklabel.h>
@@ -27,8 +26,45 @@
 #include <miscfs/procfs/procfs.h>
 
 #include "lib/cpu.h"
+#include "lib/malloc.h"
 #include "lib/symbols.h"
-#include "lib/helpers.h"
+
+#pragma mark -
+#pragma mark Common Definitions and Macros
+
+/*
+ * A buffer size.
+ */
+#define LBFSZ           (8 * 1024)
+
+/*
+ * Convert pages to bytes.
+ */
+#define PGTOB(p) \
+        ((unsigned long)(p) << PAGE_SHIFT)
+/*
+ * Convert pages to kbytes
+ */
+#define PGTOKB(p) \
+        ((unsigned long)(p) << (PAGE_SHIFT - 10))
+/*
+ * Convert bytes to pages.
+ */
+#define BTOPG(b) \
+        ((b) >> PAGE_SHIFT)
+/*
+ * Convert bytes to kbytes
+ */
+#define BTOKB(b) \
+        ((b) >> 10)
+/*
+ * XXX
+ */
+#define TVTOJ(x) \
+        ((x)->tv_sec * 100UL + (x)->tv_usec / 10000)
+
+#pragma mark -
+#pragma mark Linux-emulation functions
 
 /*
  * Linux-compatible /proc/cpuinfo

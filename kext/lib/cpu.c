@@ -3,14 +3,24 @@
  *
  * cpuinfo.c
  *
- * Helper functions for procfs_cpu.c
+ * CPU kext library containing various odds and ends
+ * for various CPU-related things and with AMD support
+ * in mind.
+ *
+ * Certain functions have been pulled from the AMD
+ * patches for XNU authored by Shaneee, AlGrey and
+ * others. Specifically the following functions:
+ *
+ *      is_amd_cpu()
+ *      is_intel_cpu()
+ *      extract_bitfield()
+ *      get_bitfield_width()
  */
 #include <stddef.h>
 #include <string.h>
 #include <i386/cpuid.h>
 #include <i386/pmCPU.h>
 #include <i386/tsc.h>
-#include <libkern/libkern.h>
 #include <libkext/libkext.h>
 #include <mach/machine.h>
 #include <sys/errno.h>
@@ -24,7 +34,15 @@
 
 #include "cpu.h"
 #include "symbols.h"
-#include "helpers.h"
+
+/*
+ * Multipliers used to encode 1*K .. 64*M in a 16 bit size field
+ */
+#define K               (1)
+#define M               (1024)
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define quad(hi, lo)    (((uint64_t)(hi)) << 32 | (lo))
 
 /*
  * Load average of runnable processes.
@@ -43,6 +61,9 @@ cexp[3] = {
     (fixpt_t)(0.9944598480048967 * FSCALE), /* exp(-1/180) */
 };
 
+/*
+ * Returns TRUE if AMD CPU.
+ */
 boolean_t
 is_amd_cpu(void)
 {
@@ -58,6 +79,9 @@ is_amd_cpu(void)
     return FALSE;
 };
 
+/*
+ * Returns TRUE if Intel CPU.
+ */
 boolean_t
 is_intel_cpu(void)
 {
@@ -77,6 +101,9 @@ is_intel_cpu(void)
     return FALSE;
 }
 
+/*
+ * Extract bitfield function.
+ */
 uint32_t
 extract_bitfield(uint32_t infield, uint32_t width, uint32_t offset)
 {
@@ -93,6 +120,9 @@ extract_bitfield(uint32_t infield, uint32_t width, uint32_t offset)
     return outfield;
 }
 
+/*
+ * Get bitfield width function.
+ */
 uint32_t
 get_bitfield_width(uint32_t number)
 {
@@ -110,22 +140,38 @@ get_bitfield_width(uint32_t number)
     return fieldwidth+1;  /* bsr returns the position, we want the width */
 }
 
+/*
+ * This function returns the actual microcode version
+ * number for both AMD and Intel CPUs without modify-
+ * ing the cpuid_microcode_version field in struct
+ * i386_cpu_info. 
+ */
 uint32_t
 get_microcode_version(void)
 {
     uint32_t version = 0;
 
-    if (is_amd_cpu() == TRUE) {
+    if (is_amd_cpu()) {
         version = (uint32_t)rdmsr64(MSR_UCODE_AMD_PATCHLEVEL);
-    } else if (is_intel_cpu() == TRUE) {
+    } else if (is_intel_cpu()) {
         version = (uint32_t)(rdmsr64(MSR_IA32_BIOS_SIGN_ID) >> 32);
     }
 
     return version;
 }
 
+/*
+ * WARNING! This is currently for R&D purposes only.
+ *
+ * In the AMD kernel the cpuid_microcode_version
+ * field in struct i386_cpu_info is set to 186.
+ * This is obviously a dummy version number, but
+ * setting it to its actual version number will
+ * result in a kernel panic for some unknown rea-
+ * son. Needs further research.
+ */
 uint32_t
-cpuid_set_microcode_version(void)
+set_microcode_version(void)
 {
     i386_cpu_info_t *info_p;
     uint32_t reg[4];
@@ -144,7 +190,13 @@ cpuid_set_microcode_version(void)
         do_cpuid(1, reg);
         info_p->cpuid_microcode_version = (uint32_t)(rdmsr64(MSR_UCODE_AMD_PATCHLEVEL));
     }
+
+    return 0;
 }
+
+/*
+ * CPU features and flags.
+ */
 
 uint64_t feature_list[] = {
     /* 0 */  CPUID_FEATURE_FPU,
@@ -287,7 +339,7 @@ get_cpu_flags(void)
 
         char *flags[size];
 
-        while (i < nitems(feature_flags)) {
+        while (i < ARRAY_COUNT(feature_flags)) {
             /* 
              * If the CPU supports a feature in the feature_list[]...
              */
@@ -313,6 +365,12 @@ get_cpu_flags(void)
     }
 }
 
+/*
+ * An array of extended features as defined in
+ * osfmk/i386/cpuid.h. This should always be
+ * in the same order as its corresponding
+ * character array below.
+ */
 uint64_t feature_ext_list[] = {
     /* 0 */ CPUID_EXTFEATURE_SYSCALL,
     /* 1 */ CPUID_EXTFEATURE_XD,
@@ -350,7 +408,7 @@ get_cpu_ext_flags(void)
         /*
          * Main loop.
          */
-        while (i < nitems(feature_ext_flags)) {
+        while (i < ARRAY_COUNT(feature_ext_flags)) {
             /* 
              * If the CPU supports a feature in the feature_ext_list[]...
              */
@@ -499,7 +557,7 @@ get_leaf7_flags(void)
         size = (sizeof(leaf7_feature_flags) * 2);
         char *flags[size];
 
-        while (i < nitems(leaf7_feature_flags)) {
+        while (i < ARRAY_COUNT(leaf7_feature_flags)) {
             /* 
              * If the CPU supports a feature in the leaf7_feature_list[]...
              */
@@ -582,7 +640,7 @@ get_leaf7_ext_flags(void)
         size = (sizeof(leaf7_feature_ext_flags) * 2);
         char *flags[size];
 
-        while (i < nitems(leaf7_feature_ext_flags)) {
+        while (i < ARRAY_COUNT(leaf7_feature_ext_flags)) {
             /* 
              * If the CPU supports a feature in the leaf7_feature_ext_list[]...
              */
@@ -609,6 +667,10 @@ get_leaf7_ext_flags(void)
         return flags;
     }
 }
+
+/*
+ * TODO
+ */
 
 const char *
 amd_feature_flags[] = {

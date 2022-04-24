@@ -8,7 +8,6 @@
  */
 #include <kern/thread.h>
 #include <libkern/OSMalloc.h>
-#include <libkext/libkext.h>
 #include <mach/mach_types.h>
 #include <mach/message.h>
 #include <mach/task.h>

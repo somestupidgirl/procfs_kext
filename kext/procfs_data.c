@@ -11,7 +11,6 @@
  * its pfssnode_t.
  */
 #include <libkern/libkern.h>
-#include <libkext/libkext.h>
 #include <sys/bsdtask_info.h>
 #include <sys/file.h>
 #include <sys/filedesc.h>

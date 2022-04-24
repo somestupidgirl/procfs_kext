@@ -17,7 +17,6 @@
 #include <sys/vnode.h>
 #include <sys/vnode_internal.h>
 
-#include "helpers.h"
 #include "symbols.h"
 
 /*
