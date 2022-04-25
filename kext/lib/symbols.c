@@ -45,11 +45,7 @@ SYM_INIT(maxproc);
 SYM_INIT(maxprocperuid);
 SYM_INIT(hard_maxproc);
 
-SYM_INIT(forkproc);
-SYM_INIT(forkproc_free);
 SYM_INIT(proc_best_name);
-SYM_INIT(proc_task);
-SYM_INIT(proc_thread);
 SYM_INIT(proc_starttime);
 SYM_INIT(proc_issetugid);
 SYM_INIT(proc_get_darwinbgstate);
@@ -78,12 +74,11 @@ SYM_INIT(proc_gettty_dev);
 SYM_INIT(tty_lock);
 SYM_INIT(tty_unlock);
 
-SYM_INIT(proc_fdlist);
-SYM_INIT(fdalloc);
+SYM_INIT(filedesc0);
+SYM_INIT(fp_getfvp);
 SYM_INIT(fdt_next);
 SYM_INIT(fdt_prev);
-SYM_INIT(fdcopy);
-SYM_INIT(fdfree);
+SYM_INIT(proc_fdlist);
 SYM_INIT(proc_fdlock);
 SYM_INIT(proc_fdlock_assert);
 SYM_INIT(proc_fdlock_spin);
@@ -93,6 +88,8 @@ SYM_INIT(fill_taskprocinfo);
 SYM_INIT(fill_taskthreadinfo);
 SYM_INIT(fill_socketinfo);
 
+SYM_INIT(proc_task);
+SYM_INIT(proc_thread);
 SYM_INIT(thread_info);
 SYM_INIT(get_bsdthread_info);
 SYM_INIT(uthread_alloc);
@@ -138,11 +135,7 @@ resolve_symbols(void)
 	SYM_LOOKUP(maxprocperuid);
 	SYM_LOOKUP(hard_maxproc);
 
-	SYM_LOOKUP(forkproc);
-	SYM_LOOKUP(forkproc_free);
 	SYM_LOOKUP(proc_best_name);
-	SYM_LOOKUP(proc_task);
-	SYM_LOOKUP(proc_thread);
 	SYM_LOOKUP(proc_starttime);
 	SYM_LOOKUP(proc_issetugid);
 	SYM_LOOKUP(proc_get_darwinbgstate);
@@ -171,12 +164,11 @@ resolve_symbols(void)
 	SYM_LOOKUP(tty_lock);
 	SYM_LOOKUP(tty_unlock);
 
-	SYM_LOOKUP(proc_fdlist);
-	SYM_LOOKUP(fdalloc);
+	SYM_LOOKUP(filedesc0);
+	SYM_LOOKUP(fp_getfvp);
 	SYM_LOOKUP(fdt_next);
 	SYM_LOOKUP(fdt_prev);
-	SYM_LOOKUP(fdcopy);
-	SYM_LOOKUP(fdfree);
+	SYM_LOOKUP(proc_fdlist);
 	SYM_LOOKUP(proc_fdlock);
 	SYM_LOOKUP(proc_fdlock_assert);
 	SYM_LOOKUP(proc_fdlock_spin);
@@ -186,6 +178,8 @@ resolve_symbols(void)
 	SYM_LOOKUP(fill_taskthreadinfo);
 	SYM_LOOKUP(fill_socketinfo);
 
+	SYM_LOOKUP(proc_task);
+	SYM_LOOKUP(proc_thread);
 	SYM_LOOKUP(thread_info);
 	SYM_LOOKUP(get_bsdthread_info);
 	SYM_LOOKUP(uthread_alloc);

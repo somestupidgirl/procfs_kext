@@ -245,18 +245,16 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
     // both of them from the node id.
     int fd = pnp->node_id.nodeid_objectid;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    if (p != PROC_NULL) {
-        struct fileproc *fp;
-        vnode_t vp;
-        uint32_t vid;
 
-        // Get the vnode, vnode id and fileproc structure for the file.
-        // The fileproc has an additional iocount, which we must remember
-        // to release.
-        error = fp_getfvpandvid(p, fd, &fp, &vp, &vid);
-        if (error == 0 && fp != NULL) {
+    if (p != PROC_NULL) {
+        struct vnode *vp;
+        struct fileproc *fp;
+
+        error = fp_getfvp(p, fd, &fp, &vp);
+        if (error == 0 && fp != FILEPROC_NULL) {
             // Get a hold on the vnode and check that it did not
             // change id.
+            uint32_t vid = vnode_vid(vp);
             error = vnode_getwithvid(vp, vid);
             if (error == 0) {
                 // Got the vnode. Pack vnode and file info into
@@ -265,25 +263,27 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                 bzero(&info, sizeof(info));
                 fill_fileinfo(fp, p, fd, &info.pfi);
                 error = fill_vnodeinfo(vp, &info.pvip.vip_vi, FALSE);
-                // If all is well, add in the file path and copy the data
-                // out to user space.
                 if (error == 0) {
-                    int count = MAXPATHLEN;
-                    vn_getpath(vp, info.pvip.vip_path, &count);
-                    info.pvip.vip_path[MAXPATHLEN-1] = 0;
-                    error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+                    // If all is well, add in the file path and copy the data
+                    // out to user space.
+                    if (error == 0) {
+                        int count = MAXPATHLEN;
+                        vn_getpath(vp, info.pvip.vip_path, &count);
+                        info.pvip.vip_path[MAXPATHLEN-1] = 0;
+                        error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+                    }
                 }
-                // Release the vnode hold.
                 vnode_put(vp);
             }
-            // Release the hold on the fileproc structure
-            fp_drop(p, fd, fp, FALSE);
+        } else {
+            error = EBADF;
         }
+        file_drop(fd);
         proc_rele(p);
     } else {
         error = ESRCH;
     }
-    
+
     return error;
 }
 
@@ -304,23 +304,26 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         struct fileproc *fp;
         socket_t so;
 
-        // Get the socket and fileproc structures for the file. If the
-        // file is not a socket, this fails and we will return an error.
-        // Otherwise, the fileproc has an additional iocount, which we
-        // must remember to release.
-        error = fp_getfsock(p, fd, &fp, &so);
+        error = fp_getfvp(p, fd, &fp, NULL);
         if (error == 0 && fp != FILEPROC_NULL) {
-            struct socket_fdinfo info;
-
-            bzero(&info, sizeof(info));
-            fill_fileinfo(fp, p, fd, &info.pfi);
-            error = fill_socketinfo(so, &info.psi);
+            // Get the socket and fileproc structures for the file. If the
+            // file is not a socket, this fails and we will return an error.
+            // Otherwise, the fileproc has an additional iocount, which we
+            // must remember to release.
+            error = file_socket(fd, &so);
             if (error == 0) {
-                error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+                struct socket_fdinfo info;
+                bzero(&info, sizeof(info));
+                fill_fileinfo(fp, p, fd, &info.pfi);
+                error = fill_socketinfo(so, &info.psi);
+                if (error == 0) {
+                    error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+                }
             }
-            // Release the hold on the fileproc structure
-            fp_drop(p, fd, fp, FALSE);
+        } else {
+            error = EBADF;
         }
+        file_drop(fd);
         proc_rele(p);
     } else {
         error = ESRCH;
