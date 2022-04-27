@@ -47,10 +47,6 @@ extern int                      (*_hard_maxproc);
 #define                         hard_maxproc \
                                 *_hard_maxproc
 
-extern struct filedesc          (*_filedesc0);
-#define                         filedesc0 \
-                                *_filedesc0
-
 #pragma mark -
 #pragma mark Process misc functions.
 
@@ -215,10 +211,69 @@ extern void                     (*_tty_unlock)(struct tty *tp);
 #pragma mark -
 #pragma mark File descriptor
 
+extern struct filedesc          (*_filedesc0);
+#define                         filedesc0 \
+                                *_filedesc0;
+
 extern int                      (*_fp_getfvp)(struct proc *p, int fd, struct fileproc **resultfp, struct vnode  **resultvp);
 #define                         fp_getfvp(p, fd, resultfp, resultvp) \
                                 _fp_getfvp(p, fd, resultfp, resultvp)
-
+/*
+ * fdcopy
+ *
+ * Description: Copy a filedesc structure.  This is normally used as part of
+ *      forkproc() when forking a new process, to copy the per process
+ *      open file table over to the new process.
+ *
+ * Parameters:  p               Process whose open file table
+ *                      is to be copied (parent)
+ *      uth_cdir            Per thread current working
+ *                      cirectory, or NULL
+ *
+ * Returns: NULL                Copy failed
+ *      !NULL               Pointer to new struct filedesc
+ *
+ * Locks:   This function internally takes and drops proc_fdlock()
+ *
+ * Notes:   Files are copied directly, ignoring the new resource limits
+ *      for the process that's being copied into.  Since the descriptor
+ *      references are just additional references, this does not count
+ *      against the number of open files on the system.
+ *
+ *      The struct filedesc includes the current working directory,
+ *      and the current root directory, if the process is chroot'ed.
+ *
+ *      If the exec was called by a thread using a per thread current
+ *      working directory, we inherit the working directory from the
+ *      thread making the call, rather than from the process.
+ *
+ *      In the case of a failure to obtain a reference, for most cases,
+ *      the file entry will be silently dropped.  There's an exception
+ *      for the case of a chroot dir, since a failure to to obtain a
+ *      reference there would constitute an "escape" from the chroot
+ *      environment, which must not be allowed.  In that case, we will
+ *      deny the execve() operation, rather than allowing the escape.
+ */
+extern struct filedesc *        (*_fdcopy)(proc_t p, vnode_t uth_cdir);
+#define                         fdcopy(p, uth_cdir) \
+                                _fdcopy(p, uth_cdir)
+/*
+ * fdfree
+ *
+ * Description: Release a filedesc (per process open file table) structure;
+ *      this is done on process exit(), or from forkproc_free() if
+ *      the fork fails for some reason subsequent to a successful
+ *      call to fdcopy()
+ *
+ * Parameters:  p               Pointer to process going away
+ *
+ * Returns: void
+ *
+ * Locks:   This function internally takes and drops proc_fdlock()
+ */
+extern void                     (*_fdfree)(proc_t p);
+#define                         fdfree(p) \
+                                _fdfree(p)
 /*
  * Filedesc table iteration: next.
  */

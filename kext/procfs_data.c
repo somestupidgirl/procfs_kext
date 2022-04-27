@@ -261,7 +261,7 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                 // a vnode_fdinfowithpath structure.
                 struct vnode_fdinfowithpath info;
                 bzero(&info, sizeof(info));
-                fill_fileinfo(fp, p, fd, &info.pfi);
+                fill_fileinfo(fp, p, fd, vp, &info.pfi);
                 error = fill_vnodeinfo(vp, &info.pvip.vip_vi, FALSE);
                 if (error == 0) {
                     // If all is well, add in the file path and copy the data
@@ -273,12 +273,12 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                         error = procfs_copy_data((const char *)&info, sizeof(info), uio);
                     }
                 }
-                vnode_put(vp);
             }
+            vnode_put(vp);
+            file_drop(fd);
         } else {
             error = EBADF;
         }
-        file_drop(fd);
         proc_rele(p);
     } else {
         error = ESRCH;
@@ -303,8 +303,9 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p != PROC_NULL) {
         struct fileproc *fp;
         socket_t so;
+        vnode_t vp;
 
-        error = fp_getfvp(p, fd, &fp, NULL);
+        error = fp_getfvp(p, fd, &fp, &vp);
         if (error == 0 && fp != FILEPROC_NULL) {
             // Get the socket and fileproc structures for the file. If the
             // file is not a socket, this fails and we will return an error.
@@ -314,16 +315,17 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             if (error == 0) {
                 struct socket_fdinfo info;
                 bzero(&info, sizeof(info));
-                fill_fileinfo(fp, p, fd, &info.pfi);
+                fill_fileinfo(fp, p, fd, vp, &info.pfi);
                 error = fill_socketinfo(so, &info.psi);
                 if (error == 0) {
                     error = procfs_copy_data((const char *)&info, sizeof(info), uio);
                 }
             }
+            vnode_put(vp);
+            file_drop(fd);
         } else {
             error = EBADF;
         }
-        file_drop(fd);
         proc_rele(p);
     } else {
         error = ESRCH;

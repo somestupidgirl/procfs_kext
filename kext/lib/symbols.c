@@ -76,6 +76,8 @@ SYM_INIT(tty_unlock);
 
 SYM_INIT(filedesc0);
 SYM_INIT(fp_getfvp);
+SYM_INIT(fdcopy);
+SYM_INIT(fdfree);
 SYM_INIT(fdt_next);
 SYM_INIT(fdt_prev);
 SYM_INIT(proc_fdlist);
@@ -166,6 +168,8 @@ resolve_symbols(void)
 
 	SYM_LOOKUP(filedesc0);
 	SYM_LOOKUP(fp_getfvp);
+	SYM_LOOKUP(fdcopy);
+	SYM_LOOKUP(fdfree);
 	SYM_LOOKUP(fdt_next);
 	SYM_LOOKUP(fdt_prev);
 	SYM_LOOKUP(proc_fdlist);

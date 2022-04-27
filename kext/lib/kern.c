@@ -209,8 +209,10 @@ out:
     return error;
 }
 
+#include <sys/user.h>
+
 void
-fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
+fill_fileinfo(struct fileproc * fp, proc_t p, int fd, vnode_t vp, struct proc_fileinfo * fi)
 {
     uint32_t openflags = 0;
     uint32_t status = 0;
@@ -228,27 +230,41 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
         }
 
         if (p != PROC_NULL) {
-            proc_fdlock_spin(p);
-            fdt_foreach(fp, p) {
-                struct filedesc *fdp;
+            proc_t pp = proc_find(proc_ppid(p));
+            if (pp != PROC_NULL) {
+                struct filedesc *fdp = NULL;
+                thread_t th = proc_thread(pp);
+                uthread_t puth = (uthread_t)get_bsdthread_info(th);
+                vnode_t uthvp; // TODO: Figure this one out.
 
-                //fdp = p->p_fd; // FIXME: p->p_fd is NULL
-                fdp = NULL;
+                puth->uu_cdir = uthvp;
+                //puth->uu_cdir = vp;
+                //puth->uu_cdir = vnode_getparent(vp);
+                if (puth->uu_cdir == NULLVP) {
+                    panic("uu_cdir is %p", puth->uu_cdir);
+                }
 
-                if (fdp != NULL) {
-                    if ((fdp->fd_ofileflags[fd] & UF_EXCLOSE) != 0) {
+                proc_fdlock(p);
+                p->p_fd = fdcopy(pp, puth->uu_cdir);
+                if ((fdp = p->p_fd) != NULL) {
+                    if ((FDFLAGS_GET(p, fd) & UF_EXCLOSE) != 0) {
                         status |= PROC_FP_CLEXEC;
                     }
-                    if ((fdp->fd_ofileflags[fd] & UF_FORKCLOSE) != 0) {
+                    if ((FDFLAGS_GET(p, fd) & UF_FORKCLOSE) != 0) {
                         status |= PROC_FP_CLFORK;
                     }
-
-                    if (fd != fdt_foreach_fd()) {
-                        continue;
+                    if (p->p_fd) {
+                        fdfree(p);
+                        p->p_fd = NULL;
+                    }
+                    if (puth->uu_cdir) {
+                        vnode_rele(puth->uu_cdir);
+                        puth->uu_cdir = NULLVP;
                     }
                 }
+                proc_fdunlock(p);
+                proc_rele(pp);
             }
-            proc_fdunlock(p);
         }
 #if 0
         if (fp_isguarded(fp, 0)) {
@@ -269,7 +285,6 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
         }
 #endif
     }
-
     bzero(fi, sizeof(struct proc_fileinfo));
     fi->fi_openflags = openflags;
     fi->fi_status = status;
