@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2014 squiffypwn. All rights reserved.
  * Copyright (c) 2022 Sunneva Jonsdottir
  *
  * cpuinfo.c
@@ -138,6 +139,32 @@ get_bitfield_width(uint32_t number)
                       : "a"(number));
 
     return fieldwidth+1;  /* bsr returns the position, we want the width */
+}
+
+/*
+ * Disable CPU write protection.
+ * From squiffypwn's libmasochist.
+ */
+uint32_t
+disable_write_protection() {
+    uintptr_t cr0 = get_cr0();
+    cr0 &= ~CR0_WP;
+    set_cr0(cr0);
+
+    return 0;
+}
+
+/*
+ * Enable CPU write protection.
+ * From squiffypwn's libmasochist.
+ */
+uint32_t
+enable_write_protection() {
+    uintptr_t cr0 = get_cr0();
+    cr0 |= CR0_WP;
+    set_cr0(cr0);
+
+    return 0;
 }
 
 /*

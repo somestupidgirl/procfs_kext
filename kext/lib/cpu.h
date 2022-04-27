@@ -19,6 +19,9 @@ extern boolean_t is_intel_cpu(void);
 extern uint32_t extract_bitfield(uint32_t infield, uint32_t width, uint32_t offset);
 extern uint32_t get_bitfield_width(uint32_t number);
 
+extern uint32_t disable_write_protection(void);
+extern uint32_t enable_write_protection(void);
+
 extern uint32_t set_microcode_version(void);
 extern uint32_t get_microcode_version(void);
 
