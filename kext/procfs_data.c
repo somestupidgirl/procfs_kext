@@ -260,8 +260,10 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                 // Got the vnode. Pack vnode and file info into
                 // a vnode_fdinfowithpath structure.
                 struct vnode_fdinfowithpath info;
+
                 bzero(&info, sizeof(info));
-                fill_fileinfo(fp, p, fd, vp, &info.pfi);
+                fill_fileinfo(fp, p, vp, vid, fd, &info.pfi, ctx);
+
                 error = fill_vnodeinfo(vp, &info.pvip.vip_vi, FALSE);
                 if (error == 0) {
                     // If all is well, add in the file path and copy the data
@@ -291,7 +293,7 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
  * Reads the data associated with a file descriptor that refers to a socket.
  */
 int
-procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 {
     int error = 0;
 
@@ -313,9 +315,12 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             // must remember to release.
             error = file_socket(fd, &so);
             if (error == 0) {
+                uint32_t vid = vnode_vid(vp);
                 struct socket_fdinfo info;
+
                 bzero(&info, sizeof(info));
-                fill_fileinfo(fp, p, fd, vp, &info.pfi);
+                fill_fileinfo(fp, p, vp, vid, fd, &info.pfi, ctx);
+
                 error = fill_socketinfo(so, &info.psi);
                 if (error == 0) {
                     error = procfs_copy_data((const char *)&info, sizeof(info), uio);

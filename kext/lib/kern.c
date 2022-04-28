@@ -209,10 +209,48 @@ out:
     return error;
 }
 
-#include <sys/user.h>
+/*
+ * Most fd's have an underlying fileproc struct; but some may be
+ * guarded_fileproc structs which implement guarded fds.  The latter
+ * struct (below) embeds the former.
+ *
+ * The two types should be distinguished by the "type" portion of fp_flags.
+ * There's also a magic number to help catch misuse and bugs.
+ *
+ * This is a bit unpleasant, but results from the desire to allow
+ * alternate file behaviours for a few file descriptors without
+ * growing the fileproc data structure.
+ */
+struct guarded_fileproc {
+    struct fileproc gf_fileproc;
+    u_int           gf_attrs;
+    guardid_t       gf_guard;
+};
 
-void
-fill_fileinfo(struct fileproc * fp, proc_t p, int fd, vnode_t vp, struct proc_fileinfo * fi)
+static inline struct guarded_fileproc *
+FP_TO_GFP(struct fileproc *fp)
+{
+#define typeof __typeof
+
+    struct guarded_fileproc *gfp = __container_of(fp, struct guarded_fileproc, gf_fileproc);
+
+#undef typeof
+
+    return gfp;
+}
+
+int
+fp_isguarded(struct fileproc *fp, u_int attrs)
+{
+    if (FILEPROC_TYPE(fp) == FTYPE_GUARDED) {
+        return (attrs & FP_TO_GFP(fp)->gf_attrs) == attrs;
+    }
+    return 0;
+}
+
+int
+fill_fileinfo(struct fileproc * fp, proc_t p, vnode_t vp, int vid, int fd,
+              struct proc_fileinfo * fi, vfs_context_t ctx)
 {
     uint32_t openflags = 0;
     uint32_t status = 0;
@@ -230,43 +268,20 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, vnode_t vp, struct proc_fi
         }
 
         if (p != PROC_NULL) {
-            proc_t pp = proc_find(proc_ppid(p));
-            if (pp != PROC_NULL) {
-                struct filedesc *fdp = NULL;
-                thread_t th = proc_thread(pp);
-                uthread_t puth = (uthread_t)get_bsdthread_info(th);
-                vnode_t uthvp; // TODO: Figure this one out.
+            proc_fdlock(p);
+            struct filedesc *fdp;
 
-                puth->uu_cdir = uthvp;
-                //puth->uu_cdir = vp;
-                //puth->uu_cdir = vnode_getparent(vp);
-                if (puth->uu_cdir == NULLVP) {
-                    panic("uu_cdir is %p", puth->uu_cdir);
+            if ((fdp = p->p_fd) != NULL) {
+                if ((FDFLAGS_GET(p, fd) & UF_EXCLOSE) != 0) {
+                    status |= PROC_FP_CLEXEC;
                 }
-
-                proc_fdlock(p);
-                p->p_fd = fdcopy(pp, puth->uu_cdir);
-                if ((fdp = p->p_fd) != NULL) {
-                    if ((FDFLAGS_GET(p, fd) & UF_EXCLOSE) != 0) {
-                        status |= PROC_FP_CLEXEC;
-                    }
-                    if ((FDFLAGS_GET(p, fd) & UF_FORKCLOSE) != 0) {
-                        status |= PROC_FP_CLFORK;
-                    }
-                    if (p->p_fd) {
-                        fdfree(p);
-                        p->p_fd = NULL;
-                    }
-                    if (puth->uu_cdir) {
-                        vnode_rele(puth->uu_cdir);
-                        puth->uu_cdir = NULLVP;
-                    }
+                if ((FDFLAGS_GET(p, fd) & UF_FORKCLOSE) != 0) {
+                    status |= PROC_FP_CLFORK;
                 }
-                proc_fdunlock(p);
-                proc_rele(pp);
             }
+            proc_fdunlock(p);
         }
-#if 0
+
         if (fp_isguarded(fp, 0)) {
             fi->fi_status |= PROC_FP_GUARDED;
             fi->fi_guardflags = 0;
@@ -283,7 +298,7 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, vnode_t vp, struct proc_fi
                 guardflags |= PROC_FI_GUARD_FILEPORT;
             }
         }
-#endif
+
     }
     bzero(fi, sizeof(struct proc_fileinfo));
     fi->fi_openflags = openflags;
@@ -291,4 +306,6 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, vnode_t vp, struct proc_fi
     fi->fi_offset = offset;
     fi->fi_type = type;
     fi->fi_guardflags = guardflags;
+
+    return (0);
 }
