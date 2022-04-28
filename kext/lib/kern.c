@@ -268,9 +268,9 @@ fill_fileinfo(struct fileproc * fp, proc_t p, vnode_t vp, int vid, int fd,
         }
 
         if (p != PROC_NULL) {
-            proc_fdlock(p);
             struct filedesc *fdp;
 
+            proc_fdlock(p);
             if ((fdp = p->p_fd) != NULL) {
                 if ((FDFLAGS_GET(p, fd) & UF_EXCLOSE) != 0) {
                     status |= PROC_FP_CLEXEC;
