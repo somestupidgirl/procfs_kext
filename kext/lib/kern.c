@@ -239,7 +239,7 @@ FP_TO_GFP(struct fileproc *fp)
     return gfp;
 }
 
-int
+static inline int
 fp_isguarded(struct fileproc *fp, u_int attrs)
 {
     if (FILEPROC_TYPE(fp) == FTYPE_GUARDED) {
@@ -283,8 +283,7 @@ fill_fileinfo(struct fileproc * fp, proc_t p, vnode_t vp, int vid, int fd,
         }
 
         if (fp_isguarded(fp, 0)) {
-            fi->fi_status |= PROC_FP_GUARDED;
-            fi->fi_guardflags = 0;
+            status |= PROC_FP_GUARDED;
             if (fp_isguarded(fp, GUARD_CLOSE)) {
                 guardflags |= PROC_FI_GUARD_CLOSE;
             }
