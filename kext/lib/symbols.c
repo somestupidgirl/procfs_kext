@@ -74,6 +74,9 @@ SYM_INIT(proc_gettty_dev);
 SYM_INIT(tty_lock);
 SYM_INIT(tty_unlock);
 
+SYM_INIT(forkproc);
+SYM_INIT(forkproc_free);
+
 SYM_INIT(filedesc0);
 SYM_INIT(fp_getfvp);
 SYM_INIT(fdcopy);
@@ -94,6 +97,7 @@ SYM_INIT(proc_task);
 SYM_INIT(proc_thread);
 SYM_INIT(thread_info);
 SYM_INIT(get_bsdthread_info);
+SYM_INIT(bsd_threadcdir);
 SYM_INIT(uthread_alloc);
 SYM_INIT(convert_port_to_thread);
 SYM_INIT(task_threads);
@@ -166,6 +170,9 @@ resolve_symbols(void)
 	SYM_LOOKUP(tty_lock);
 	SYM_LOOKUP(tty_unlock);
 
+	SYM_LOOKUP(forkproc);
+	SYM_LOOKUP(forkproc_free);
+
 	SYM_LOOKUP(filedesc0);
 	SYM_LOOKUP(fp_getfvp);
 	SYM_LOOKUP(fdcopy);
@@ -186,6 +193,7 @@ resolve_symbols(void)
 	SYM_LOOKUP(proc_thread);
 	SYM_LOOKUP(thread_info);
 	SYM_LOOKUP(get_bsdthread_info);
+	SYM_LOOKUP(bsd_threadcdir);
 	SYM_LOOKUP(uthread_alloc);
 	SYM_LOOKUP(task_threads);
 	SYM_LOOKUP(convert_port_to_thread);
@@ -201,6 +209,6 @@ resolve_symbols(void)
 	SYM_LOOKUP(tscFreq);
 	SYM_LOOKUP(cpuid_info);
 	SYM_LOOKUP(avenrun);
-				   
+
 	return KERN_SUCCESS;
 }

@@ -275,6 +275,41 @@ extern void                     (*_fdfree)(proc_t p);
 #define                         fdfree(p) \
                                 _fdfree(p)
 /*
+ * forkproc
+ *
+ * Description: Create a new process structure, given a parent process
+ *      structure.
+ *
+ * Parameters:  parent_proc     The parent process
+ *
+ * Returns: !NULL           The new process structure
+ *      NULL            Error (insufficient free memory)
+ *
+ * Note:    When successful, the newly created process structure is
+ *      partially initialized; if a caller needs to deconstruct the
+ *      returned structure, they must call forkproc_free() to do so.
+ */
+extern proc_t                   (*_forkproc)(proc_t parent_proc);
+#define                         forkproc(parent_proc) \
+                                _forkproc(parent_proc)
+/*
+ * Destroy a process structure that resulted from a call to forkproc(), but
+ * which must be returned to the system because of a subsequent failure
+ * preventing it from becoming active.
+ *
+ * Parameters:  p           The incomplete process from forkproc()
+ *
+ * Returns: (void)
+ *
+ * Note:    This function should only be used in an error handler following
+ *      a call to forkproc().
+ *
+ *      Operations occur in reverse order of those in forkproc().
+ */
+extern void                     (*_forkproc_free)(proc_t);
+#define                         forkproc_free(p) \
+                                _forkproc_free(p)
+/*
  * Filedesc table iteration: next.
  */
 extern struct fdt_iterator      (*_fdt_next)(proc_t p, int fd, bool only_settled);
@@ -377,6 +412,10 @@ extern kern_return_t            (*_thread_info)(thread_t thread, thread_flavor_t
 extern void *                   (*_get_bsdthread_info)(thread_t);
 #define                         get_bsdthread_info(t) \
                                 _get_bsdthread_info(t)
+
+extern void                     (*_bsd_threadcdir)(void * uth, void *vptr, int *vidp);
+#define                         bsd_threadcdir(uth, vptr, vidp) \
+                                _bsd_threadcdir(uth, vptr, vidp)
 
 extern void *                   (*_uthread_alloc)(task_t task, thread_t thread, int noinherit);
 #define                         uthread_alloc(task, thread, noinherit) \
