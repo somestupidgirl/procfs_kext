@@ -270,6 +270,17 @@ fill_fileinfo(struct fileproc * fp, proc_t p, vnode_t vp, int vid, int fd,
         if (p != PROC_NULL) {
             struct filedesc *fdp;
 
+            /*
+             * FIXME: p->p_fd is always NULL because the
+             * filedesc structure is not included in the
+             * public KPI.
+             *
+             * We'll have to find a way around this problem
+             * to get the p->p_fd->fd_ofileflags array.
+             *
+             * The user mode fd integer is an indice into
+             * this array (0 - stdin, 1 - stdout, 2 - stderr).
+             */
             proc_fdlock(p);
             if ((fdp = p->p_fd) != NULL) {
                 if ((FDFLAGS_GET(p, fd) & UF_EXCLOSE) != 0) {
