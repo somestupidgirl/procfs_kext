@@ -84,7 +84,9 @@ For files that display only raw data you can pipe it via `hexdump` to read the c
 ## Issues
 Currently known issues:
 
- - Functions `procfs_read_fd_data` and `procfs_read_socket_data` are currently not working as intended.
+ - The `fill_fileinfo` function in kext/lib/kern.c can still not fill the fi_status field in proc_fileinfo because the p_fd in struct proc is NULL. This is because the filedesc structure, which p_fd points to, is not included in the KPI. The function in question is used by `procfs_read_fd_data` and `procfs_read_socket_data` in kext/procfs_data.c. Both functions are working, however the data that they return may not be 100% accurate due to the fi_status field always being 0.
+- The `procfs_dopartitions` function in kext/procfs_linux.c is still in early stages of development so it will only return dummy values at the moment.
+- Certain fields in `procfs_docpuinfo`, in kext/procfs_linux.c, such as `bugs` and `pm` have yet to be incorprorated. Support for CPU flags for AMD CPUs is also still limited.
 
 ## Contributing and Bug Reporting
 If you wish to contribute to this project then feel free to make a pull request. If you encounter any undocumented bugs then you may also file an issue under the "Issues" tab.
