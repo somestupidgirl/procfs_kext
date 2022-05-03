@@ -200,7 +200,7 @@ get_microcode_version(void)
 uint32_t
 set_microcode_version(void)
 {
-    i386_cpu_info_t *info_p;
+    i386_cpu_info_t *info_p = NULL;
     uint32_t reg[4];
 
     /*
@@ -366,7 +366,7 @@ get_cpu_flags(void)
 
         char *flags[size];
 
-        while (i < ARRAY_COUNT(feature_flags)) {
+        while (i < (int)ARRAY_COUNT(feature_flags)) {
             /* 
              * If the CPU supports a feature in the feature_list[]...
              */
@@ -374,21 +374,23 @@ get_cpu_flags(void)
                 /*
                  * ...amend its flag to 'flags'.
                  */
-                strlcat(flags, feature_flags[i], sizeof(flags));
-                strlcat(flags, " ", sizeof(flags));
+                strlcat((char *)flags, feature_flags[i], sizeof(flags));
+                strlcat((char *)flags, " ", sizeof(flags));
             }
             /*
              * Add 1 to the counter for each iteration.
              */
             i++;
         }
-        return flags;
+        return (char *)flags;
 
     } else {
         size = 8;
         char *flags[size];
-        strlcat(flags,"", sizeof(flags));
-        return flags;
+
+        strlcat((char *)flags,"", sizeof(flags));
+
+        return (char *)flags;
     }
 }
 
@@ -435,7 +437,7 @@ get_cpu_ext_flags(void)
         /*
          * Main loop.
          */
-        while (i < ARRAY_COUNT(feature_ext_flags)) {
+        while (i < (int)ARRAY_COUNT(feature_ext_flags)) {
             /* 
              * If the CPU supports a feature in the feature_ext_list[]...
              */
@@ -443,23 +445,23 @@ get_cpu_ext_flags(void)
                 /*
                  * ...amend its flag to 'flags'.
                  */
-                strlcat(flags, feature_ext_flags[i], sizeof(flags));
-                strlcat(flags, " ", sizeof(flags));
+                strlcat((char *)flags, feature_ext_flags[i], sizeof(flags));
+                strlcat((char *)flags, " ", sizeof(flags));
             }
             /*
              * Add 1 to the counter for each iteration.
              */
             i++;
         }
-        return flags;
+        return (char *)flags;
 
     } else {
         size = 8;
         char *flags[size];
 
-        strlcat(flags,"", sizeof(flags));
+        strlcat((char *)flags,"", sizeof(flags));
 
-        return flags;
+        return (char *)flags;
     }
 }
 
@@ -584,7 +586,7 @@ get_leaf7_flags(void)
         size = (sizeof(leaf7_feature_flags) * 2);
         char *flags[size];
 
-        while (i < ARRAY_COUNT(leaf7_feature_flags)) {
+        while (i < (int)ARRAY_COUNT(leaf7_feature_flags)) {
             /* 
              * If the CPU supports a feature in the leaf7_feature_list[]...
              */
@@ -592,23 +594,23 @@ get_leaf7_flags(void)
                 /*
                  * ...amend its flag to 'flags'.
                  */
-                strlcat(flags, leaf7_feature_flags[i], sizeof(flags));
-                strlcat(flags, " ", sizeof(flags));
+                strlcat((char *)flags, leaf7_feature_flags[i], sizeof(flags));
+                strlcat((char *)flags, " ", sizeof(flags));
             }
             /*
              * Add 1 to the counter for each iteration.
              */
             i++;
         }
-        return flags;
+        return (char *)flags;
 
     } else {
         size = 8;
         char *flags[size];
 
-        strlcat(flags,"", sizeof(flags));
+        strlcat((char *)flags,"", sizeof(flags));
 
-        return flags;
+        return (char *)flags;
     }
 }
 
@@ -667,7 +669,7 @@ get_leaf7_ext_flags(void)
         size = (sizeof(leaf7_feature_ext_flags) * 2);
         char *flags[size];
 
-        while (i < ARRAY_COUNT(leaf7_feature_ext_flags)) {
+        while (i < (int)ARRAY_COUNT(leaf7_feature_ext_flags)) {
             /* 
              * If the CPU supports a feature in the leaf7_feature_ext_list[]...
              */
@@ -675,23 +677,23 @@ get_leaf7_ext_flags(void)
                 /*
                  * ...amend its flag to 'flags'.
                  */
-                strlcat(flags[size], leaf7_feature_ext_flags[i], sizeof(flags));
-                strlcat(flags, " ", sizeof(flags));
+                strlcat((char *)flags, leaf7_feature_ext_flags[i], sizeof(flags));
+                strlcat((char *)flags, " ", sizeof(flags));
             }
             /*
              * Add 1 to the counter for each iteration.
              */
             i++;
         }
-        return flags;
+        return (char *)flags;
 
     } else {
         size = 8;
         char *flags[size];
 
-        strlcat(flags,"", sizeof(flags));
+        strlcat((char *)flags,"", sizeof(flags));
 
-        return flags;
+        return (char *)flags;
     }
 }
 

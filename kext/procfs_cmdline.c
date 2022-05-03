@@ -55,7 +55,7 @@ procfs_docmdline(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     /*
      * Allocate a temporary buffer to hold the arguments.
      */
-    const char *buf = malloc(PAGE_SIZE, M_TEMP, M_WAITOK);
+    char *buf = malloc(PAGE_SIZE, M_TEMP, M_WAITOK);
 
     if (p != PROC_NULL) {
         /*
@@ -73,11 +73,11 @@ procfs_docmdline(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 char *comm = proc_best_name(p);
                 len = snprintf(buf, PAGE_SIZE, "(%s)\n", comm) + 1;
                 xlen = (len - pgoff);
-                error = uiomove(buf, xlen, uio);
+                error = uiomove((const char *)buf, xlen, uio);
             } else {
                 len = snprintf(buf, PAGE_SIZE, "Feature not yet implemented.\n");
                 xlen = (len - pgoff);
-                error = uiomove(buf, xlen, uio);
+                error = uiomove((const char *)buf, xlen, uio);
             }
         }
         /*

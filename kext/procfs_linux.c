@@ -293,7 +293,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             /*
              * Do the move into userspace.
              */
-            uiomove(buffer, xlen, uio);
+            uiomove((const char *)buffer, xlen, uio);
 
             /* 
              * Set len back to 0 before entering into the next loop.
@@ -306,7 +306,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
              * Increase by 2 for each loop.
              */
             apicid += 2;
-            if (apicid >= max_cpus) {
+            if ((int)apicid >= (int)max_cpus) {
                 /* If the number exceeds max_cpus, reset to 1. */
                 apicid = 1;
             }
@@ -329,7 +329,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             /*
              * Reset the core_id counter if it exceeds the maximum number of cores.
              */
-            if (core_id > cpu_cores - 1) {
+            if ((int)core_id > (int)cpu_cores - 1) {
                 core_id = 0;
             }
 
@@ -368,7 +368,7 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
     int lastpid = 30000;
 
-    const char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
+    char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 
     unsigned int nrun = *(unsigned int *)avenrun;
     struct loadavg *avg = &averunnable;
@@ -395,7 +395,7 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     );
 
     xlen = (len - pgoff);
-    error = uiomove(buf, xlen, uio);
+    error = uiomove((const char *)buf, xlen, uio);
 
     free(buf, M_TEMP);
 
@@ -418,14 +418,14 @@ procfs_dopartitions(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
     int major = 0, minor = 0, block_size = 0;
     char *name = "sda";
 
-    const char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
+    char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 
     len = snprintf(buf, LBFSZ, "major minor  #blocks  name\n"
                                "%d %d %d %s\n",
                                major, minor, block_size, name);
 
     xlen = (len - pgoff);
-    error = uiomove(buf, xlen, uio);
+    error = uiomove((const char *)buf, xlen, uio);
 
     free(buf, M_TEMP);
 
@@ -445,7 +445,7 @@ procfs_doversion(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     vm_offset_t pgno = trunc_page(off);
     off_t pgoff = (off - pgno);
 
-    const char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
+    char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 
     /*
      * Print out the kernel version string.
@@ -454,7 +454,7 @@ procfs_doversion(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                                 version);
 
     xlen = (len - pgoff);
-    error = uiomove(buf, xlen, uio);
+    error = uiomove((const char *)buf, xlen, uio);
 
     free(buf, M_TEMP);
 

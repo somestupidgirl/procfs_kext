@@ -58,10 +58,13 @@ CFLAGS+=	$(SDKFLAGS) \
 			-I../kext/lib \
 			-I../lib \
 			-I../include \
-			-I../MacKernelSDK/Headers
+			-isystem../MacKernelSDK/Headers 
 
 # warnings
-CFLAGS+=	-Wall -Wextra -Wno-vla -Wno-nullability-completeness
+CFLAGS+=	-Werror -Wall -Wextra \
+			-Wno-unused-parameter \
+			-Wno-unused-variable \
+			-Wno-unused-value
 
 # linker flags
 ifdef MACOSX_VERSION_MIN

@@ -385,9 +385,6 @@ extern int                      (*_proc_fdlist)(proc_t p, struct proc_fdinfo *bu
 #pragma mark -
 #pragma mark Task/Thread
 
-struct uthread;
-typedef struct uthread * uthread_t;
-
 /*
  * Returns the task for the specified process.
  */
