@@ -262,17 +262,18 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                 struct vnode_fdinfowithpath info;
 
                 bzero(&info, sizeof(info));
-                fill_fileinfo(fp, p, vp, vid, fd, &info.pfi, ctx);
-
-                error = fill_vnodeinfo(vp, &info.pvip.vip_vi, FALSE);
+                error = fill_fileinfo(fp, p, fd, &info.pfi);
                 if (error == 0) {
-                    // If all is well, add in the file path and copy the data
-                    // out to user space.
+                    error = fill_vnodeinfo(vp, &info.pvip.vip_vi, FALSE);
                     if (error == 0) {
-                        int count = MAXPATHLEN;
-                        vn_getpath(vp, info.pvip.vip_path, &count);
-                        info.pvip.vip_path[MAXPATHLEN-1] = 0;
-                        error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+                        // If all is well, add in the file path and copy the data
+                        // out to user space.
+                        if (error == 0) {
+                            int count = MAXPATHLEN;
+                            vn_getpath(vp, info.pvip.vip_path, &count);
+                            info.pvip.vip_path[MAXPATHLEN-1] = 0;
+                            error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+                        }
                     }
                 }
             }
@@ -319,11 +320,12 @@ procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                 struct socket_fdinfo info;
 
                 bzero(&info, sizeof(info));
-                fill_fileinfo(fp, p, vp, vid, fd, &info.pfi, ctx);
-
-                error = fill_socketinfo(so, &info.psi);
+                error = fill_fileinfo(fp, p, fd, &info.pfi);
                 if (error == 0) {
-                    error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+                    error = fill_socketinfo(so, &info.psi);
+                    if (error == 0) {
+                        error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+                    }
                 }
             }
             vnode_put(vp);

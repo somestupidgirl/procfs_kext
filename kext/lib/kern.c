@@ -248,9 +248,33 @@ fp_isguarded(struct fileproc *fp, u_int attrs)
     return 0;
 }
 
+static inline volatile struct filedesc *
+proc_fdp(proc_t p)
+{
+    volatile struct filedesc *fdp;
+
+    if (p->p_fd == NULL) {
+        p->p_fd = (struct filedesc *)&(p->p_fd);
+        fdp = p->p_fd;
+    } else {
+        fdp = p->p_fd;
+    }
+
+    return fdp;
+}
+
+static inline void
+fdp_rele(proc_t p)
+{
+    if (p->p_fd != NULL) {
+        p->p_fd = NULL;
+    }
+
+    return;
+}
+
 int
-fill_fileinfo(struct fileproc * fp, proc_t p, vnode_t vp, int vid, int fd,
-              struct proc_fileinfo * fi, vfs_context_t ctx)
+fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
 {
     uint32_t openflags = 0;
     uint32_t status = 0;
@@ -268,27 +292,21 @@ fill_fileinfo(struct fileproc * fp, proc_t p, vnode_t vp, int vid, int fd,
         }
 
         if (p != PROC_NULL) {
-            struct filedesc *fdp;
+            volatile struct filedesc *fdp;
 
-            /*
-             * FIXME: p->p_fd is always NULL because the
-             * filedesc structure is not included in the
-             * public KPI.
-             *
-             * We'll have to find a way around this problem
-             * to get the p->p_fd->fd_ofileflags array.
-             *
-             * The user mode fd integer is an indice into
-             * this array (0 - stdin, 1 - stdout, 2 - stderr).
-             */
             proc_fdlock(p);
-            if ((fdp = p->p_fd) != NULL) {
-                if ((FDFLAGS_GET(p, fd) & UF_EXCLOSE) != 0) {
+            fdp = proc_fdp(p);
+            if (fdp != NULL) {
+                if ((fdp->fd_ofileflags[fd] & UF_EXCLOSE) == UF_EXCLOSE) {
                     status |= PROC_FP_CLEXEC;
                 }
-                if ((FDFLAGS_GET(p, fd) & UF_FORKCLOSE) != 0) {
+                if ((fdp->fd_ofileflags[fd] & UF_FORKCLOSE) == UF_FORKCLOSE) {
                     status |= PROC_FP_CLFORK;
                 }
+                fdp_rele(p);
+            } else {
+                proc_fdunlock(p);
+                return (EBADF);
             }
             proc_fdunlock(p);
         }
