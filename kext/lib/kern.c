@@ -248,29 +248,44 @@ fp_isguarded(struct fileproc *fp, u_int attrs)
     return 0;
 }
 
+/*
+ * Returns the fdp pointer for the specified
+ * process.
+ */
 static inline volatile struct filedesc *
 proc_fdp(proc_t p)
 {
-    volatile struct filedesc *fdp;
+    volatile struct filedesc *fdp = NULL;
 
     if (p->p_fd == NULL) {
-        p->p_fd = (struct filedesc *)&(p->p_fd);
-        fdp = p->p_fd;
+        /*
+         * The filedesc structure is not a part
+         * of the KPI so p->p_fd will always be
+         * NULL. Consequently this will not be
+         * sufficient to get the pointer.
+         */
+        fdp = (struct filedesc *)p->p_fd;
+        if (fdp == NULL) {
+            /*
+             * Whether this is a truly valid way of
+             * getting the pointer is debatable and
+             * requires further scrutiny.
+             *
+             * Current status: No errors, werrors or
+             * warnings. No runtime issues observed.
+             * Accuracy of the data remains to be
+             * verified.
+             */
+            fdp = (struct filedesc *)&(p->p_fd);
+        }
     } else {
+        /*
+         * Kernel only.
+         */
         fdp = p->p_fd;
     }
 
     return fdp;
-}
-
-static inline void
-fdp_rele(proc_t p)
-{
-    if (p->p_fd != NULL) {
-        p->p_fd = NULL;
-    }
-
-    return;
 }
 
 int
@@ -292,7 +307,7 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
         }
 
         if (p != PROC_NULL) {
-            volatile struct filedesc *fdp;
+            volatile struct filedesc *fdp = NULL;
 
             proc_fdlock(p);
             fdp = proc_fdp(p);
@@ -303,10 +318,11 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
                 if ((fdp->fd_ofileflags[fd] & UF_FORKCLOSE) == UF_FORKCLOSE) {
                     status |= PROC_FP_CLFORK;
                 }
-                fdp_rele(p);
+#if DEBUG
             } else {
                 proc_fdunlock(p);
                 return (EBADF);
+#endif
             }
             proc_fdunlock(p);
         }
