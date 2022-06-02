@@ -416,7 +416,7 @@ procfs_dopartitions(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
     off_t pgoff = (off - pgno);
 
     int major = 0, minor = 0, block_size = 0;
-    char *name = "sda";
+    char *name = "Feature not yet implemented.";
 
     char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 

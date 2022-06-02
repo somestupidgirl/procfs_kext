@@ -75,6 +75,9 @@ procfs_docmdline(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 xlen = (len - pgoff);
                 error = uiomove((const char *)buf, xlen, uio);
             } else {
+                /*
+                 * TODO
+                 */
                 len = snprintf(buf, PAGE_SIZE, "Feature not yet implemented.\n");
                 xlen = (len - pgoff);
                 error = uiomove((const char *)buf, xlen, uio);
