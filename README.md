@@ -1,16 +1,13 @@
 # ProcFS
 A kext implementation of the /proc file system for OS X based on the XNU kernel patch by Kim Topley: https://github.com/kimtopley/ProcFS
 
-## Important notice
-This is still at somewhat of an 'alpha' stage, however most of the original features are stable and working at this point. The ones that aren't are the ones that handle the file descriptor data. For now they just have guards in place to return error messages instead of causing kernel panics. This should get fixed in the upcoming weeks.
+Certain features and improvements are still planned and/or in development, but otherwise this should run pretty smoothly!
 
 Tested on:
 
     - macOS Big Sur 11.6.3
 
 ## What is procfs?
-*From Kim Topley's original Readme:*
-
 *procfs* lets you view the processes running on a UNIX system as nodes in the file system, where each process is represented by a single directory named from its process id. Typically, the file system is mounted at `/proc`, so the directory for process 1 would be called `/proc/1`. Beneath a process’ directory are further directories and files that give more information about the process, such as its process id, its active threads, the files that it has open, and so on. *procfs* first appeared in an early version of AT&T’s UNIX and was later implemented in various forms in System V, BSD, Solaris and Linux. You can find a history of the implementation of *procfs* at https://en.wikipedia.org/wiki/Procfs.
 
 In addition to letting you visualize running processes, *procfs* also allows some measure of control over them, at least to suitably privileged users. By writing specific data structures to certain files, you could do such things as set breakpoints and read and write process memory and registers. In fact, on some systems, this was how debugging facilities were provided. However, more modern operating systems do this differently, so some UNIX variants no longer include an implementation of *procfs*. In particular, OS X doesn’t provide *procfs* so, although it’s not strictly needed, I thought that implementing it would be an interesting side project. The code in this repository provides a very basic implementation of *procfs* for OS X. You can use it to see what processes and threads are running on the system and what files they have open. Later, I plan to add more features, neginning with the ability to inspect a thread’s address space to see which executable it is running and what shared libraries it has loaded.
@@ -29,7 +26,7 @@ Each directory in the left column represents one process on the system. By defau
 
 The `fd` directory contains one entry for each file that the process has open. Each entry is a directory that’s numbered for the corresponding file descriptor. Most processes will have at least entries 0, 1 and 2 for standard input, output and error respectively. Within each subdirectory you’ll find two files called `details` and `socket`. The `details` file contains a `vnode_fdinfowithpath` structure, which contains information about the file including its path name if it is a file system file. If the file is a socket endpoint, you can read a `socket_fdinfo` structure from the `socket` file.
 
-The `threads` directory contains a subdirectory for each of the process’ threads. The process in the screenshot above has two threads with ids 550 and 1284. Each thread directory contains a single file called `info` the contains thread-specific information in the form of a `proc_threadinfo` structure.
+The `threads` directory contains a subdirectory for each of the process’ threads. Each thread directory contains a single file called `info` the contains thread-specific information in the form of a `proc_threadinfo` structure.
 
 ## How to build procfs
 To be able to build and install the kernel extension you must have a valid signing certificate in your keychain. Then you must open Makefile.inc and change the SIGNCERT variable to the email linked to your certificate. Once that's done, just open up a terminal window and execute:
@@ -84,7 +81,6 @@ For files that display only raw data you can pipe it via `hexdump` to read the c
 ## Issues
 Currently known issues:
 
- - The `fill_fileinfo` function in kext/lib/kern.c can still not fill the fi_status field in proc_fileinfo because the p_fd in struct proc is NULL. This is because the filedesc structure, which p_fd points to, is not included in the KPI. The function in question is used by `procfs_read_fd_data` and `procfs_read_socket_data` in kext/procfs_data.c. Both functions are working, however the data that they return may not be 100% accurate due to the fi_status field always being 0.
 - The `procfs_dopartitions` function in kext/procfs_linux.c is still in early stages of development so it will only return dummy values at the moment.
 - Certain fields in `procfs_docpuinfo`, in kext/procfs_linux.c, such as `bugs` and `pm` have yet to be incorprorated. Support for CPU flags for AMD CPUs is also still limited.
 
