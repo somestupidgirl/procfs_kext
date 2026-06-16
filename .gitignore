@@ -9,3 +9,6 @@ wip/
 **/Info.plist~
 Info.plist~
 **/*/*.a
+*.log
+**/*.log
+**/*/*.log

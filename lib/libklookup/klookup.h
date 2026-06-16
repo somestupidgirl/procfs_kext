@@ -22,8 +22,20 @@
 #include <mach-o/loader.h>
 #include <sys/systm.h>
 #include <sys/types.h>
-#include <vm/vm_kern.h>
+/*
+ * Lock struct definitions must be included before sys/sysctl.h.
+ * sys/sysctl.h pulls in sys/proc_internal.h which embeds lck_mtx_t,
+ * lck_spin_t, and lck_rw_t by value. The public SDK arm/locks.h only
+ * forward-declares these structs, so we vendor the full definitions
+ * in include/arm/locks.h (sourced from XNU open source).
+ */
+#if defined(__arm64__) || defined(__aarch64__)
+#include <arm/locks.h>
+#elif defined(__x86_64__)
+#include <i386/locks.h>
+#endif
 #include <sys/sysctl.h>
+#include <vm/vm_kern.h>
 #include <libkern/version.h>
 
 #ifdef __cplusplus
@@ -36,7 +48,6 @@ extern "C" {
 }
 #endif
 
-#define BIGSUR_XNU_MAJOR_VERSION    20    // the major version # (version_major) of the Big Sur kernel (Monterey is 21)
+#define BIGSUR_XNU_MAJOR_VERSION    20    /* Darwin 20 = macOS Big Sur */
 
-#endif // KLOOKUP_H
-
+#endif /* KLOOKUP_H */

@@ -6,7 +6,11 @@
 //  Copyright © 2016 Linus Henze. All rights reserved.
 //
 #include <stdint.h>
+#if defined(__x86_64__)
 #include <i386/types.h>
+#elif defined(__arm64__) || defined(__aarch64__)
+#include <arm/_types.h>
+#endif
 #include <sys/uio.h>
 #include <sys/vnode.h>
 #include <sys/vnode_if.h>

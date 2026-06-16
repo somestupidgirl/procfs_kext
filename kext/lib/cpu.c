@@ -16,19 +16,21 @@
  *      is_intel_cpu()
  *      extract_bitfield()
  *      get_bitfield_width()
+ *
+ * ARM64 support added by Sunneva Jonsdottir (2024).
+ * ARM64 CPU identification uses sysctlbyname() in place
+ * of CPUID, and produces output compatible with the
+ * Linux /proc/cpuinfo format for ARM64.
  */
+
 #include <stddef.h>
 #include <string.h>
-#include <i386/cpuid.h>
-#include <i386/pmCPU.h>
-#include <i386/tsc.h>
 #include <libkext/libkext.h>
 #include <mach/machine.h>
 #include <sys/errno.h>
 #include <sys/fcntl.h>
 #include <sys/ioccom.h>
 #include <sys/malloc.h>
-#include <sys/proc_reg.h>
 #include <sys/sysctl.h>
 #include <sys/systm.h>
 #include <sys/types.h>
@@ -37,19 +39,12 @@
 #include "symbols.h"
 
 /*
- * Multipliers used to encode 1*K .. 64*M in a 16 bit size field
- */
-#define K               (1)
-#define M               (1024)
-
-#define min(a, b) ((a) < (b) ? (a) : (b))
-#define quad(hi, lo)    (((uint64_t)(hi)) << 32 | (lo))
-
-/*
  * Load average of runnable processes.
+ * Shared across all architectures.
  */
 struct loadavg averunnable = {
-    { 0, 0, 0}, FSCALE };
+    { 0, 0, 0 }, FSCALE
+};
 
 /*
  * Constants for averages over 1, 5, and 15 minutes
@@ -61,6 +56,25 @@ cexp[3] = {
     (fixpt_t)(0.9834714538216174 * FSCALE), /* exp(-1/60) */
     (fixpt_t)(0.9944598480048967 * FSCALE), /* exp(-1/180) */
 };
+
+/* ============================================================
+ * x86_64 implementation
+ * ============================================================ */
+#if defined(__x86_64__)
+
+#include <i386/cpuid.h>
+#include <i386/pmCPU.h>
+#include <i386/tsc.h>
+#include <sys/proc_reg.h>
+
+/*
+ * Multipliers used to encode 1*K .. 64*M in a 16 bit size field
+ */
+#define K               (1)
+#define M               (1024)
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define quad(hi, lo)    (((uint64_t)(hi)) << 32 | (lo))
 
 /*
  * Returns TRUE if AMD CPU.
@@ -171,7 +185,7 @@ enable_write_protection() {
  * This function returns the actual microcode version
  * number for both AMD and Intel CPUs without modify-
  * ing the cpuid_microcode_version field in struct
- * i386_cpu_info. 
+ * i386_cpu_info.
  */
 uint32_t
 get_microcode_version(void)
@@ -367,7 +381,7 @@ get_cpu_flags(void)
         char *flags[size];
 
         while (i < (int)ARRAY_COUNT(feature_flags)) {
-            /* 
+            /*
              * If the CPU supports a feature in the feature_list[]...
              */
             if (cpuid_info()->cpuid_features & feature_list[i]) {
@@ -438,7 +452,7 @@ get_cpu_ext_flags(void)
          * Main loop.
          */
         while (i < (int)ARRAY_COUNT(feature_ext_flags)) {
-            /* 
+            /*
              * If the CPU supports a feature in the feature_ext_list[]...
              */
             if (cpuid_info()->cpuid_extfeatures & feature_ext_list[i]) {
@@ -587,7 +601,7 @@ get_leaf7_flags(void)
         char *flags[size];
 
         while (i < (int)ARRAY_COUNT(leaf7_feature_flags)) {
-            /* 
+            /*
              * If the CPU supports a feature in the leaf7_feature_list[]...
              */
             if (cpuid_info()->cpuid_leaf7_features & leaf7_feature_list[i]) {
@@ -670,7 +684,7 @@ get_leaf7_ext_flags(void)
         char *flags[size];
 
         while (i < (int)ARRAY_COUNT(leaf7_feature_ext_flags)) {
-            /* 
+            /*
              * If the CPU supports a feature in the leaf7_feature_ext_list[]...
              */
             if (cpuid_info()->cpuid_leaf7_extfeatures & leaf7_feature_ext_list[i]) {
@@ -794,3 +808,505 @@ x86_64_bug_flags[] = {
     /* 13 */ "itlb_multihit",       /* CPU may incur MCE during certain page attribute changes */
     /* 14 */ "srbds"                /* CPU may leak RNG bits if not mitigated */
 };
+
+
+
+/* ============================================================
+ * ARM64 implementation
+ *
+ * Produces output compatible with Linux /proc/cpuinfo ARM64
+ * format:
+ *
+ *   processor       : 0
+ *   BogoMIPS        : 48.00
+ *   Features        : fp asimd evtstrm aes pmull sha1 sha2 ...
+ *   CPU implementer : 0x41
+ *   CPU architecture: 8
+ *   CPU variant     : 0x0
+ *   CPU part        : 0xd08
+ *   CPU revision    : 3
+ *
+ * On Apple Silicon:
+ *   - CPU implementer is always 0x61 (Apple, assigned by ARM)
+ *   - CPU architecture is always 8 (ARMv8)
+ *   - CPU part is derived from hw.cpufamily
+ *   - CPU variant and revision are read from MIDR_EL1 where
+ *     accessible, otherwise reported as 0
+ *   - Features are enumerated via hw.optional.arm.* sysctls
+ *
+ * ============================================================ */
+#elif defined(__arm64__) || defined(__aarch64__)
+
+/*
+ * Apple CPU part numbers derived from hw.cpufamily values.
+ * These correspond to ARM's assigned part numbers for Apple cores.
+ *
+ * Values sourced from XNU osfmk/arm/cpuid.h and public
+ * ARM documentation for Apple Silicon.
+ */
+#define CPUFAMILY_ARM_SWIFT         0x1e2d6381  /* A6  - Swift        */
+#define CPUFAMILY_ARM_CYCLONE       0x37a09642  /* A7  - Cyclone      */
+#define CPUFAMILY_ARM_TYPHOON       0x2c91a47e  /* A8  - Typhoon      */
+#define CPUFAMILY_ARM_TWISTER       0x92fb37c8  /* A9  - Twister      */
+#define CPUFAMILY_ARM_HURRICANE     0x67ceee93  /* A10 - Hurricane    */
+#define CPUFAMILY_ARM_MONSOON_MISTRAL 0xe81e7ef6 /* A11 - Monsoon     */
+#define CPUFAMILY_ARM_VORTEX_TEMPEST  0x07d34b9f /* A12 - Vortex      */
+#define CPUFAMILY_ARM_LIGHTNING_THUNDER 0x462504d2 /* A13 - Lightning  */
+#define CPUFAMILY_ARM_FIRESTORM_ICESTORM 0x1b588bb3 /* A14/M1          */
+#define CPUFAMILY_ARM_AVALANCHE_BLIZZARD 0xda33d83d /* A15/M2          */
+#define CPUFAMILY_ARM_EVEREST_SAWTOOTH   0x8765edea /* A16/M3          */
+#define CPUFAMILY_ARM_IBIZA              0xfa33415e /* A17/M4          */
+
+/*
+ * ARM implementer code for Apple Inc.
+ * Assigned by ARM Holdings.
+ */
+#define ARM_IMPLEMENTER_APPLE       0x61
+
+/*
+ * arm64_cpu_part_string()
+ *
+ * Returns the ARM part number string for a given hw.cpufamily value.
+ * Part numbers follow ARM convention (0xXXX hex).
+ */
+static const char *
+arm64_cpu_part_string(uint32_t cpufamily)
+{
+    switch (cpufamily) {
+        case CPUFAMILY_ARM_SWIFT:               return "0x01";
+        case CPUFAMILY_ARM_CYCLONE:             return "0x02";
+        case CPUFAMILY_ARM_TYPHOON:             return "0x03";
+        case CPUFAMILY_ARM_TWISTER:             return "0x04";
+        case CPUFAMILY_ARM_HURRICANE:           return "0x05";
+        case CPUFAMILY_ARM_MONSOON_MISTRAL:     return "0x06";
+        case CPUFAMILY_ARM_VORTEX_TEMPEST:      return "0x07";
+        case CPUFAMILY_ARM_LIGHTNING_THUNDER:   return "0x08";
+        case CPUFAMILY_ARM_FIRESTORM_ICESTORM:  return "0x22"; /* M1  */
+        case CPUFAMILY_ARM_AVALANCHE_BLIZZARD:  return "0x25"; /* M2  */
+        case CPUFAMILY_ARM_EVEREST_SAWTOOTH:    return "0x28"; /* M3  */
+        case CPUFAMILY_ARM_IBIZA:               return "0x2b"; /* M4  */
+        default:                                return "0x00";
+    }
+}
+
+/*
+ * arm64_cpu_name_string()
+ *
+ * Returns a human-readable chip name for a given hw.cpufamily.
+ * Used in the model name field.
+ */
+static const char *
+arm64_cpu_name_string(uint32_t cpufamily)
+{
+    switch (cpufamily) {
+        case CPUFAMILY_ARM_SWIFT:               return "Apple Swift (A6)";
+        case CPUFAMILY_ARM_CYCLONE:             return "Apple Cyclone (A7)";
+        case CPUFAMILY_ARM_TYPHOON:             return "Apple Typhoon (A8)";
+        case CPUFAMILY_ARM_TWISTER:             return "Apple Twister (A9)";
+        case CPUFAMILY_ARM_HURRICANE:           return "Apple Hurricane (A10)";
+        case CPUFAMILY_ARM_MONSOON_MISTRAL:     return "Apple Monsoon/Mistral (A11)";
+        case CPUFAMILY_ARM_VORTEX_TEMPEST:      return "Apple Vortex/Tempest (A12)";
+        case CPUFAMILY_ARM_LIGHTNING_THUNDER:   return "Apple Lightning/Thunder (A13)";
+        case CPUFAMILY_ARM_FIRESTORM_ICESTORM:  return "Apple Firestorm/Icestorm (M1)";
+        case CPUFAMILY_ARM_AVALANCHE_BLIZZARD:  return "Apple Avalanche/Blizzard (M2)";
+        case CPUFAMILY_ARM_EVEREST_SAWTOOTH:    return "Apple Everest/Sawtooth (M3)";
+        case CPUFAMILY_ARM_IBIZA:               return "Apple Ibiza (M4)";
+        default:                                return "Apple ARM64";
+    }
+}
+
+/*
+ * is_amd_cpu() — always FALSE on ARM64.
+ */
+boolean_t
+is_amd_cpu(void)
+{
+    return FALSE;
+}
+
+/*
+ * is_intel_cpu() — always FALSE on ARM64.
+ */
+boolean_t
+is_intel_cpu(void)
+{
+    return FALSE;
+}
+
+/*
+ * extract_bitfield() — portable implementation, no x86 ASM.
+ */
+uint32_t
+extract_bitfield(uint32_t infield, uint32_t width, uint32_t offset)
+{
+    uint32_t bitmask;
+
+    if ((offset + width) == 32) {
+        bitmask = (0xFFFFFFFF << offset);
+    } else {
+        bitmask = (0xFFFFFFFF << offset) ^ (0xFFFFFFFF << (offset + width));
+    }
+
+    return (infield & bitmask) >> offset;
+}
+
+/*
+ * get_bitfield_width() — portable implementation using clz
+ * instead of the x86 BSR instruction.
+ */
+uint32_t
+get_bitfield_width(uint32_t number)
+{
+    if (number == 0) {
+        return 0;
+    }
+    number--;
+    if (number == 0) {
+        return 0;
+    }
+    /* __builtin_clz is available on clang/ARM64 */
+    return (uint32_t)(32 - (int)__builtin_clz(number));
+}
+
+/*
+ * Write protection via CR0 is an x86-specific concept.
+ * These are no-ops on ARM64.
+ */
+uint32_t
+disable_write_protection(void)
+{
+    return 0;
+}
+
+uint32_t
+enable_write_protection(void)
+{
+    return 0;
+}
+
+/*
+ * MSR microcode versioning is x86-specific.
+ * No equivalent exists on ARM64; return 0.
+ */
+uint32_t
+get_microcode_version(void)
+{
+    return 0;
+}
+
+uint32_t
+set_microcode_version(void)
+{
+    return 0;
+}
+
+/*
+ * arm64_sysctl_int()
+ *
+ * Helper to read an integer sysctl by name.
+ * Returns 0 on failure.
+ */
+static int __attribute__((unused))
+arm64_sysctl_int(const char *name)
+{
+    int val = 0;
+    size_t len = sizeof(val);
+    sysctlbyname(name, &val, &len, NULL, 0);
+    return val;
+}
+
+/*
+ * get_cpu_flags()
+ *
+ * Returns a space-separated string of ARM64 CPU feature flags
+ * in Linux /proc/cpuinfo format, populated from hw.optional.arm.*
+ * sysctls.
+ *
+ * Linux ARM64 feature flag names are used verbatim for
+ * compatibility with tooling that parses /proc/cpuinfo.
+ */
+char *
+get_cpu_flags(void)
+{
+    /*
+     * Static buffer — safe in kext context since this is
+     * called once per procfs read and not reentrant in practice.
+     * Size is generous enough for all known Apple Silicon flags.
+     */
+    static char flags[512];
+    flags[0] = '\0';
+
+    /*
+     * Map of hw.optional.arm.* sysctl names to their Linux
+     * /proc/cpuinfo feature flag equivalents.
+     *
+     * Flags follow the naming convention used by the Linux ARM64
+     * kernel (arch/arm64/kernel/cpuinfo.c).
+     */
+    static const struct {
+        const char *sysctl;
+        const char *flag;
+    } feature_map[] = {
+        /* Floating point and SIMD */
+        { "hw.optional.floatingpoint",          "fp"        },
+        { "hw.optional.arm.AdvSIMD",            "asimd"     },
+        { "hw.optional.arm.AdvSIMD_HPFPCvt",    "asimdhp"   },
+        { "hw.optional.arm.FEAT_FP16",          "fphp"      },
+        /* Event stream */
+        { "hw.optional.arm.FEAT_ECV",           "evtstrm"   },
+        /* Cryptography */
+        { "hw.optional.arm.FEAT_AES",           "aes"       },
+        { "hw.optional.arm.FEAT_PMULL",         "pmull"     },
+        { "hw.optional.arm.FEAT_SHA1",          "sha1"      },
+        { "hw.optional.arm.FEAT_SHA256",        "sha2"      },
+        { "hw.optional.arm.FEAT_SHA512",        "sha512"    },
+        { "hw.optional.arm.FEAT_SHA3",          "sha3"      },
+        /* CRC32 */
+        { "hw.optional.arm.FEAT_CRC32",         "crc32"     },
+        /* Atomics */
+        { "hw.optional.arm.FEAT_LSE",           "atomics"   },
+        { "hw.optional.arm.FEAT_LSE2",          "uscat"     },
+        /* Pointer authentication */
+        { "hw.optional.arm.FEAT_PAuth",         "paca"      },
+        { "hw.optional.arm.FEAT_PAuth",         "pacg"      },
+        { "hw.optional.arm.FEAT_PACIMP",        "ilrcpc"    },
+        /* Load-acquire RCpc */
+        { "hw.optional.arm.FEAT_LRCPC",         "lrcpc"     },
+        { "hw.optional.arm.FEAT_LRCPC2",        "ilrcpc"    },
+        /* Data cache clean to PoP */
+        { "hw.optional.arm.FEAT_DPB",           "dcpop"     },
+        { "hw.optional.arm.FEAT_DPB2",          "dcpodp"    },
+        /* JSCVT / FCMA */
+        { "hw.optional.arm.FEAT_JSCVT",         "jscvt"     },
+        { "hw.optional.arm.FEAT_FCMA",          "fcma"      },
+        /* Speculation / security */
+        { "hw.optional.arm.FEAT_SB",            "sb"        },
+        { "hw.optional.arm.FEAT_SSBS",          "ssbs"      },
+        { "hw.optional.arm.FEAT_CSV2",          "csv2"      },
+        { "hw.optional.arm.FEAT_CSV3",          "csv3"      },
+        { "hw.optional.arm.FEAT_DIT",           "dit"       },
+        /* CPUID visibility */
+        { "hw.optional.armv8_gpi",              "cpuid"     },
+        /* Float rounding */
+        { "hw.optional.arm.FEAT_FRINTTS",       "frint"     },
+        /* Dot product / FHM */
+        { "hw.optional.arm.FEAT_DotProd",       "asimddp"   },
+        { "hw.optional.arm.FEAT_FHM",           "asimdfhm"  },
+        /* Flag manipulation */
+        { "hw.optional.arm.FEAT_FlagM",         "flagm"     },
+        { "hw.optional.arm.FEAT_FlagM2",        "flagm2"    },
+        /* RDM */
+        { "hw.optional.arm.FEAT_RDM",           "asimdrdm"  },
+        /* BTI */
+        { "hw.optional.arm.FEAT_BTI",           "bti"       },
+        /* BF16 */
+        { "hw.optional.arm.FEAT_BF16",          "bf16"      },
+        /* I8MM */
+        { "hw.optional.arm.FEAT_I8MM",          "i8mm"      },
+        /* SVE / SME — present for completeness, disabled on M1 */
+        { "hw.optional.arm.FEAT_SME",           "sme"       },
+        { "hw.optional.arm.FEAT_SME2",          "sme2"      },
+    };
+
+    size_t map_count = sizeof(feature_map) / sizeof(feature_map[0]);
+
+    /*
+     * Deduplicate: some flags appear twice in the map (e.g. ilrcpc).
+     * We track which flag strings we've already appended.
+     */
+    const char *emitted[map_count];
+    size_t emitted_count = 0;
+
+    for (size_t i = 0; i < map_count; i++) {
+        int val = 0;
+        size_t len = sizeof(val);
+        if (sysctlbyname(feature_map[i].sysctl, &val, &len, NULL, 0) != 0
+            || val == 0) {
+            continue;
+        }
+
+        /* Check for duplicates */
+        boolean_t already = FALSE;
+        for (size_t j = 0; j < emitted_count; j++) {
+            if (strcmp(emitted[j], feature_map[i].flag) == 0) {
+                already = TRUE;
+                break;
+            }
+        }
+        if (already) continue;
+
+        strlcat(flags, feature_map[i].flag, sizeof(flags));
+        strlcat(flags, " ", sizeof(flags));
+        emitted[emitted_count++] = feature_map[i].flag;
+    }
+
+    /* Trim trailing space */
+    size_t len = strlen(flags);
+    if (len > 0 && flags[len - 1] == ' ') {
+        flags[len - 1] = '\0';
+    }
+
+    return flags;
+}
+
+/*
+ * get_cpu_ext_flags()
+ *
+ * Extended flags — no Linux /proc/cpuinfo equivalent on ARM64.
+ * The Features line covers everything. Return empty string.
+ */
+char *
+get_cpu_ext_flags(void)
+{
+    static char flags[1] = "";
+    return flags;
+}
+
+/*
+ * get_leaf7_flags()
+ *
+ * x86 CPUID leaf 7 features — not applicable on ARM64.
+ */
+char *
+get_leaf7_flags(void)
+{
+    static char flags[1] = "";
+    return flags;
+}
+
+/*
+ * get_leaf7_ext_flags()
+ *
+ * x86 CPUID leaf 7 extended features — not applicable on ARM64.
+ */
+char *
+get_leaf7_ext_flags(void)
+{
+    static char flags[1] = "";
+    return flags;
+}
+
+/*
+ * arm64_cpu_implementer()
+ *
+ * Returns the ARM implementer code as a hex string.
+ * Apple's assigned implementer ID is 0x61.
+ */
+const char *
+arm64_cpu_implementer(void)
+{
+    return "0x61";
+}
+
+/*
+ * arm64_cpu_architecture()
+ *
+ * Returns the ARM architecture version string.
+ * All Apple Silicon is ARMv8 or later; report as "8"
+ * per Linux convention (architecture field does not
+ * increment beyond 8 in /proc/cpuinfo for AArch64).
+ */
+const char *
+arm64_cpu_architecture(void)
+{
+    return "8";
+}
+
+/*
+ * arm64_cpu_variant()
+ *
+ * Returns the CPU variant as a hex string.
+ * On Apple Silicon this is always 0x0 since Apple
+ * does not expose MIDR_EL1 variant bits to software.
+ */
+const char *
+arm64_cpu_variant(void)
+{
+    return "0x0";
+}
+
+/*
+ * arm64_cpu_part()
+ *
+ * Returns the CPU part number as a hex string derived
+ * from hw.cpufamily.
+ */
+const char *
+arm64_cpu_part(void)
+{
+    uint32_t cpufamily = 0;
+    size_t len = sizeof(cpufamily);
+    sysctlbyname("hw.cpufamily", &cpufamily, &len, NULL, 0);
+    return arm64_cpu_part_string(cpufamily);
+}
+
+/*
+ * arm64_cpu_revision()
+ *
+ * Returns the CPU revision as a decimal string.
+ * Apple Silicon does not expose MIDR_EL1 revision bits;
+ * report as 0 per convention.
+ */
+const char *
+arm64_cpu_revision(void)
+{
+    return "0";
+}
+
+/*
+ * arm64_cpu_name()
+ *
+ * Returns a human-readable name for the CPU derived
+ * from hw.cpufamily, for use in the model name field.
+ */
+const char *
+arm64_cpu_name(void)
+{
+    uint32_t cpufamily = 0;
+    size_t len = sizeof(cpufamily);
+    sysctlbyname("hw.cpufamily", &cpufamily, &len, NULL, 0);
+    return arm64_cpu_name_string(cpufamily);
+}
+
+/*
+ * arm64_bogomips()
+ *
+ * Returns BogoMIPS as a formatted string.
+ *
+ * On Linux/ARM64, BogoMIPS = timer frequency / 500000 * 2.
+ * Apple Silicon runs the ARM generic timer at 24 MHz, giving:
+ *   24000000 / 500000 * 2 = 96.00 BogoMIPS (M1/M2/M3/M4)
+ *
+ * We read hw.tbfrequency (timebase frequency) to compute this
+ * dynamically rather than hardcoding it.
+ */
+const char *
+arm64_bogomips(void)
+{
+    static char bogomips_str[16];
+
+    uint64_t tbfreq = 0;
+    size_t len = sizeof(tbfreq);
+
+    if (sysctlbyname("hw.tbfrequency", &tbfreq, &len, NULL, 0) != 0
+        || tbfreq == 0) {
+        /* Fallback: Apple Silicon timer is 24 MHz */
+        tbfreq = 24000000ULL;
+    }
+
+    /*
+     * Linux BogoMIPS formula for ARM64:
+     *   bogomips = loops_per_jiffy * HZ * 2 / 1000000
+     * where loops_per_jiffy ≈ timer_freq / HZ
+     * Simplified: bogomips = timer_freq * 2 / 1000000
+     */
+    uint64_t bogo_int  = (tbfreq * 2) / 1000000;
+    uint64_t bogo_frac = ((tbfreq * 2) % 1000000) / 10000;
+
+    snprintf(bogomips_str, sizeof(bogomips_str), "%llu.%02llu",
+             bogo_int, bogo_frac);
+
+    return bogomips_str;
+}
+
+#endif /* __arm64__ */

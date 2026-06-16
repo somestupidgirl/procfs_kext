@@ -4,11 +4,18 @@
  * procfs_linux.c
  *
  * Linux-compatible features.
+ *
+ * ARM64 support added 2024. On ARM64, procfs_docpuinfo() emits
+ * output in Linux AArch64 /proc/cpuinfo format rather than the
+ * x86 format, using hw.optional.arm.* sysctls and hw.cpufamily
+ * for CPU identification.
  */
 #include <stdint.h>
 #include <string.h>
+#if defined(__x86_64__)
 #include <i386/cpuid.h>
 #include <i386/tsc.h>
+#endif
 #include <libkern/libkern.h>
 #include <libkern/OSMalloc.h>
 #include <libkern/version.h>
@@ -18,7 +25,9 @@
 //#include <sys/disktab.h>
 #include <sys/errno.h>
 #include <sys/malloc.h>
+#if defined (__x86_64__)
 #include <sys/proc_reg.h>
+#endif
 #include <sys/queue.h>
 //#include <sys/sdt_impl.h>
 #include <sys/sysctl.h>
@@ -72,8 +81,8 @@
 int
 procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    vm_offset_t pageno, uva;
     int len = 0, xlen = 0;
+    vm_offset_t pageno, uva;
     off_t page_offset = 0;
     size_t buffer_size = 0;
     char *buffer;
@@ -85,6 +94,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
      * as these are not the same.
      */
     uint32_t max_cpus = processor_count;
+    uint32_t cnt_cpus = 0;
 
     /*
      * Initialize the processor counter.
@@ -92,12 +102,24 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
      * add 1 for each loop according to the
      * number of processors present.
      */
-    uint32_t cnt_cpus = 0;
+    buffer_size = (LBFSZ * 4);
+    buffer = malloc(buffer_size, M_TEMP, M_WAITOK);
 
     /*
-     * The core id should always start at 0.
+     * Get the userspace virtual address.
      */
-    int core_id = 0;
+    uva = uio_offset(uio);
+
+    /*
+     * Get the page number of this segment.
+     */
+    pageno = trunc_page(uva);
+    page_offset = uva - pageno;
+
+/* ============================================================
+ * x86_64 /proc/cpuinfo
+ * ============================================================ */
+#if defined(__x86_64__)
 
     /*
      * Initialize the TSC frequency variables.
@@ -122,25 +144,31 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
      */
     int apicid = 0, initial_apicid = 0;
 
-    /* 
+    /*
+     * The core id should always start at 0.
+     */
+    int core_id = 0;
+
+    /*
      * Here we can utilize the i386_cpu_info structure in i386/cpuid.h
      * to get the information we need. The cpuid_info() function sets up
      * the i386_cpu_info structure and returns a pointer to the structure.
      */
-    char *vendor_id = cpuid_info()->cpuid_vendor;
-    uint8_t cpu_family = cpuid_info()->cpuid_family;
-    uint8_t model = cpuid_info()->cpuid_model + (cpuid_info()->cpuid_extmodel << 4);
-    char *model_name = cpuid_info()->cpuid_brand_string;
-    int microcode = (int)get_microcode_version();
-    uint32_t cache_size = cpuid_info()->cpuid_cache_size;
-    uint8_t stepping = cpuid_info()->cpuid_stepping;
-    uint32_t cpu_cores = cpuid_info()->core_count;
+    char *vendor_id      = cpuid_info()->cpuid_vendor;
+    uint8_t cpu_family   = cpuid_info()->cpuid_family;
+    uint8_t model        = cpuid_info()->cpuid_model
+                         + (cpuid_info()->cpuid_extmodel << 4);
+    char *model_name     = cpuid_info()->cpuid_brand_string;
+    int microcode        = (int)get_microcode_version();
+    uint32_t cache_size  = cpuid_info()->cpuid_cache_size;
+    uint8_t stepping     = cpuid_info()->cpuid_stepping;
+    uint32_t cpu_cores   = cpuid_info()->core_count;
     uint32_t cpuid_level = cpu_cores;
-    uint32_t tlb_size = cpuid_info()->cache_linesize * 40;
-    uint32_t clflush_size = cpuid_info()->cache_linesize;
+    uint32_t tlb_size    = cpuid_info()->cache_linesize * 40;
+    uint32_t clflush_size    = cpuid_info()->cache_linesize;
     uint32_t cache_alignment = clflush_size;
-    uint32_t addr_bits_phys = cpuid_info()->cpuid_address_bits_physical;
-    uint32_t addr_bits_virt = cpuid_info()->cpuid_address_bits_virtual;
+    uint32_t addr_bits_phys  = cpuid_info()->cpuid_address_bits_physical;
+    uint32_t addr_bits_virt  = cpuid_info()->cpuid_address_bits_virtual;
 
     /*
      * Check if the FPU feature is present.
@@ -183,23 +211,6 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     char *x86_64_bugs = "";
 
     /*
-     * Allocate memory.
-     */
-    buffer_size = (LBFSZ * 4);
-    buffer = malloc(buffer_size, M_TEMP, M_WAITOK);
-
-    /*
-     * Get the userspace virtual address.
-     */
-    uva = uio_offset(uio);
-
-    /*
-     * Get the page number of this segment.
-     */
-    pageno = trunc_page(uva);
-    page_offset = uva - pageno;
-
-    /*
      * The main loop iterates over each processor number stored in the
      * max_cpus variable and prints out a list of data for each processor.
      *
@@ -214,9 +225,9 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         /*
          * Fetch the CPU flags.
          */
-        cpuflags = get_cpu_flags();
-        cpuextflags = get_cpu_ext_flags();
-        leaf7flags = get_leaf7_flags();
+        cpuflags     = get_cpu_flags();
+        cpuextflags  = get_cpu_ext_flags();
+        leaf7flags   = get_leaf7_flags();
         leaf7extflags = get_leaf7_ext_flags();
 
         if (cnt_cpus <= max_cpus) {
@@ -251,38 +262,34 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
                 "cache_alignment\t\t: %d\n"
                 "address sizes\t\t: %d bits physical, %d bits virtual\n"
                 "power management\t: %s\n\n",
-                cnt_cpus,               // processor
-                vendor_id,              // vendor_id
-                cpu_family,             // cpu family
-                model,                  // model
-                model_name,             // model name
-                microcode,              // microcode
-                stepping,               // stepping
-                fqmhz, fqkhz,           // cpu MHz
-                cache_size,             // cache size
-                0,                      // physical id
-                max_cpus,               // siblings
-                core_id,                // core id
-                cpu_cores,              // cpu cores
-                apicid,                 // apicid
-                initial_apicid,         // initial apicid
-                fpu,                    // fpu
-                fpu_exception,          // fpu exception
-                cpuid_level,            // cpuid level
-                wp,                     // wp
-                cpuflags,               // flags
-                cpuextflags,            // flags
-                leaf7flags,             // flags
-                leaf7extflags,          // flags
-                x86_bugs,               // bugs
-                x86_64_bugs,            // bugs
-                fqmhz * 2, fqkhz,       // bogomips
-                tlb_size,               // TLB size
-                clflush_size,           // clflush_size
-                cache_alignment,        // cache_alignment
-                addr_bits_phys,         // address size physical
-                addr_bits_virt,         // address size virtual
-                pm                      // power management
+                cnt_cpus,
+                vendor_id,
+                cpu_family,
+                model,
+                model_name,
+                microcode,
+                stepping,
+                fqmhz, fqkhz,
+                cache_size,
+                0,
+                max_cpus,
+                core_id,
+                cpu_cores,
+                apicid,
+                initial_apicid,
+                fpu,
+                fpu_exception,
+                cpuid_level,
+                wp,
+                cpuflags, cpuextflags, leaf7flags, leaf7extflags,
+                x86_bugs, x86_64_bugs,
+                fqmhz * 2, fqkhz,
+                tlb_size,
+                clflush_size,
+                cache_alignment,
+                addr_bits_phys,
+                addr_bits_virt,
+                pm
             );
 
             /*
@@ -332,6 +339,66 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             if ((int)core_id > (int)cpu_cores - 1) {
                 core_id = 0;
             }
+            if (max_cpus != processor_count) {
+                max_cpus = processor_count;
+            }
+        } else if (cnt_cpus > max_cpus) {
+            break;
+        }
+    }
+
+/* ============================================================
+ * ARM64 /proc/cpuinfo
+ *
+ * Produces one entry per logical CPU in Linux AArch64 format:
+ *
+ *   processor       : 0
+ *   BogoMIPS        : 48.00
+ *   Features        : fp asimd aes pmull sha1 sha2 crc32 ...
+ *   CPU implementer : 0x61
+ *   CPU architecture: 8
+ *   CPU variant     : 0x0
+ *   CPU part        : 0x22
+ *   CPU revision    : 0
+ *
+ * ============================================================ */
+#elif defined(__arm64__) || defined(__aarch64__)
+
+    const char *bogomips     = arm64_bogomips();
+    const char *features     = get_cpu_flags();
+    const char *implementer  = arm64_cpu_implementer();
+    const char *architecture = arm64_cpu_architecture();
+    const char *variant      = arm64_cpu_variant();
+    const char *part         = arm64_cpu_part();
+    const char *revision     = arm64_cpu_revision();
+
+    while (cnt_cpus < max_cpus) {
+        if (cnt_cpus <= max_cpus) {
+            len += snprintf(buffer, buffer_size,
+                "processor\t\t: %u\n"
+                "BogoMIPS\t\t: %s\n"
+                "Features\t\t: %s\n"
+                "CPU implementer\t\t: %s\n"
+                "CPU architecture\t: %s\n"
+                "CPU variant\t\t: %s\n"
+                "CPU part\t\t: %s\n"
+                "CPU revision\t\t: %s\n\n",
+                cnt_cpus,
+                bogomips,
+                features,
+                implementer,
+                architecture,
+                variant,
+                part,
+                revision
+            );
+
+            xlen = (len - page_offset);
+            uiomove((const char *)buffer, xlen, uio);
+
+            if (len != 0) len = 0;
+
+            cnt_cpus++;
 
             /*
              * Reset the max_cpus variable at the end of each loop.
@@ -349,6 +416,9 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             break;
         }
     }
+
+#endif /* __x86_64__ / __arm64__ */
+
     free(buffer, M_TEMP);
 
     return 0;
@@ -450,8 +520,7 @@ procfs_doversion(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     /*
      * Print out the kernel version string.
      */
-    len = snprintf(buf, LBFSZ, "%s\n",
-                                version);
+    len = snprintf(buf, LBFSZ, "%s\n", version);
 
     xlen = (len - pgoff);
     error = uiomove((const char *)buf, xlen, uio);

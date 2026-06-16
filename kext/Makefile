@@ -1,107 +1,84 @@
 include ../Makefile.inc
 
-# defaults
-BUNDLEID?=				$(BUNDLEDOMAIN).$(KEXTNAME)
-KEXTBUNDLE?=			$(KEXTNAME).kext
-KEXTMACHO?=				$(KEXTNAME).out
-ARCHFLAGS?=				-arch x86_64
-PREFIX?=				/Library/Extensions
-DEVELOPER_DIR?=			/Applications/Xcode.app/Contents/Developer
-MACOSX_VERSION_MIN?= 	11.3
+SDKROOT?=       $(shell xcrun --sdk macosx --show-sdk-path)
+KERNEL_FW=      $(SDKROOT)/System/Library/Frameworks/Kernel.framework
+KERNEL_HEADERS= $(KERNEL_FW)/Headers
+KERNEL_LIBDIR=  $(SDKROOT)/usr/lib
 
-#
-# Set default macOS SDK
-# You may use
-#  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-# to switch to Xcode from Command Line Tools if cannot find any SDK
-#
-SDKROOT?=	$(shell xcrun --sdk macosx --show-sdk-path)
+BUNDLEID?=           $(BUNDLEDOMAIN).$(KEXTNAME)
+KEXTBUNDLE?=         $(KEXTNAME).kext
+KEXTMACHO?=          $(KEXTNAME).out
 
-SDKFLAGS=	-isysroot $(SDKROOT)
-CC=		$(shell xcrun -find -sdk $(SDKROOT) cc)
-#CXX=		$(shell xcrun -find -sdk $(SDKROOT) c++)
-CODESIGN=	$(shell xcrun -find -sdk $(SDKROOT) codesign)
+ARCHFLAGS?=          -arch arm64e
+TARGET_TRIPLE?=      arm64e-apple-macos12.0
 
-# source, object files
-SRCS:=		$(wildcard *.c) $(wildcard **/*.c)
-OBJS:=		$(SRCS:.c=.o)
+PREFIX?=             /Library/Extensions
+DEVELOPER_DIR?=      /Applications/Xcode.app/Contents/Developer
+MACOSX_VERSION_MIN?= 12.0
 
-#
-# Convenience defines
-# BUNDLEID macro will be used in KMOD_EXPLICIT_DECL
-#
-CFLAGS+=	-DKEXTNAME_S=\"$(KEXTNAME)\"		\
-			-DKEXTVERSION_S=\"$(KEXTVERSION)\"	\
-			-DKEXTBUILD_S=\"$(KEXTBUILD)\"		\
-			-DBUNDLEID_S=\"$(BUNDLEID)\"		\
-			-DBUNDLEID=$(BUNDLEID)
+CC=       $(shell xcrun -find -sdk $(SDKROOT) cc)
+CODESIGN= $(shell xcrun -find -sdk $(SDKROOT) codesign)
 
-TIME_STAMP:=	$(shell date +'%Y/%m/%d\ %H:%M:%S%z')
-CFLAGS+=		-D__TS__=\"$(TIME_STAMP)\"
+SRCS:= $(wildcard *.c) $(wildcard **/*.c)
+OBJS:= $(SRCS:.c=.o)
 
-#
-# C compiler flags
-#
-ifdef MACOSX_VERSION_MIN
-CFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
-else
-CFLAGS+=	-mmacosx-version-min=11.3
-endif
-CFLAGS+=	$(SDKFLAGS) \
-			$(ARCHFLAGS) \
-			-x c \
-			-std=c99 \
-			-nostdinc \
-			-fno-builtin \
-			-fno-common \
-			-mkernel \
-			-I../kext/lib \
-			-I../lib \
-			-I../include \
-			-isystem../MacKernelSDK/Headers 
+CFLAGS+= -DKEXTNAME_S=\"$(KEXTNAME)\" \
+         -DKEXTVERSION_S=\"$(KEXTVERSION)\" \
+         -DKEXTBUILD_S=\"$(KEXTBUILD)\" \
+         -DBUNDLEID_S=\"$(BUNDLEID)\" \
+         -DBUNDLEID=$(BUNDLEID)
 
-# warnings
-CFLAGS+=	-Werror -Wall -Wextra \
-			-Wno-unused-parameter \
-			-Wno-unused-variable \
-			-Wno-unused-value
+TIME_STAMP:= $(shell date +'%Y/%m/%d\ %H:%M:%S%z')
+CFLAGS+=     -D__TS__=\"$(TIME_STAMP)\"
 
-# linker flags
-ifdef MACOSX_VERSION_MIN
-LDFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
-else
-LDFLAGS+=	-mmacosx-version-min=11.3
-endif
-LDFLAGS+= 	$(SDKFLAGS) \
-			$(ARCHFLAGS) \
-			-nostdlib \
-			-Xlinker -kext \
-			-Xlinker -object_path_lto lib/cpu.o \
-			-Xlinker -object_path_lto lib/kern.o \
-			-Xlinker -object_path_lto lib/symbols.o \
-			-Xlinker -object_path_lto procfs.o \
-			-Xlinker -object_path_lto procfs_cmdline.o \
-			-Xlinker -object_path_lto procfs_data.o \
-			-Xlinker -object_path_lto procfs_linux.o \
-			-Xlinker -object_path_lto procfs_node.o \
-			-Xlinker -object_path_lto procfs_structure.o \
-			-Xlinker -object_path_lto procfs_subr.o \
-			-Xlinker -object_path_lto procfs_vfsops.o \
-			-Xlinker -object_path_lto procfs_vnops.o \
-			-Xlinker -export_dynamic
+CFLAGS+= -target $(TARGET_TRIPLE) \
+         -isysroot $(SDKROOT) \
+         $(ARCHFLAGS) \
+         -x c \
+         -std=c99 \
+         -nostdinc \
+         -fno-builtin \
+         -fno-common \
+         -mkernel \
+         -I../kext/lib \
+         -I../lib \
+         -I../include \
+         -isystem $(KERNEL_HEADERS) \
+         -isystem $(KERNEL_HEADERS)/arm64 \
+         -isystem $(KERNEL_HEADERS)/arm
 
-# libraries
-LIBS+=		-L../MacKernelSDK/Library/x86_64 \
-			-L../lib/libkext \
-			-L../lib/libklookup
+CFLAGS+= -Werror -Wall -Wextra \
+         -Wno-unused-parameter \
+         -Wno-unused-variable \
+         -Wno-unused-value \
+         -Wno-vla
 
-LIBS+=		-lcc_kext -lkmod -lkext -lklookup
+LDFLAGS+= -target $(TARGET_TRIPLE) \
+          -isysroot $(SDKROOT) \
+          $(ARCHFLAGS) \
+          -nostdlib \
+          -Xlinker -kext \
+          -Xlinker -object_path_lto lib/cpu.o \
+          -Xlinker -object_path_lto lib/kern.o \
+          -Xlinker -object_path_lto lib/symbols.o \
+          -Xlinker -object_path_lto procfs.o \
+          -Xlinker -object_path_lto procfs_cmdline.o \
+          -Xlinker -object_path_lto procfs_data.o \
+          -Xlinker -object_path_lto procfs_linux.o \
+          -Xlinker -object_path_lto procfs_node.o \
+          -Xlinker -object_path_lto procfs_structure.o \
+          -Xlinker -object_path_lto procfs_subr.o \
+          -Xlinker -object_path_lto procfs_vfsops.o \
+          -Xlinker -object_path_lto procfs_vnops.o \
+          -Xlinker -export_dynamic
 
-# kextlibs flags
-KLFLAGS+=	-xml -c -undef-symbols
-#-unsupported
+LIBS+= -L$(KERNEL_LIBDIR) \
+       -L../lib/libkext \
+       -L../lib/libklookup
 
-# targets
+LIBS+= -lkmod -lkext -lklookup
+
+KLFLAGS+= -xml -c -undef-symbols
 
 all: debug
 
@@ -127,43 +104,30 @@ Info.plist~: Info.plist.in
 $(KEXTBUNDLE): $(KEXTMACHO) Info.plist~
 	mkdir -p $@/Contents/MacOS
 	mv $< $@/Contents/MacOS/$(KEXTNAME)
-
-	# Clear placeholders(o.w. kextlibs cannot parse)
 	sed 's/__KEXTLIBS__//g' Info.plist~ > $@/Contents/Info.plist
 	awk '/__KEXTLIBS__/{system("kextlibs $(KLFLAGS) $@");next};1' Info.plist~ > $@/Contents/Info.plist~
 	mv $@/Contents/Info.plist~ $@/Contents/Info.plist
-
 ifdef COMPATIBLE_VERSION
 	/usr/libexec/PlistBuddy -c 'Add :OSBundleCompatibleVersion string "$(COMPATIBLE_VERSION)"' $@/Contents/Info.plist
 endif
-
 ifdef COPYRIGHT
 	/usr/libexec/PlistBuddy -c 'Add :NSHumanReadableCopyright string "$(COPYRIGHT)"' $@/Contents/Info.plist
 endif
-
 ifdef SIGNCERT
 	$(CODESIGN) --force --timestamp=none --sign $(SIGNCERT) $@
 	/usr/libexec/PlistBuddy -c 'Add :CFBundleSignature string ????' $@/Contents/Info.plist
 endif
-
 ifdef MACOSX_VERSION_MIN
 	/usr/libexec/PlistBuddy -c 'Add :LSMinimumSystemVersion string "$(MACOSX_VERSION_MIN)"' $@/Contents/Info.plist
 endif
-
-	# Empty-dependency kext cannot be load  so we add one if necessary
 	/usr/libexec/PlistBuddy -c 'Print OSBundleLibraries' $@/Contents/Info.plist &> /dev/null || \
 		/usr/libexec/PlistBuddy -c 'Add :OSBundleLibraries:com.apple.kpi.bsd string "8.0b1"' $@/Contents/Info.plist
-
 	touch $@
-
 	dsymutil $(ARCHFLAGS) -o $(KEXTNAME).kext.dSYM $@/Contents/MacOS/$(KEXTNAME)
 
-# see: https://www.gnu.org/software/make/manual/html_node/Target_002dspecific.html
-# Those two flags must present at the same time  o.w. debug symbol cannot be generated
 debug: CFLAGS += -O0 -g
 debug: $(KEXTBUNDLE)
 
-# see: https://stackoverflow.com/questions/15548023/clang-optimization-levels
 release: CFLAGS += -O2
 release: $(KEXTBUNDLE)
 
@@ -171,7 +135,6 @@ load: $(KEXTBUNDLE)
 	sudo chown -R root:wheel $<
 	sudo sync
 	sudo kextutil $<
-	# restore original owner:group
 	sudo chown -R '$(USER):$(shell id -gn)' $<
 	sudo dmesg | grep $(KEXTNAME) | tail -1
 
@@ -185,7 +148,7 @@ unload:
 install: $(KEXTBUNDLE) uninstall
 	test -d "$(PREFIX)"
 	sudo cp -r $< "$(PREFIX)/$<"
-	sudo chmod -R  755 "$(PREFIX)/$<"
+	sudo chmod -R 755 "$(PREFIX)/$<"
 	sudo chown -R root:wheel "$(PREFIX)/$<"
 
 uninstall:
@@ -196,5 +159,4 @@ uninstall:
 clean:
 	rm -rf $(KEXTBUNDLE) $(KEXTBUNDLE).dSYM Info.plist~ $(OBJS) $(KEXTMACHO)
 
-.PHONY: all debug release load stat unload intall uninstall clean
-
+.PHONY: all debug release load stat unload install uninstall clean

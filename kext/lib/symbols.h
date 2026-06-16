@@ -8,7 +8,9 @@
 #ifndef _symbols_h
 #define _symbols_h
 
+#if defined(__x86_64__)
 #include <i386/cpuid.h>
+#endif
 #include <sys/bsdtask_info.h>
 #include <sys/file_internal.h>
 #include <sys/filedesc.h>
@@ -471,6 +473,7 @@ extern void                     (*_vnode_unlock)(struct vnode *);
 #pragma mark -
 #pragma mark CPU
 
+#if defined(__x86_64__)
 /*
  * Fills the i386_cpu_info structure and returns its pointer.
  */
@@ -478,17 +481,19 @@ extern i386_cpu_info_t *        (*_cpuid_info)(void);
 #define                         cpuid_info() \
                                 _cpuid_info()
 /*
- * Global variable that stores the processor count on the current CPU.
- */
-extern unsigned int             (*_processor_count);
-#define                         processor_count \
-                                *_processor_count
-/*
  * Global variable that stores the TSC frequency of the current CPU.
  */
 extern uint64_t                 (*_tscFreq);
 #define                         tscFreq \
                                 *_tscFreq
+#endif /* __x86_64__ */
+
+/*
+ * Global variable that stores the processor count on the current CPU.
+ */
+extern unsigned int             (*_processor_count);
+#define                         processor_count \
+                                *_processor_count
 
 extern uint32_t                 (*_avenrun)[3];
 #define                         avenrun \

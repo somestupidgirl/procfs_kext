@@ -10,4 +10,4 @@ FSVERSION?=				$(KEXTVERSION)
 FSBUILD?=				$(KEXTBUILD)
 BUNDLEDOMAIN?=			com.beako.filesystems
 COPYRIGHT?= 			"Copyright © 2022 Sunneva Jonsdottir, All rights reserved."
-SIGNCERT?= 				foozlefairy@gmail.com
+SIGNCERT?= -

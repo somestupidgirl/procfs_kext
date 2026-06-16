@@ -110,8 +110,10 @@ SYM_INIT(vnode_unlock);
 SYM_INIT(dead_mountp);
 
 SYM_INIT(processor_count);
+#if defined(__x86_64__)
 SYM_INIT(tscFreq);
 SYM_INIT(cpuid_info);
+#endif
 SYM_INIT(avenrun);
 
 /*
@@ -206,8 +208,10 @@ resolve_symbols(void)
 	SYM_LOOKUP(dead_mountp);
 
 	SYM_LOOKUP(processor_count);
+#if defined(__x86_64__)
 	SYM_LOOKUP(tscFreq);
 	SYM_LOOKUP(cpuid_info);
+#endif
 	SYM_LOOKUP(avenrun);
 
 	return KERN_SUCCESS;

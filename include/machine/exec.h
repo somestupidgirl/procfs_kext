@@ -32,7 +32,11 @@
 #ifndef _BSD_MACHINE_EXEC_H_
 #define _BSD_MACHINE_EXEC_H_
 
+#if defined(__x86_64__)
 #include <i386/vmparam.h> // for USRSTACK
+#elif defined(__arm64__) || defined(__aarch64__)
+#include <arm/vmparam.h>  // for USRSTACK
+#endif
 #include <sys/param.h>
 #include <stdbool.h>
 

@@ -22,156 +22,164 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <mach-o/nlist.h>
-
 #include <libklookup/klookup.h>
 
-#define KERNEL_BASE           0xffffff8000200000   // Base address of the kernel, per the Mach-O file on disk
-#define LB_SEG_PRELINK_TEXT   "__PRELINK_TEXT"     // Segment name for PRELINK_TEXT (used by Big Sur and later)
+/*
+ * Static kernel base addresses per architecture.
+ *
+ * These are the un-slid virtual addresses of the kernel Mach-O header
+ * as laid out on disk. At runtime the kernel slide (KASLR) is added.
+ *
+ * x86_64: 0xffffff8000200000
+ *   Standard kernel base for Intel Macs since 10.8.
+ *
+ * ARM64:  0xfffffff007004000
+ *   Standard kernel base for Apple Silicon (M1/M2/M3/M4) and A-series.
+ *   This matches the static link address in the kernelcache Mach-O.
+ *   Note: on ARM64 the kernel is a kernelcache (MachO-in-MachO); the
+ *   outer header is at this address, the inner XNU header follows.
+ */
+#if defined(__arm64__) || defined(__aarch64__)
+#define KERNEL_BASE         0xfffffff007004000ULL
+#else
+#define KERNEL_BASE         0xffffff8000200000ULL
+#endif
 
-static struct segment_command_64 *FindSegment64(struct mach_header_64 *MachHeader, const char *SegmentName)
+#define LB_SEG_PRELINK_TEXT "__PRELINK_TEXT"
+
+static struct segment_command_64 *
+FindSegment64(struct mach_header_64 *MachHeader, const char *SegmentName)
 {
-   struct load_command *LoadCommands;
-   struct segment_command_64 *Segment = NULL;
-   struct segment_command_64 *tmpSegment;
+    struct load_command *LoadCommands;
+    struct segment_command_64 *Segment = NULL;
+    struct segment_command_64 *tmpSegment;
 
-   // Get the address of the list of load commands
-   LoadCommands = (struct load_command *)((uint64_t)MachHeader + sizeof(struct mach_header_64));
-   while ((uint64_t)LoadCommands < (uint64_t)MachHeader + (uint64_t)MachHeader->sizeofcmds)
-   {
-      if (LoadCommands->cmd == LC_SEGMENT_64)
-      {
-         // evaluate segment
-         tmpSegment = (struct segment_command_64 *)LoadCommands;
-         if (!strcmp(tmpSegment->segname, SegmentName))
-         {
-            Segment = tmpSegment;
-            break;
-         }
-      }
-      // next load command
-      LoadCommands = (struct load_command *)((uint64_t)LoadCommands + (uint64_t)LoadCommands->cmdsize);
-   }
-   return Segment;
+    LoadCommands = (struct load_command *)((uintptr_t)MachHeader + sizeof(struct mach_header_64));
+    while ((uintptr_t)LoadCommands < (uintptr_t)MachHeader + (uintptr_t)MachHeader->sizeofcmds)
+    {
+        if (LoadCommands->cmd == LC_SEGMENT_64)
+        {
+            tmpSegment = (struct segment_command_64 *)LoadCommands;
+            if (!strcmp(tmpSegment->segname, SegmentName))
+            {
+                Segment = tmpSegment;
+                break;
+            }
+        }
+        LoadCommands = (struct load_command *)((uintptr_t)LoadCommands + (uintptr_t)LoadCommands->cmdsize);
+    }
+    return Segment;
 }
 
-void *SymbolLookup(const char *Symbol)
+void *
+SymbolLookup(const char *Symbol)
 {
-   // For effiency, we keep SymbolTable, StringTable, and NameList across invocations
-   static struct symtab_command *SymbolTable = NULL;
-   static void *StringTable = NULL;
-   static struct nlist_64 *NameList = NULL;
+    static struct symtab_command  *SymbolTable = NULL;
+    static void                   *StringTable = NULL;
+    static struct nlist_64        *NameList    = NULL;
 
-   vm_offset_t SlideAddress = 0;
-   int64_t Slide;
-   struct mach_header_64 *MachHeader;
-   struct segment_command_64 *LinkEdit;
-   struct load_command *LoadCommands;
-   struct nlist_64 *tmpNameList;
-   void *Address;
-   uint64_t i;
+    vm_offset_t SlideAddress = 0;
+    int64_t     Slide;
+    struct mach_header_64       *MachHeader;
+    struct segment_command_64   *LinkEdit;
+    struct load_command         *LoadCommands;
+    struct nlist_64             *tmpNameList;
+    void        *Address;
+    uint64_t    i;
 
+    if (SymbolTable == NULL || StringTable == NULL || NameList == NULL)
+    {
+        /*
+         * Calculate the kernel ASLR slide.
+         *
+         * vm_kernel_unslide_or_perm_external() returns the static
+         * (un-slid) address of a kernel symbol. By comparing that
+         * against the runtime address of printf we get the slide.
+         */
+        vm_kernel_unslide_or_perm_external((vm_offset_t)(void *)printf, &SlideAddress);
 
-   // First, see if we've already found the symbol table and name list.
-   // (For effiency, we only parse the kernel's Mach-O structure once.)
-   if (SymbolTable == NULL || StringTable == NULL || NameList == NULL)
-   {
-      // Calculate the kernel slide (ASLR):
-      // Get the un-slid address of the printf function
-      vm_kernel_unslide_or_perm_external((unsigned long long)(void *)printf, &SlideAddress);
+        /*
+         * Slide = runtime_addr - static_addr
+         *
+         * Cast carefully to avoid sign-conversion warnings:
+         * both sides are pointer-sized unsigned values; the
+         * difference may be negative (represented as a large
+         * unsigned number), so we work in int64_t.
+         */
+        Slide = (int64_t)(uintptr_t)(void *)printf - (int64_t)SlideAddress;
 
-      // Now calculate the difference between that and the slid address of printf
-      Slide = (long long)(void *)printf - SlideAddress;
+        /*
+         * Apply the slide to the static kernel base to find
+         * the runtime address of the kernel Mach-O header.
+         */
+        MachHeader = (struct mach_header_64 *)(uintptr_t)((int64_t)KERNEL_BASE + Slide);
 
-      // Now that we know the slide, we can figure out where the kernel's Mach-O structure is.
-      MachHeader = (struct mach_header_64 *)(Slide + KERNEL_BASE);
+        if (MachHeader->magic != MH_MAGIC_64)
+        {
+            printf("\n\nKLOOKUP: BAD MAGIC HEADER\n\n");
+            panic("KLOOKUP: Bad Mach-O Magic Header\n");
+            return NULL;
+        }
 
-      // Check for a valid MACH-O header
-      if (MachHeader->magic != MH_MAGIC_64)
-      {
-         printf("\n\nKLOOKUP: BAD MAGIC HEADER\n\n");
-         panic("KLOOKUP: Bad Mach-O Magic Header\n");
-         return NULL;
-      }
+        /*
+         * On Big Sur and later the __LINKEDIT segment is copied into
+         * the __PRELINK_TEXT region in memory. Use that as our base
+         * if present.
+         */
+        if (version_major >= BIGSUR_XNU_MAJOR_VERSION)
+        {
+            if ((LinkEdit = FindSegment64(MachHeader, LB_SEG_PRELINK_TEXT)) != NULL)
+            {
+                MachHeader = (struct mach_header_64 *)(uintptr_t)(LinkEdit->vmaddr);
+            }
+        }
 
+        if (!(LinkEdit = FindSegment64(MachHeader, SEG_LINKEDIT)))
+        {
+            printf("\n\nKLOOKUP: __LINKEDIT NOT FOUND\n\n");
+            panic("KLOOKUP: __LINKEDIT not found\n");
+            return NULL;
+        }
 
-      // If there's a __PRELINK_TEXT segment and it contains a vmaddr, we use that as the
-      // starting point to search for the __LINKEDIT segment.  (This appears to be a Big Sur
-      // addition, copying modified segments (such as __LINKEDIT) into a normally-empty
-      // __PRELINK_TEXT segment in memory;  the __PRELINK_TEXT segment is present in the
-      // Mach-O kernel file, but it's empty on disk.)
-      //
-      // Since __PRELINK_TEXT is apparently present in Catalina (and earlier?), but seems to
-      // be bogus (creates page faults) in those versions, we check for OS versions >= Big Sur.
-      if (version_major >= BIGSUR_XNU_MAJOR_VERSION)        // Only look at __PRELINK_TEXT on BS or later (Darwin version 20+)
-      {
-         // Find __PRELINK_TEXT
-         if ((LinkEdit = FindSegment64(MachHeader, LB_SEG_PRELINK_TEXT)) != NULL)
-         {
-            // If we found it, use its vmaddr as our Mach-O header
-            MachHeader = (struct mach_header_64 *)(LinkEdit->vmaddr);
-         }
-         // If we didn't find __PRELINK_TEXT, just use the original Mach-O header.
-      }
+        SymbolTable  = NULL;
+        LoadCommands = (struct load_command *)((uintptr_t)MachHeader + sizeof(struct mach_header_64));
+        while ((uintptr_t)LoadCommands < (uintptr_t)MachHeader + (uintptr_t)MachHeader->sizeofcmds)
+        {
+            if (LoadCommands->cmd == LC_SYMTAB)
+            {
+                SymbolTable = (struct symtab_command *)LoadCommands;
+                break;
+            }
+            LoadCommands = (struct load_command *)((uintptr_t)LoadCommands + (uintptr_t)LoadCommands->cmdsize);
+        }
 
-      // find the __LINKEDIT segment
-      if (!(LinkEdit = FindSegment64(MachHeader, SEG_LINKEDIT)))
-      {
-         printf("\n\nKLOOKUP: __LINKEDIT NOT FOUND\n\n");
-         panic("KLOOKUP: __LINKEDIT not found\n");
-         return NULL;
-      }
+        if (SymbolTable == NULL)
+        {
+            printf("\n\nKLOOKUP: LC_SYMTAB NOT FOUND\n\n");
+            panic("KLOOKUP: LC_SYMTAB not found\n");
+            return NULL;
+        }
 
-      // Find the symbol table (LC_SYMTAB command)
-      SymbolTable = NULL;              // assume failure
-      // Get the list of load commands
-      LoadCommands = (struct load_command *)((uint64_t)MachHeader + sizeof(struct mach_header_64));
-      // Loop through the list of load commands, looking for LC_SYMTAB
-      while ((uint64_t)LoadCommands < (uint64_t)MachHeader + (uint64_t)MachHeader->sizeofcmds)
-      {
-         if (LoadCommands->cmd == LC_SYMTAB)
-         {
-            // Found the symbol table
-            SymbolTable = (struct symtab_command *)LoadCommands;
+        StringTable = (void *)(uintptr_t)((int64_t)(LinkEdit->vmaddr - LinkEdit->fileoff) + (int64_t)SymbolTable->stroff);
+        NameList    = (struct nlist_64 *)(uintptr_t)((int64_t)(LinkEdit->vmaddr - LinkEdit->fileoff) + (int64_t)SymbolTable->symoff);
+    }
+
+    for (i = 0, Address = NULL, tmpNameList = NameList; i < SymbolTable->nsyms; ++i, ++tmpNameList)
+    {
+        char *str = (char *)((uintptr_t)StringTable + tmpNameList->n_un.n_strx);
+
+        if (!strcmp(str, Symbol))
+        {
+            Address = (void *)(uintptr_t)tmpNameList->n_value;
             break;
-         }
-         // Jump to the next load command
-         LoadCommands = (struct load_command *)((uint64_t)LoadCommands + (uint64_t)LoadCommands->cmdsize);
-      }
+        }
+    }
 
-      // Did we find the symbol table?
-      if (SymbolTable == NULL)
-      {
-         printf("\n\nKLOOKUP: LC_SYMTAB NOT FOUND\n\n");
-         panic("KLOOKUP: LC_SYMTAB not found\n");
-         return NULL;
-      }
+    if (Address == NULL)
+    {
+        printf("\n\nKLOOKUP: SYMBOL '%s' NOT FOUND\n\n", Symbol);
+        panic("KLOOKUP: Symbol '%s' not found\n", Symbol);
+    }
 
-      // Get the address of the string table
-      StringTable = (void *)((int64_t)(LinkEdit->vmaddr - LinkEdit->fileoff) + SymbolTable->stroff);
-      // Get the address of the name list
-      NameList = (struct nlist_64 *)((int64_t)(LinkEdit->vmaddr - LinkEdit->fileoff) + SymbolTable->symoff);
-   }  // End if (SymbolTable == NULL || StringTable == NULL || NameList == NULL)
-
-   // Now loop through the name list until we find a match for <Symbol>
-   for (i = 0, Address = NULL, tmpNameList = NameList; i < SymbolTable->nsyms; ++i, ++tmpNameList)
-   {
-      char *str = (char *)(StringTable + tmpNameList->n_un.n_strx);
-
-      if (!strcmp(str, Symbol))
-      {
-         // Found it - save its associated value (address)
-         Address = (void *)tmpNameList->n_value;
-         break;
-      }
-   }
-
-   // Did we find <Symbol> in the name list?
-   if (Address == NULL)
-   {
-      printf("\n\nKLOOKUP: SYMBOL '%s' NOT FOUND\n\n", Symbol);
-      panic("KLOOKUP: Symbol '%s' not found\n", Symbol);
-   }
-
-   // Return either <Symbol>'s associated address, or NULL if we didn't find it.
-   return Address;
+    return Address;
 }

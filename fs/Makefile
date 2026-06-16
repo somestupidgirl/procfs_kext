@@ -1,66 +1,43 @@
 include ../Makefile.inc
 
-# defaults
-BUNDLEID?=				$(BUNDLEDOMAIN).$(FSNAME)
-FSBUNDLE?=				$(FSNAME).fs
-FSMACHO?=				$(FSNAME).out
-ARCHFLAGS?=				-arch x86_64
-PREFIX?=				/Library/Filesystems
-DEVELOPER_DIR?=			/Applications/Xcode.app/Contents/Developer
-MACOSX_VERSION_MIN?= 	11.3
+SDKROOT?=       $(shell xcrun --sdk macosx --show-sdk-path)
 
-#
-# Set default macOS SDK
-# You may use
-#  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-# to switch to Xcode from Command Line Tools if cannot find any SDK
-#
-SDKROOT?=	$(shell xcrun --sdk macosx --show-sdk-path)
-SDKFLAGS=	-isysroot $(SDKROOT)
+BUNDLEID?=           $(BUNDLEDOMAIN).$(FSNAME)
+FSBUNDLE?=           $(FSNAME).fs
+FSMACHO?=            $(FSNAME).out
+ARCHFLAGS?=          -arch arm64
+TARGET_TRIPLE?=      arm64-apple-macos12.0
+PREFIX?=             /Library/Filesystems
+DEVELOPER_DIR?=      /Applications/Xcode.app/Contents/Developer
+MACOSX_VERSION_MIN?= 12.0
 
-CC=			$(shell xcrun -find -sdk $(SDKROOT) cc)
-CODESIGN=	$(shell xcrun -find -sdk $(SDKROOT) codesign)
+CC=       $(shell xcrun -find -sdk $(SDKROOT) cc)
+CODESIGN= $(shell xcrun -find -sdk $(SDKROOT) codesign)
 
-#
-# C compiler flags
-#
-ifdef MACOSX_VERSION_MIN
-CFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
-else
-CFLAGS+=	-mmacosx-version-min=11.3
-endif
-CFLAGS+=	$(SDKFLAGS) \
-			$(ARCHFLAGS) \
-			-x c \
-			-std=c99 \
-			-nostdinc \
-			-fno-builtin \
-			-fno-common \
-			-I../include \
-			-I../lib \
-			-I$(DEVELOPER_DIR)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include
+CFLAGS+= -target $(TARGET_TRIPLE) \
+         -isysroot $(SDKROOT) \
+         $(ARCHFLAGS) \
+         -x c \
+         -std=c99 \
+         -nostdinc \
+         -fno-builtin \
+         -fno-common \
+         -I../include \
+         -I../lib \
+         -I$(SDKROOT)/usr/include
 
-# warnings
-CFLAGS+=	-Wall -Wextra -Wno-vla -Wno-nullability-completeness
+CFLAGS+= -Wall -Wextra -Wno-vla -Wno-nullability-completeness
 
-# linker flags
-ifdef MACOSX_VERSION_MIN
-LDFLAGS+=	-mmacosx-version-min=$(MACOSX_VERSION_MIN)
-else
-LDFLAGS+=	-mmacosx-version-min=11.3
-endif
-LDFLAGS+=	$(SDKFLAGS) \
-			$(ARCHFLAGS)
+LDFLAGS+= -target $(TARGET_TRIPLE) \
+          -isysroot $(SDKROOT) \
+          $(ARCHFLAGS)
 
-# libraries
-LIBS+=		-lutil
+LIBS+= -lutil
 
-# fslibs flags
-FSLFLAGS+=	-xml -c -undef-symbols -all-symbols -system-extensions
+FSLFLAGS+= -xml -c -undef-symbols -all-symbols -system-extensions
 
-# source, object files
-SRCS:=		$(wildcard *.c)
-OBJS:=		$(SRCS:.c=.o)
+SRCS:= $(wildcard *.c)
+OBJS:= $(SRCS:.c=.o)
 
 all: debug
 
@@ -86,43 +63,30 @@ Info.plist~: Info.plist.in
 $(FSBUNDLE): $(FSMACHO) Info.plist~
 	mkdir -p $@/Contents/Resources
 	mv $< $@/Contents/Resources/mount_$(FSNAME)
-
-	# Clear placeholders(o.w. fslibs cannot parse)
 	sed 's/__FSLIBS__//g' Info.plist~ > $@/Contents/Info.plist
 	awk '/__FSLIBS__/{system("fslibs $(FSLFLAGS) $@");next};1' Info.plist~ > $@/Contents/Info.plist~
 	mv $@/Contents/Info.plist~ $@/Contents/Info.plist
-
 ifdef COMPATIBLE_VERSION
 	/usr/libexec/PlistBuddy -c 'Add :OSBundleCompatibleVersion string "$(COMPATIBLE_VERSION)"' $@/Contents/Info.plist
 endif
-
 ifdef COPYRIGHT
 	/usr/libexec/PlistBuddy -c 'Add :NSHumanReadableCopyright string "$(COPYRIGHT)"' $@/Contents/Info.plist
 endif
-
 ifdef SIGNCERT
 	$(CODESIGN) --force --timestamp=none --sign $(SIGNCERT) $@
 	/usr/libexec/PlistBuddy -c 'Add :CFBundleSignature string ????' $@/Contents/Info.plist
 endif
-
 ifdef MACOSX_VERSION_MIN
 	/usr/libexec/PlistBuddy -c 'Add :LSMinimumSystemVersion string "$(MACOSX_VERSION_MIN)"' $@/Contents/Info.plist
 endif
-
-	# Empty-dependency fs cannot be load  so we add one if necessary
 	/usr/libexec/PlistBuddy -c 'Print OSBundleLibraries' $@/Contents/Info.plist &> /dev/null || \
 		/usr/libexec/PlistBuddy -c 'Add :OSBundleLibraries:com.apple.kpi.bsd string "8.0b1"' $@/Contents/Info.plist
-
 	touch $@
-
 	dsymutil $(ARCHFLAGS) -o $(FSNAME).fs.dSYM $@/Contents/Resources/mount_$(FSNAME)
 
-# see: https://www.gnu.org/software/make/manual/html_node/Target_002dspecific.html
-# Those two flags must present at the same time  o.w. debug symbol cannot be generated
 debug: CFLAGS += -O0 -g
 debug: $(FSBUNDLE)
 
-# see: https://stackoverflow.com/questions/15548023/clang-optimization-levels
 release: CFLAGS += -O2
 release: $(FSBUNDLE)
 
@@ -141,4 +105,3 @@ clean:
 	rm -rf $(FSBUNDLE) $(FSBUNDLE).dSYM Info.plist~ $(OBJS) $(FSMACHO)
 
 .PHONY: all debug release clean
-

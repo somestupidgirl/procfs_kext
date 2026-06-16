@@ -9,7 +9,11 @@
 #include <string.h>
 #include <libkern/libkern.h>
 #include <libkext/libkext.h>
+#if defined(__x86_64__)
 #include <mach/i386/vm_param.h>
+#elif defined(__arm64__) || defined(__aarch64__)
+#include <mach/vm_param.h>
+#endif
 #include <mach/vm_map.h>
 #include <mach/vm_types.h>
 #include <os/log.h>

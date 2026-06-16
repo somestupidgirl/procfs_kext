@@ -297,10 +297,10 @@ struct mount {
 MALLOC_DECLARE(M_FHANDLE);
 #endif
 
-struct fhandle {
-	unsigned int    fh_len;                         /* length of file handle */
-	unsigned char   fh_data[NFS_MAX_FH_SIZE];       /* file handle value */
-};
+//struct fhandle {
+//	unsigned int    fh_len;                         /* length of file handle */
+//	unsigned char   fh_data[NFS_MAX_FH_SIZE];       /* file handle value */
+//};
 typedef struct fhandle fhandle_t;
 
 
