@@ -27,7 +27,9 @@ CFLAGS?=    -target $(TARGET_TRIPLE)            \
             -mkernel                            \
             $(ARCHFLAGS)                        \
             -Wall -Wextra -Wno-unused-function  \
-            -I../../include                     \
+            -I../../xnu/bsd                     \
+            -I../../xnu/libkern                 \
+            -I../../xnu/osfmk                   \
             -I../../lib                         \
             -isystem $(KERNEL_HEADERS)          \
             -isystem $(KERNEL_HEADERS)/arm64    \

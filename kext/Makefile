@@ -44,7 +44,9 @@ CFLAGS+= -target $(TARGET_TRIPLE) \
          -fno-stack-protector \
          -I../kext/lib \
          -I../lib \
-         -I../include \
+         -I../xnu/bsd \
+         -I../xnu/libkern \
+         -I../xnu/osfmk \
          -isystem $(KERNEL_HEADERS) \
          -isystem $(KERNEL_HEADERS)/arm64 \
          -isystem $(KERNEL_HEADERS)/arm

@@ -22,7 +22,9 @@ CFLAGS+= -target $(TARGET_TRIPLE) \
          -nostdinc \
          -fno-builtin \
          -fno-common \
-         -I../include \
+         -I../xnu/bsd \
+         -I../xnu/libkern \
+         -I../xnu/osfmk \
          -I../lib \
          -I$(SDKROOT)/usr/include
 
