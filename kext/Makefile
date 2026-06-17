@@ -40,6 +40,8 @@ CFLAGS+= -target $(TARGET_TRIPLE) \
          -fno-builtin \
          -fno-common \
          -mkernel \
+         -fno-stack-check \
+         -fno-stack-protector \
          -I../kext/lib \
          -I../lib \
          -I../include \
