@@ -48,7 +48,19 @@
 			<string>IOBSD</string>
 		</dict>
 	</dict>
-__KEXTLIBS__
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kpi.bsd</key>
+		<string>20.0b1</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>20.0b1</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>20.0b1</string>
+		<key>com.apple.kpi.mach</key>
+		<string>20.0b1</string>
+		<key>com.apple.kpi.unsupported</key>
+		<string>20.0b1</string>
+	</dict>
 </dict>
 </plist>
 

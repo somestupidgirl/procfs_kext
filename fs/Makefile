@@ -63,9 +63,7 @@ Info.plist~: Info.plist.in
 $(FSBUNDLE): $(FSMACHO) Info.plist~
 	mkdir -p $@/Contents/Resources
 	mv $< $@/Contents/Resources/mount_$(FSNAME)
-	sed 's/__FSLIBS__//g' Info.plist~ > $@/Contents/Info.plist
-	awk '/__FSLIBS__/{system("fslibs $(FSLFLAGS) $@");next};1' Info.plist~ > $@/Contents/Info.plist~
-	mv $@/Contents/Info.plist~ $@/Contents/Info.plist
+	cp Info.plist~ $@/Contents/Info.plist
 ifdef COMPATIBLE_VERSION
 	/usr/libexec/PlistBuddy -c 'Add :OSBundleCompatibleVersion string "$(COMPATIBLE_VERSION)"' $@/Contents/Info.plist
 endif

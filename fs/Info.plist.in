@@ -40,7 +40,13 @@
 	</dict>
 	<key>CFBundleVersion</key>
 	<string>__FSVERSION__</string>
-__FSLIBS__
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kpi.bsd</key>
+		<string>20.0b1</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>20.0b1</string>
+	</dict>
 </dict>
 </plist>
 
