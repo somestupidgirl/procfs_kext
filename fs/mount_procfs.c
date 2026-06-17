@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 
     // Default generic mount options and procfs options, which can be overridden
     // using the -o option.
-    int generic_options = MNT_NOEXEC | MNT_NOSUID;
+    int generic_options = 0;
     int procfs_options = 0;
 
     opterr = 0;  // Silence default messages from getopt()

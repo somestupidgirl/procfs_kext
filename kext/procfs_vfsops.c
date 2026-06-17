@@ -119,10 +119,13 @@ procfs_mount(struct mount *mp, __unused vnode_t devvp, user_addr_t data, __unuse
     if (procfs_mp == NULL) {
         // First mount. Get the mount options from user space.
         pfsmount_args_t mount_args;
-        int error = copyin(data, &mount_args, sizeof(mount_args));
-        if (error != 0) {
-            printf("procfs: failed to copyin mount options");
-            return error;
+        mount_args.mnt_options = 0;  // Default: procperms enabled.
+        if (data != USER_ADDR_NULL) {
+            int error = copyin(data, &mount_args, sizeof(mount_args));
+            if (error != 0) {
+                printf("procfs: failed to copyin mount options, using defaults\n");
+                mount_args.mnt_options = 0;
+            }
         }
 
         // Allocate the procfs mount structure and link it to the VFS structure.
