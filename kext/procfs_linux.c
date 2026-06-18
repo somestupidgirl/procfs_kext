@@ -447,31 +447,27 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
     char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 
-    unsigned int nrun = 0;
-    if (_avenrun != NULL) {
-        nrun = *(unsigned int *)avenrun;
+    /* averunnable and nprocs are private symbols - use sysctl instead */
+    uint32_t num_procs = 1;
+    int32_t load1 = 0, load5 = 0, load15 = 0;
+    size_t sysctl_sz = sizeof(num_procs);
+    sysctlbyname("kern.nprocs", &num_procs, &sysctl_sz, NULL, 0);
+    struct loadavg la;
+    bzero(&la, sizeof(la));
+    sysctl_sz = sizeof(la);
+    if (sysctlbyname("vm.loadavg", &la, &sysctl_sz, NULL, 0) == 0 && la.fscale > 0) {
+        load1  = (int)(la.ldavg[0] * 100 / la.fscale);
+        load5  = (int)(la.ldavg[1] * 100 / la.fscale);
+        load15 = (int)(la.ldavg[2] * 100 / la.fscale);
     }
-    struct loadavg *avg = &averunnable;
-    int i;
-
-    avg->fscale = FSCALE;
-
-    for (i = 0; i < 3; i++) {
-        avg->ldavg[i] = (cexp[i] * avg->ldavg[i] +
-            nrun * avg->fscale * (avg->fscale - cexp[i])) >> FSHIFT;
-    }
-
     len = snprintf(buf, LBFSZ,
         "%d.%02d %d.%02d %d.%02d %d/%d %d\n",
-        (int)(avg->ldavg[0] /       avg->fscale),
-        (int)(avg->ldavg[0] * 100 / avg->fscale % 100),
-        (int)(avg->ldavg[1] /       avg->fscale),
-        (int)(avg->ldavg[1] * 100 / avg->fscale % 100),
-        (int)(avg->ldavg[2] /       avg->fscale),
-        (int)(avg->ldavg[2] * 100 / avg->fscale % 100),
-        1,              /* number of running tasks */
-        nprocs,         /* number of tasks */
-        lastpid         /* the last pid */
+        load1  / 100, load1  % 100,
+        load5  / 100, load5  % 100,
+        load15 / 100, load15 % 100,
+        1,
+        (int)num_procs,
+        lastpid
     );
 
     xlen = (len - pgoff);
