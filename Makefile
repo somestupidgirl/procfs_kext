@@ -42,7 +42,12 @@ else ifeq ($(ARCH),x86_64)
     LIB_ARCHFLAGS     := -arch x86_64
     LIB_TRIPLE        := x86_64-apple-macos10.15
 else ifeq ($(ARCH),universal)
-    $(error Universal kext builds require two-pass compilation + lipo. Not yet implemented. Build arm64e and x86_64 separately then lipo.)
+    KEXT_ARCHFLAGS    := -arch arm64e
+    KEXT_TRIPLE       := arm64e-apple-macos12.0
+    FS_ARCHFLAGS      := -arch arm64
+    FS_TRIPLE         := arm64-apple-macos12.0
+    LIB_ARCHFLAGS     := -arch arm64e
+    LIB_TRIPLE        := arm64e-apple-macos12.0
 else
     $(error Unknown ARCH=$(ARCH). Use arm64e, x86_64, or universal)
 endif
@@ -53,6 +58,38 @@ LIB_FLAGS  := ARCHFLAGS="$(LIB_ARCHFLAGS)"  TARGET_TRIPLE="$(LIB_TRIPLE)"
 
 all: debug
 
+ifeq ($(ARCH),universal)
+
+debug:
+	rm -rf $(OUT)
+	mkdir $(OUT)
+	$(MAKE) -C lib  ARCHFLAGS="-arch arm64e" TARGET_TRIPLE="arm64e-apple-macos12.0"
+	$(MAKE) debug -C kext ARCHFLAGS="-arch arm64e" TARGET_TRIPLE="arm64e-apple-macos12.0"
+	$(MAKE) debug -C fs   ARCHFLAGS="-arch arm64"  TARGET_TRIPLE="arm64-apple-macos12.0"
+	mv kext/procfs.kext kext/procfs.kext.dSYM fs/procfs.fs fs/procfs.fs.dsym $(OUT)
+	mv $(OUT)/procfs.kext $(OUT)/procfs.kext.arm64e
+	mv $(OUT)/procfs.fs   $(OUT)/procfs.fs.arm64
+	$(MAKE) -C kext clean
+	$(MAKE) -C fs clean
+	$(MAKE) -C lib clean
+	$(MAKE) -C lib  ARCHFLAGS="-arch x86_64" TARGET_TRIPLE="x86_64-apple-macos10.15"
+	$(MAKE) debug -C kext ARCHFLAGS="-arch x86_64" TARGET_TRIPLE="x86_64-apple-macos10.15"
+	$(MAKE) debug -C fs   ARCHFLAGS="-arch x86_64" TARGET_TRIPLE="x86_64-apple-macos10.15"
+	rm -rf $(OUT)/procfs.kext.dSYM $(OUT)/procfs.fs.dsym
+	mv kext/procfs.kext kext/procfs.kext.dSYM fs/procfs.fs fs/procfs.fs.dsym $(OUT)
+	mv $(OUT)/procfs.kext $(OUT)/procfs.kext.x86_64
+	mv $(OUT)/procfs.fs   $(OUT)/procfs.fs.x86_64
+	cp -r $(OUT)/procfs.kext.arm64e $(OUT)/procfs.kext
+	lipo -create $(OUT)/procfs.kext.arm64e/Contents/MacOS/procfs $(OUT)/procfs.kext.x86_64/Contents/MacOS/procfs -output $(OUT)/procfs.kext/Contents/MacOS/procfs
+	cp -r $(OUT)/procfs.fs.arm64 $(OUT)/procfs.fs
+	lipo -create $(OUT)/procfs.fs.arm64/Contents/Resources/mount_procfs $(OUT)/procfs.fs.x86_64/Contents/Resources/mount_procfs -output $(OUT)/procfs.fs/Contents/Resources/mount_procfs
+	codesign --force --timestamp=none --sign - $(OUT)/procfs.kext
+	codesign --force --timestamp=none --sign - $(OUT)/procfs.fs
+	rm -rf $(OUT)/procfs.kext.arm64e $(OUT)/procfs.kext.x86_64
+	rm -rf $(OUT)/procfs.fs.arm64 $(OUT)/procfs.fs.x86_64
+
+else
+
 debug:
 	rm -rf $(OUT)
 	mkdir $(OUT)
@@ -61,6 +98,8 @@ debug:
 	mv kext/procfs.kext kext/procfs.kext.dSYM $(OUT)
 	$(MAKE) debug -C fs $(FS_FLAGS)
 	mv fs/procfs.fs fs/procfs.fs.dsym $(OUT)
+
+endif
 
 release: TARGET=release
 release: debug
