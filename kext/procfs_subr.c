@@ -187,6 +187,13 @@ procfs_get_pid(proc_t p, void *udata)
 void
 procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds)
 {
+    /* Guard against unresolved private symbols. */
+    if (_nprocs == NULL || _proc_iterate == NULL) {
+        *pidpp = NULL;
+        *sizep = 0;
+        *pid_count = 0;
+        return;
+    }
     uint32_t size = nprocs * sizeof(pid_t);
     pid_t *pidp = OSMalloc(size, procfs_osmalloc_tag);
 

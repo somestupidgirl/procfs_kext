@@ -93,7 +93,14 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
      * Not to be conflated with cpu_cores (number of cores)
      * as these are not the same.
      */
-    uint32_t max_cpus = processor_count;
+    /* processor_count is a private symbol - use sysctlbyname instead */
+    uint32_t max_cpus = 1;
+    if (_processor_count != NULL) {
+        max_cpus = processor_count;
+    } else {
+        size_t max_cpus_size = sizeof(max_cpus);
+        sysctlbyname("hw.logicalcpu", &max_cpus, &max_cpus_size, NULL, 0);
+    }
     uint32_t cnt_cpus = 0;
 
     /*
@@ -339,7 +346,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
             if ((int)core_id > (int)cpu_cores - 1) {
                 core_id = 0;
             }
-            if (max_cpus != processor_count) {
+            if (_processor_count != NULL && max_cpus != processor_count) {
                 max_cpus = processor_count;
             }
         } else if (cnt_cpus > max_cpus) {
@@ -405,7 +412,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
              * An unknown bug is causing the variable to reduce the
              * count down to 23 unless we do this.
              */
-            if (max_cpus != processor_count) {
+            if (_processor_count != NULL && max_cpus != processor_count) {
                 max_cpus = processor_count;
             }
         } else if (cnt_cpus > max_cpus) {
@@ -440,7 +447,10 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
     char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 
-    unsigned int nrun = *(unsigned int *)avenrun;
+    unsigned int nrun = 0;
+    if (_avenrun != NULL) {
+        nrun = *(unsigned int *)avenrun;
+    }
     struct loadavg *avg = &averunnable;
     int i;
 
