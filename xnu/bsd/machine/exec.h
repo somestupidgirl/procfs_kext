@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  * Copyright (c) 2022 Sunneva Jonsdottir
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
@@ -65,12 +65,19 @@
  *      int    ps_nenvstr;  | int ec;
  */
 struct exec_info {
-	char      path[MAXPATHLEN];
-	int       ac;              /* the number of argument strings */
-	int       ec;              /* the number of environment strings */
-	char    **av;              /* first of 0 or more argument strings */
-	char    **ev;              /* first of 0 or more environment strings */
+	char    path[MAXPATHLEN];
+	int     ac;
+	int     ec;
+	char    **av;
+	char    **ev;
 };
+
+int grade_binary(cpu_type_t, cpu_subtype_t, cpu_subtype_t, bool allow_simulator_binary);
+int binary_grade_overrides_update(char *overrides_arg);
+size_t bingrade_get_override_string(char *existing_overrides, size_t existing_overrides_bufsize);
+boolean_t binary_match(cpu_type_t mask_bits, cpu_type_t req_cpu,
+    cpu_subtype_t req_subcpu, cpu_type_t test_cpu,
+    cpu_subtype_t test_subcpu);
 
 /*
  * Description:
