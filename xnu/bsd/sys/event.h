@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -58,7 +58,11 @@
 
 #include <machine/types.h>
 #include <sys/cdefs.h>
+#include <sys/queue.h>
 #include <stdint.h>
+#ifndef KERNEL
+#include <sys/types.h>
+#endif
 
 /*
  * Filter types
@@ -73,10 +77,16 @@
 #define EVFILT_MACHPORT         (-8)    /* Mach portsets */
 #define EVFILT_FS               (-9)    /* Filesystem events */
 #define EVFILT_USER             (-10)   /* User events */
+#ifdef PRIVATE
+/* Additional filter types in event_private.h */
+#endif
 #define EVFILT_VM               (-12)   /* Virtual memory events */
 #define EVFILT_EXCEPT           (-15)   /* Exception events */
 
-#define EVFILT_SYSCOUNT         17
+#ifdef PRIVATE
+/* Make sure to count the filter types in event_private.h! */
+#endif
+#define EVFILT_SYSCOUNT         18
 #define EVFILT_THREADMARKER     EVFILT_SYSCOUNT /* Internal use only */
 
 #pragma pack(4)
@@ -90,7 +100,6 @@ struct kevent {
 	void            *udata; /* opaque user data identifier */
 };
 
-
 #pragma pack()
 
 struct kevent64_s {
@@ -102,23 +111,6 @@ struct kevent64_s {
 	uint64_t        udata;          /* opaque user data identifier */
 	uint64_t        ext[2];         /* filter-specific extensions */
 };
-
-struct kevent_qos_s {
-    uint64_t        ident;          /* identifier for this event */
-    int16_t         filter;         /* filter for event */
-    uint16_t        flags;          /* general flags */
-    int32_t         qos;            /* quality of service */
-    uint64_t        udata;          /* opaque user data identifier */
-    uint32_t        fflags;         /* filter-specific flags */
-    uint32_t        xflags;         /* extra filter-specific flags */
-    int64_t         data;           /* filter-specific data */
-    uint64_t        ext[4];         /* filter-specific extensions */
-};
-
-/*
- * Type definition for names/ids of dynamically allocated kqueues.
- */
-typedef uint64_t kqueue_id_t;
 
 #define EV_SET(kevp, a, b, c, d, e, f) do {     \
 	struct kevent *__kevp__ = (kevp);       \
@@ -147,7 +139,6 @@ typedef uint64_t kqueue_id_t;
 #define KEVENT_FLAG_NONE                         0x000000       /* no flag value */
 #define KEVENT_FLAG_IMMEDIATE                    0x000001       /* immediate timeout */
 #define KEVENT_FLAG_ERROR_EVENTS                 0x000002       /* output events only include change errors */
-
 
 /* actions */
 #define EV_ADD              0x0001      /* add event to kq (implies enable) */
@@ -234,7 +225,6 @@ typedef uint64_t kqueue_id_t;
 #define NOTE_FFCTRLMASK 0xc0000000              /* mask for operations */
 #define NOTE_FFLAGSMASK 0x00ffffff
 
-
 /*
  * data/hint fflags for EVFILT_{READ|WRITE}, shared with userspace
  *
@@ -258,6 +248,8 @@ typedef uint64_t kqueue_id_t;
 #define NOTE_REVOKE     0x00000040              /* vnode access was revoked */
 #define NOTE_NONE       0x00000080              /* No specific vnode event: to test for EVFILT_READ activation*/
 #define NOTE_FUNLOCK    0x00000100              /* vnode was unlocked by flock(2) */
+#define NOTE_LEASE_DOWNGRADE 0x00000200         /* lease downgrade requested */
+#define NOTE_LEASE_RELEASE 0x00000400           /* lease release requested */
 
 /*
  * data/hint fflags for EVFILT_PROC, shared with userspace
@@ -278,7 +270,7 @@ enum {
 #define NOTE_EXEC               0x20000000      /* process exec'd */
 #define NOTE_REAP               ((unsigned int)eNoteReapDeprecated /* 0x10000000 */ )   /* process reaped */
 #define NOTE_SIGNAL             0x08000000      /* shared with EVFILT_SIGNAL */
-#define NOTE_EXITSTATUS         0x04000000      /* exit status to be returned, valid for child process only */
+#define NOTE_EXITSTATUS         0x04000000      /* exit status to be returned, valid for child process or when allowed to signal target pid */
 #define NOTE_EXIT_DETAIL        0x02000000      /* provide details on reasons for exit */
 
 #define NOTE_PDATAMASK  0x000fffff              /* mask for signal & exit status */
@@ -300,7 +292,6 @@ enum {
 #define NOTE_EXIT_MEMORY                0x00020000
 #define NOTE_EXIT_CSERROR               0x00040000
 
-
 /*
  * data/hint fflags for EVFILT_VM, shared with userspace.
  */
@@ -308,7 +299,6 @@ enum {
 #define NOTE_VM_PRESSURE_TERMINATE              0x40000000              /* will quit on memory pressure, possibly after cleaning up dirty state */
 #define NOTE_VM_PRESSURE_SUDDEN_TERMINATE       0x20000000              /* will quit immediately on memory pressure */
 #define NOTE_VM_ERROR                           0x10000000              /* there was an error */
-
 
 /*
  * data/hint fflags for EVFILT_TIMER, shared with userspace.
@@ -335,7 +325,6 @@ enum {
  */
 #define NOTE_MACHTIME   0x00000100              /* data is mach absolute time units */
 /* timeout uses the mach absolute time epoch */
-
 
 /*
  * data/hint fflags for EVFILT_MACHPORT, shared with userspace.
@@ -379,30 +368,33 @@ enum {
 #define NOTE_TRACKERR   0x00000002              /* could not track child */
 #define NOTE_CHILD      0x00000004              /* am a child process */
 
-#include <sys/queue.h>
-struct proc;
+
+#ifndef KERNEL
+/* Temporary solution for BootX to use inode.h till kqueue moves to vfs layer */
 struct knote;
 SLIST_HEAD(klist, knote);
 
-struct kevent_ctx_s {
-    uint64_t         kec_data_avail;    /* address of remaining data size */
-    user_addr_t      kec_data_out;      /* extra data pointer */
-    user_size_t      kec_data_size;     /* total extra data size */
-    user_size_t      kec_data_resid;    /* residual extra data size */
-    uint64_t         kec_deadline;      /* wait deadline unless KEVENT_FLAG_IMMEDIATE */
-    struct fileproc *kec_fp;            /* fileproc to pass to fp_drop or NULL */
-    int              kec_fd;            /* fd to pass to fp_drop or -1 */
+struct timespec;
 
-    /* the fields below are only set during process / scan */
-    int              kec_process_nevents;       /* user-level event count */
-    int              kec_process_noutputs;      /* number of events output */
-    unsigned int     kec_process_flags;         /* kevent flags, only set for process  */
-    user_addr_t      kec_process_eventlist;     /* user-level event list address */
-};
-typedef struct kevent_ctx_s *kevent_ctx_t;
+__BEGIN_DECLS
+int     kqueue(void);
+int     kevent(int kq,
+    const struct kevent *changelist, int nchanges,
+    struct kevent *eventlist, int nevents,
+    const struct timespec *timeout);
+int     kevent64(int kq,
+    const struct kevent64_s *changelist, int nchanges,
+    struct kevent64_s *eventlist, int nevents,
+    unsigned int flags,
+    const struct timespec *timeout);
 
-/* Flags for pending events notified by kernel via return-to-kernel ast */
-#define R2K_WORKLOOP_PENDING_EVENTS             0x1
-#define R2K_WORKQ_PENDING_EVENTS                0x2
+__END_DECLS
+
+
+#endif /* KERNEL */
+
+#ifdef PRIVATE
+#include <sys/event_private.h>
+#endif /* PRIVATE */
 
 #endif /* !_SYS_EVENT_H_ */
