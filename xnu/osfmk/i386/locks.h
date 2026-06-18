@@ -101,6 +101,8 @@ typedef struct _lck_mtx_ext_ {
     unsigned int            lck_mtx_pad2[2];
 } lck_mtx_ext_t;
 
+#ifndef __LCK_RW_T_DEFINED__
+#define __LCK_RW_T_DEFINED__
 typedef union _lck_rw_t_internal_ {
     struct {
         volatile uint16_t       lck_rw_shared_count;    /* No. of accepted readers */
@@ -123,5 +125,9 @@ typedef union _lck_rw_t_internal_ {
         uint32_t                lck_rw_pad12;
     };
 } lck_rw_t;
+
+/* Prevent SDK kern/lock_rw.h from redefining lck_rw_t */
+#define _KERN_RW_LOCK_H_
+#endif /* __LCK_RW_T_DEFINED__ */
 
 #endif /* _I386_LOCKS_H_ */

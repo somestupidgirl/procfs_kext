@@ -26,14 +26,23 @@ CFLAGS?=    -target $(TARGET_TRIPLE)            \
             -fno-common                         \
             -mkernel                            \
             $(ARCHFLAGS)                        \
-            -Wall -Wextra -Wno-unused-function  \
-            -I../../xnu/bsd                     \
+            -Wall -Wextra -Wno-unused-function
+
+ifeq ($(findstring arm64,$(TARGET_TRIPLE)),arm64)
+CFLAGS+=    -I../../xnu/bsd                     \
             -I../../xnu/libkern                 \
             -I../../xnu/osfmk                   \
-            -I../../lib                         \
-            -isystem $(KERNEL_HEADERS)          \
             -isystem $(KERNEL_HEADERS)/arm64    \
-            -isystem $(KERNEL_HEADERS)/arm      \
+            -isystem $(KERNEL_HEADERS)/arm
+else
+CFLAGS+=    -I../../xnu/bsd                     \
+            -I../../xnu/libkern                 \
+            -I../../xnu/osfmk
+endif
+
+CFLAGS+=    -I../../lib                         \
+            -isystem $(KERNEL_HEADERS)          \
+            -isystem $(USR_HEADERS)             \
             -isystem $(USR_HEADERS)             \
             -DDEBUG
 

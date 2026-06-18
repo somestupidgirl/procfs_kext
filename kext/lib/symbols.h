@@ -477,6 +477,7 @@ extern void                     (*_vnode_unlock)(struct vnode *);
 /*
  * Fills the i386_cpu_info structure and returns its pointer.
  */
+#if defined(__x86_64__)
 extern i386_cpu_info_t *        (*_cpuid_info)(void);
 #define                         cpuid_info() \
                                 _cpuid_info()
@@ -484,6 +485,7 @@ extern i386_cpu_info_t *        (*_cpuid_info)(void);
  * Global variable that stores the TSC frequency of the current CPU.
  */
 extern uint64_t                 (*_tscFreq);
+#endif /* __x86_64__ */
 #define                         tscFreq \
                                 *_tscFreq
 #endif /* __x86_64__ */

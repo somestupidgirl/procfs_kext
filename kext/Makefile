@@ -31,6 +31,16 @@ CFLAGS+= -DKEXTNAME_S=\"$(KEXTNAME)\" \
 TIME_STAMP:= $(shell date +'%Y/%m/%d\ %H:%M:%S%z')
 CFLAGS+=     -D__TS__=\"$(TIME_STAMP)\"
 
+# xnu/bsd is needed on all arches for headers not in the SDK (sys/exec.h etc.)
+# xnu/osfmk is only needed on ARM64 (x86_64 SDK has complete lock definitions)
+ifeq ($(findstring arm64,$(TARGET_TRIPLE)),arm64)
+XNU_INCLUDES := -I../xnu/bsd -I../xnu/libkern -I../xnu/osfmk
+ARCH_SYS_INCLUDES := -isystem $(KERNEL_HEADERS)/arm64 -isystem $(KERNEL_HEADERS)/arm
+else
+XNU_INCLUDES := -I../xnu/bsd -I../xnu/libkern -I../xnu/osfmk
+ARCH_SYS_INCLUDES :=
+endif
+
 CFLAGS+= -target $(TARGET_TRIPLE) \
          -isysroot $(SDKROOT) \
          $(ARCHFLAGS) \
@@ -44,12 +54,9 @@ CFLAGS+= -target $(TARGET_TRIPLE) \
          -fno-stack-protector \
          -I../kext/lib \
          -I../lib \
-         -I../xnu/bsd \
-         -I../xnu/libkern \
-         -I../xnu/osfmk \
+         $(XNU_INCLUDES) \
          -isystem $(KERNEL_HEADERS) \
-         -isystem $(KERNEL_HEADERS)/arm64 \
-         -isystem $(KERNEL_HEADERS)/arm
+         $(ARCH_SYS_INCLUDES)
 
 CFLAGS+= -Werror -Wall -Wextra \
          -Wno-unused-parameter \
@@ -80,7 +87,7 @@ LIBS+= -L$(KERNEL_LIBDIR) \
        -L../lib/libkext \
        -L../lib/libklookup
 
-LIBS+= -lkmod -lkext 
+LIBS+= -lkmod -lklookup -lkext 
 
 KLFLAGS+= -xml -c -undef-symbols
 

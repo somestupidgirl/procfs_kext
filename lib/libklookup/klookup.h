@@ -24,15 +24,13 @@
 #include <sys/types.h>
 /*
  * Lock struct definitions must be included before sys/sysctl.h.
- * sys/sysctl.h pulls in sys/proc_internal.h which embeds lck_mtx_t,
- * lck_spin_t, and lck_rw_t by value. The public SDK arm/locks.h only
- * forward-declares these structs, so we vendor the full definitions
- * in include/arm/locks.h (sourced from XNU open source).
+ * On ARM64 the public SDK arm/locks.h only forward-declares these
+ * structs, so we vendor the full definitions from XNU open source.
+ * On x86_64 the SDK Kernel.framework already provides complete
+ * definitions so no vendored header is needed.
  */
 #if defined(__arm64__) || defined(__aarch64__)
 #include <arm/locks.h>
-#elif defined(__x86_64__)
-#include <i386/locks.h>
 #endif
 #include <sys/sysctl.h>
 #include <vm/vm_kern.h>
