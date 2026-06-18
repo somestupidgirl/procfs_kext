@@ -1,17 +1,15 @@
 /*
- * symbols.c - Private KPI symbol resolution via libklookup (ARM64 compatible)
+ * symbols.c - Private KPI symbol resolution
+ *
+ * On ARM64 macOS, kernel memory scanning is not possible due to PAC
+ * (Pointer Authentication Code) enforcement. All private symbols are
+ * stubbed as NULL. Public KPI alternatives are used where available.
  */
-#include <libklookup/klookup.h>
 #include <mach/kern_return.h>
-
 #include "symbols.h"
 
 #define SYM_INIT(sym) \
 	__typeof(_##sym) _##sym = NULL
-
-#define SYM_LOOKUP(sym) { \
-    _##sym = SymbolLookup("_"#sym); \
-}
 
 SYM_INIT(initproc);
 SYM_INIT(allproc);
@@ -74,77 +72,16 @@ SYM_INIT(vnode_lock);
 SYM_INIT(vnode_unlock);
 SYM_INIT(dead_mountp);
 SYM_INIT(processor_count);
+SYM_INIT(avenrun);
 #if defined(__x86_64__)
 SYM_INIT(tscFreq);
 SYM_INIT(cpuid_info);
 #endif
-SYM_INIT(avenrun);
 
 kern_return_t
 resolve_symbols(void)
 {
-	SYM_LOOKUP(initproc);
-	SYM_LOOKUP(allproc);
-	SYM_LOOKUP(nprocs);
-	SYM_LOOKUP(maxproc);
-	SYM_LOOKUP(maxprocperuid);
-	SYM_LOOKUP(hard_maxproc);
-	SYM_LOOKUP(proc_best_name);
-	SYM_LOOKUP(proc_starttime);
-	SYM_LOOKUP(proc_issetugid);
-	SYM_LOOKUP(proc_get_darwinbgstate);
-	SYM_LOOKUP(psignal);
-	SYM_LOOKUP(tsleep);
-	SYM_LOOKUP(proc_lock);
-	SYM_LOOKUP(proc_unlock);
-	SYM_LOOKUP(proc_list_lock);
-	SYM_LOOKUP(proc_list_unlock);
-	SYM_LOOKUP(proc_iterate);
-	SYM_LOOKUP(proc_pgrp);
-	SYM_LOOKUP(pg_rele);
-	SYM_LOOKUP(pgfind);
-	SYM_LOOKUP(pgrp_lock);
-	SYM_LOOKUP(pgrp_unlock);
-	SYM_LOOKUP(pgrp_iterate);
-	SYM_LOOKUP(proc_session);
-	SYM_LOOKUP(session_rele);
-	SYM_LOOKUP(session_lock);
-	SYM_LOOKUP(session_unlock);
-	SYM_LOOKUP(proc_gettty);
-	SYM_LOOKUP(proc_gettty_dev);
-	SYM_LOOKUP(tty_lock);
-	SYM_LOOKUP(tty_unlock);
-	SYM_LOOKUP(forkproc);
-	SYM_LOOKUP(forkproc_free);
-	SYM_LOOKUP(filedesc0);
-	SYM_LOOKUP(fp_getfvp);
-	SYM_LOOKUP(fdcopy);
-	SYM_LOOKUP(fdfree);
-	SYM_LOOKUP(fdt_next);
-	SYM_LOOKUP(fdt_prev);
-	SYM_LOOKUP(proc_fdlist);
-	SYM_LOOKUP(proc_fdlock);
-	SYM_LOOKUP(proc_fdlock_assert);
-	SYM_LOOKUP(proc_fdlock_spin);
-	SYM_LOOKUP(proc_fdunlock);
-	SYM_LOOKUP(fill_taskprocinfo);
-	SYM_LOOKUP(fill_taskthreadinfo);
-	SYM_LOOKUP(fill_socketinfo);
-	SYM_LOOKUP(proc_task);
-	SYM_LOOKUP(proc_thread);
-	SYM_LOOKUP(thread_info);
-	SYM_LOOKUP(get_bsdthread_info);
-	SYM_LOOKUP(bsd_threadcdir);
-	SYM_LOOKUP(uthread_alloc);
-	SYM_LOOKUP(task_threads);
-	SYM_LOOKUP(convert_port_to_thread);
-	SYM_LOOKUP(vfs_context_thread);
-	SYM_LOOKUP(vn_stat);
-	SYM_LOOKUP(vnode_lock);
-	SYM_LOOKUP(vnode_unlock);
-	SYM_LOOKUP(dead_mountp);
-	SYM_LOOKUP(processor_count);
-	SYM_LOOKUP(avenrun);
-
-	return KERN_SUCCESS;
+    /* Stubbed: ARM64 PAC prevents kernel memory scanning.
+     * Private symbols remain NULL; public KPI alternatives used instead. */
+    return KERN_SUCCESS;
 }

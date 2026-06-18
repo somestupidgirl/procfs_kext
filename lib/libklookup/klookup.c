@@ -8,22 +8,21 @@
 //
 
 #include <mach-o/nlist.h>
+#include <libkern/version.h>
 #include <libklookup/klookup.h>
 
 /*
- * Find a LC_FILESET_ENTRY named "com.apple.kernel" inside a fileset kernelcache.
- * Returns the embedded XNU Mach-O header, or NULL if not found.
+ * Find LC_FILESET_ENTRY "com.apple.kernel" inside a fileset kernelcache.
  */
 static struct mach_header_64 *
 FindFilesetKernel(struct mach_header_64 *fileset)
 {
     struct load_command *lc = (struct load_command *)((uintptr_t)fileset + sizeof(*fileset));
-    while ((uintptr_t)lc < (uintptr_t)fileset + fileset->sizeofcmds) {
-        /* LC_FILESET_ENTRY = 0x80000038 */
-        if (lc->cmd == 0x80000038) {
-            /* fileset entry: uint64_t vmaddr, uint64_t fileoff, uint32_t entry_id_offset */
-            uint64_t *fields = (uint64_t *)((uintptr_t)lc + sizeof(struct load_command));
-            uint64_t vmaddr = fields[0];
+    uintptr_t end = (uintptr_t)fileset + fileset->sizeofcmds;
+    while ((uintptr_t)lc < end) {
+        if (lc->cmdsize == 0) break;
+        if (lc->cmd == 0x80000038) { /* LC_FILESET_ENTRY */
+            uint64_t vmaddr  = *(uint64_t *)((uintptr_t)lc + 8);
             uint32_t nameoff = *(uint32_t *)((uintptr_t)lc + 24);
             const char *name = (const char *)((uintptr_t)lc + nameoff);
             if (!strcmp(name, "com.apple.kernel")) {
@@ -38,35 +37,52 @@ FindFilesetKernel(struct mach_header_64 *fileset)
 static struct mach_header_64 *
 FindKernelBase(void)
 {
-    vm_offset_t unslid = 0;
-    vm_kernel_unslide_or_perm_external((vm_offset_t)(void *)printf, &unslid);
-    int64_t slide = (int64_t)(uintptr_t)(void *)printf - (int64_t)unslid;
+    /*
+     * Use vm_kernel_unslide_or_perm_external on the exported `version`
+     * string to get the KASLR slide. Then walk backwards from `version`
+     * page-by-page to find the Mach-O header.
+     *
+     * `version` is in __TEXT which is contiguous, so this walk is safe
+     * within the same segment — we stop as soon as we find the header
+     * or exceed a reasonable distance (16MB).
+     */
+    vm_offset_t unslid_version = 0;
+    vm_kernel_unslide_or_perm_external((vm_offset_t)(void *)version, &unslid_version);
+    if (unslid_version == 0) {
+        printf("KLOOKUP: failed to get unslid version address\n");
+        return NULL;
+    }
+    int64_t slide = (int64_t)(uintptr_t)(void *)version - (int64_t)unslid_version;
+    printf("KLOOKUP: KASLR slide=0x%llx\n", (unsigned long long)slide);
 
     /*
-     * Walk backwards from printf in PAGE_SIZE steps looking for
-     * the Mach-O magic. Limit search to 512MB to avoid infinite loop.
+     * Walk backwards from `version` looking for MH_MAGIC_64.
+     * Limit to 64MB to cover the largest kernelcaches.
      */
-    uintptr_t addr = (uintptr_t)(void *)printf & ~((uintptr_t)PAGE_SIZE - 1);
-    uintptr_t limit = addr - (512ULL * 1024 * 1024);
+    uintptr_t addr = (uintptr_t)(void *)version & ~((uintptr_t)PAGE_SIZE - 1);
+    uintptr_t limit = addr > (64ULL * 1024 * 1024) ? addr - (64ULL * 1024 * 1024) : 0;
 
     while (addr > limit) {
         struct mach_header_64 *hdr = (struct mach_header_64 *)addr;
         if (hdr->magic == MH_MAGIC_64) {
+            printf("KLOOKUP: found Mach-O header at %p filetype=%u\n",
+                   hdr, hdr->filetype);
             if (hdr->filetype == MH_EXECUTE) {
                 return hdr;
             }
             if (hdr->filetype == MH_FILESET) {
-                /* macOS 12+ fileset kernelcache - find the XNU kernel slice */
                 struct mach_header_64 *kernel = FindFilesetKernel(hdr);
-                if (kernel != NULL)
+                if (kernel != NULL) {
+                    printf("KLOOKUP: com.apple.kernel slice at %p\n", kernel);
                     return kernel;
+                }
                 return hdr;
             }
         }
         addr -= PAGE_SIZE;
     }
 
-    (void)slide;
+    printf("KLOOKUP: Mach-O header not found within 64MB of version string\n");
     return NULL;
 }
 
@@ -75,9 +91,10 @@ FindSegment64(struct mach_header_64 *mh, const char *name)
 {
     struct load_command *lc = (struct load_command *)((uintptr_t)mh + sizeof(*mh));
     while ((uintptr_t)lc < (uintptr_t)mh + mh->sizeofcmds) {
+        if (lc->cmdsize == 0) break;
         if (lc->cmd == LC_SEGMENT_64) {
             struct segment_command_64 *seg = (struct segment_command_64 *)lc;
-            if (!strcmp(seg->segname, name))
+            if (!strncmp(seg->segname, name, 16))
                 return seg;
         }
         lc = (struct load_command *)((uintptr_t)lc + lc->cmdsize);
@@ -99,12 +116,13 @@ SymbolLookup(const char *Symbol)
             return NULL;
         }
 
-        /* On macOS 11+ __LINKEDIT is in __PRELINK_TEXT region */
         struct segment_command_64 *prelink = FindSegment64(mh, "__PRELINK_TEXT");
         if (prelink != NULL) {
             struct mach_header_64 *inner = (struct mach_header_64 *)(uintptr_t)prelink->vmaddr;
-            if (inner->magic == MH_MAGIC_64)
+            if (inner->magic == MH_MAGIC_64) {
+                printf("KLOOKUP: using __PRELINK_TEXT inner header at %p\n", inner);
                 mh = inner;
+            }
         }
 
         struct segment_command_64 *linkedit = FindSegment64(mh, SEG_LINKEDIT);
@@ -115,6 +133,7 @@ SymbolLookup(const char *Symbol)
 
         struct load_command *lc = (struct load_command *)((uintptr_t)mh + sizeof(*mh));
         while ((uintptr_t)lc < (uintptr_t)mh + mh->sizeofcmds) {
+            if (lc->cmdsize == 0) break;
             if (lc->cmd == LC_SYMTAB) {
                 SymbolTable = (struct symtab_command *)lc;
                 break;
@@ -130,6 +149,8 @@ SymbolLookup(const char *Symbol)
         int64_t base = (int64_t)linkedit->vmaddr - (int64_t)linkedit->fileoff;
         StringTable = (void *)(uintptr_t)(base + (int64_t)SymbolTable->stroff);
         NameList    = (struct nlist_64 *)(uintptr_t)(base + (int64_t)SymbolTable->symoff);
+
+        printf("KLOOKUP: %u symbols at %p\n", SymbolTable->nsyms, NameList);
     }
 
     struct nlist_64 *nl = NameList;

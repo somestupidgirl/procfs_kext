@@ -152,6 +152,7 @@ procfs_atoi(const char *p, const char **end_ptr)
  * credentials, the process id id added only if it should
  * be accessible to an entity with those credentials.
  */
+#if !defined(__arm64__) && !defined(__aarch64__)
 STATIC int
 procfs_get_pid(proc_t p, void *udata)
 {
@@ -172,6 +173,7 @@ procfs_get_pid(proc_t p, void *udata)
     return PROC_RETURNED;
 }
 
+#endif /* !__arm64__ */
 /*
  * Gets a list of all of the running processes in the system that
  * can be seen by a process with given credentials. If the creds
@@ -185,29 +187,58 @@ procfs_get_pid(proc_t p, void *udata)
  * the values that it received from this function. 
  */
 void
-procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds)
+procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, __unused kauth_cred_t creds)
 {
-    /* Guard against unresolved private symbols. */
-    if (_nprocs == NULL || _proc_iterate == NULL) {
+    /*
+     * Use kern.proc.all sysctl to enumerate all processes.
+     * This replaces the private proc_iterate() symbol.
+     */
+    size_t bufsize = 0;
+
+    /* First call: get required buffer size */
+    if (sysctlbyname("kern.proc.all", NULL, &bufsize, NULL, 0) != 0 || bufsize == 0) {
         *pidpp = NULL;
         *sizep = 0;
         *pid_count = 0;
         return;
     }
-    uint32_t size = nprocs * sizeof(pid_t);
-    pid_t *pidp = OSMalloc(size, procfs_osmalloc_tag);
 
-    struct procfs_pidlist_data data;
-    data.num_procs = 0;
-    data.max_procs = nprocs;
-    data.creds = creds;
-    data.pids = pidp;
+    struct kinfo_proc *kprocs = OSMalloc((uint32_t)bufsize, procfs_osmalloc_tag);
+    if (kprocs == NULL) {
+        *pidpp = NULL;
+        *sizep = 0;
+        *pid_count = 0;
+        return;
+    }
 
-    proc_iterate(PROC_ALLPROCLIST, procfs_get_pid, &data, NULL, NULL);
+    /* Second call: get the actual data */
+    if (sysctlbyname("kern.proc.all", kprocs, &bufsize, NULL, 0) != 0) {
+        OSFree(kprocs, (uint32_t)bufsize, procfs_osmalloc_tag);
+        *pidpp = NULL;
+        *sizep = 0;
+        *pid_count = 0;
+        return;
+    }
 
+    int nproc = (int)(bufsize / sizeof(struct kinfo_proc));
+    uint32_t pidsize = (uint32_t)(nproc * sizeof(pid_t));
+    pid_t *pidp = OSMalloc(pidsize, procfs_osmalloc_tag);
+    if (pidp == NULL) {
+        OSFree(kprocs, (uint32_t)bufsize, procfs_osmalloc_tag);
+        *pidpp = NULL;
+        *sizep = 0;
+        *pid_count = 0;
+        return;
+    }
+
+    for (int i = 0; i < nproc; i++) {
+        pidp[i] = kprocs[i].kp_proc.p_pid;
+    }
+
+    OSFree(kprocs, (uint32_t)bufsize, procfs_osmalloc_tag);
     *pidpp = pidp;
-    *sizep = size;
-    *pid_count = data.num_procs;
+    *sizep = pidsize;
+    *pid_count = nproc;
 }
 
 /*

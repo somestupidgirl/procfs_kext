@@ -87,7 +87,7 @@ LIBS+= -L$(KERNEL_LIBDIR) \
        -L../lib/libkext \
        -L../lib/libklookup
 
-LIBS+= -lkmod -lklookup -lkext 
+LIBS+= -lkmod -lkext 
 
 KLFLAGS+= -xml -c -undef-symbols
 
