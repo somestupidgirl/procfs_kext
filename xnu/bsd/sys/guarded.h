@@ -33,13 +33,31 @@
 #include <sys/cdefs.h>
 
 #include <sys/_types/_iovec_t.h>
+//#ifdef PRIVATE
 
 __BEGIN_DECLS
+
+//#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 
 #ifndef _GUARDID_T
 #define _GUARDID_T
 typedef __uint64_t guardid_t;
 #endif /* _GUARDID_T */
+
+#if !defined(KERNEL)
+extern int guarded_open_np(const char *path,
+    const guardid_t *guard, u_int guardflags, int flags, ...);
+extern int guarded_open_dprotected_np(const char *path,
+    const guardid_t *guard, u_int guardflags, int flags,
+    int dpclass, int dpflags, ...);
+extern int guarded_kqueue_np(const guardid_t *guard, u_int guardflags);
+extern int guarded_close_np(int fd, const guardid_t *guard);
+extern int change_fdguard_np(int fd, const guardid_t *guard, u_int guardflags,
+    const guardid_t *nguard, u_int nguardflags, int *fdflagsp);
+extern ssize_t guarded_write_np(int fd, const guardid_t *guard, const void *buf, size_t nbyte);
+extern ssize_t guarded_pwrite_np(int fd, const guardid_t *guard, const void *buf, size_t nbyte, off_t offset);
+extern ssize_t guarded_writev_np(int fd, const guardid_t *guard, const struct iovec *iovp, int iovcnt);
+#endif /* KERNEL */
 
 #ifndef GUARD_TYPE_FD
 /* temporary source compat: use <kern/exc_guard.h> instead */
@@ -102,10 +120,11 @@ enum guard_fd_exception_codes {
 #define VNG_TRUNC_OTHER         (1u << 4)
 #define VNG_LINK                (1u << 5)
 #define VNG_EXCHDATA            (1u << 6)
+#define VNG_PERMISSIONS         (1u << 7)
 
 #define VNG_ALL \
 	(VNG_RENAME_TO | VNG_RENAME_FROM | VNG_UNLINK | VNG_LINK | \
-	 VNG_WRITE_OTHER | VNG_TRUNC_OTHER | VNG_EXCHDATA)
+	 VNG_WRITE_OTHER | VNG_TRUNC_OTHER | VNG_EXCHDATA | VNG_PERMISSIONS)
 
 struct vnguard_set {
 	int vns_fd;
@@ -139,16 +158,29 @@ enum guard_vn_exception_codes {
 	kGUARD_EXC_EXCHDATA     = VNG_EXCHDATA,
 };
 
-/*
- * Guard violation behaviors: not all combinations make sense
- */
+/* Guard violation behaviors: not all combinations make sense */
+
 #define kVNG_POLICY_LOGMSG      (1u << 0)
 #define kVNG_POLICY_EPERM       (1u << 1)
 #define kVNG_POLICY_EXC         (1u << 2)
 #define kVNG_POLICY_EXC_CORPSE  (1u << 3)
 #define kVNG_POLICY_SIGKILL     (1u << 4)
 #define kVNG_POLICY_UPRINTMSG   (1u << 5)
+#define kVNG_POLICY_EXC_CORE    (1u << 6)
+
+//#if BSD_KERNEL_PRIVATE
+struct fileglob;
+extern int vnguard_exceptions_active(void);
+extern void vnguard_policy_init(void);
+#if CONFIG_MACF && CONFIG_VNGUARD
+extern void vng_file_label_destroy(struct fileglob *fg);
+#endif /* CONFIG_MACF && CONFIG_VNGUARD */
+//#endif /* BSD_KERNEL_PRIVATE */
+
+//#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 __END_DECLS
+
+//#endif /* PRIVATE */
 
 #endif /* !_SYS_GUARDED_H_ */
