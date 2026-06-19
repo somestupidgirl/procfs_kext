@@ -69,6 +69,13 @@
 #ifndef _SYS_SIGNAL_H_
 #define _SYS_SIGNAL_H_
 
+#if defined(__x86_64__)
+#include <i386/types.h>
+#elif defined(__arm64__) || defined(__aarch64__)
+#include <arm/types.h>
+#endif
+typedef unsigned int uint32_t;
+
 #include <sys/cdefs.h>
 #include <sys/appleapiopts.h>
 #include <Availability.h>
@@ -145,6 +152,9 @@
 
 #include <machine/_mcontext.h>
 
+//#ifndef KERNEL
+//#include <sys/_pthread/_pthread_attr_t.h>
+//#endif /* KERNEL */
 
 #include <sys/_types/_sigaltstack.h>
 #include <sys/_types/_ucontext.h>
@@ -163,8 +173,67 @@ union sigval {
 #define SIGEV_NONE      0       /* No async notification */
 #define SIGEV_SIGNAL    1       /* aio - completion notification */
 #define SIGEV_THREAD    3       /* [NOTIMP] [RTS] call notification function */
+#define SIGEV_KEVENT    4       /* Generate a kevent */
 
+//#ifndef KERNEL
+//struct sigevent {
+//	int                             sigev_notify;                           /* Notification type */
+//	int                             sigev_signo;                            /* Signal number */
+//	union sigval    sigev_value;                            /* Signal value */
+//	void                    (*sigev_notify_function)(union sigval);   /* Notification function */
+//	pthread_attr_t  *sigev_notify_attributes;       /* Notification attributes */
+//};
+//#endif /* KERNEL */
 
+//#ifdef BSD_KERNEL_PRIVATE
+
+union user64_sigval {
+	struct {
+		uint32_t                pad;    /* assumes Motorola byte order */
+		int32_t                 sival_int;
+	} size_equivalent;
+	user64_addr_t   sival_ptr;
+};
+
+union user32_sigval {
+	/* Members as suggested by Annex C of POSIX 1003.1b. */
+	int32_t sival_int;
+	user32_addr_t sival_ptr;
+};
+
+union user_sigval {
+	struct {
+		uint32_t                pad;    /* assumes Motorola byte order */
+		int32_t                 sival_int;
+	} size_equivalent;
+	user_addr_t sival_ptr;
+};
+
+struct user64_sigevent {
+	int             sigev_notify;                   /* Notification type */
+	int             sigev_signo;                    /* Signal number */
+	union user64_sigval sigev_value;                        /* Signal value */
+	user64_addr_t   sigev_notify_function;          /* Notify function */
+	user64_addr_t   sigev_notify_attributes;        /* Notify attributes */
+};
+
+struct user32_sigevent {
+	int             sigev_notify;                   /* Notification type */
+	int             sigev_signo;                    /* Signal number */
+	union user32_sigval sigev_value;                        /* Signal value */
+	user32_addr_t   sigev_notify_function;          /* Notify function */
+	user32_addr_t   sigev_notify_attributes;        /* Notify attributes */
+};
+
+struct user_sigevent {
+	int             sigev_notify;                   /* Notification type */
+	int             sigev_signo;                    /* Signal number */
+	union user_sigval sigev_value;                  /* Signal value */
+	user_addr_t     sigev_notify_function;          /* Notify function */
+	user_addr_t     sigev_notify_attributes;        /* Notify attributes */
+};
+
+//#endif  /* BSD_KERNEL_PRIVATE */
 
 typedef struct __siginfo {
 	int     si_signo;               /* signal number */
@@ -179,6 +248,51 @@ typedef struct __siginfo {
 	unsigned long   __pad[7];       /* Reserved for Future Use */
 } siginfo_t;
 
+//#ifdef BSD_KERNEL_PRIVATE
+
+typedef struct user_siginfo {
+	int             si_signo;       /* signal number */
+	int             si_errno;       /* errno association */
+	int             si_code;        /* signal code */
+	pid_t           si_pid;         /* sending process */
+	uid_t           si_uid;         /* sender's ruid */
+	int             si_status;      /* exit value */
+	user_addr_t     si_addr;        /* faulting instruction (see below) */
+	union user_sigval si_value;     /* signal value */
+	user_long_t     si_band;        /* band event for SIGPOLL */
+	user_ulong_t    pad[7];         /* Reserved for Future Use */
+} user_siginfo_t;
+
+typedef struct user64_siginfo {
+	int             si_signo;       /* signal number */
+	int             si_errno;       /* errno association */
+	int             si_code;        /* signal code */
+	pid_t           si_pid;         /* sending process */
+	uid_t           si_uid;         /* sender's ruid */
+	int             si_status;      /* exit value */
+	user64_addr_t   si_addr;        /* faulting instruction (see below) */
+	union user64_sigval si_value;   /* signal value */
+	user64_long_t   si_band;        /* band event for SIGPOLL */
+	user64_ulong_t  __pad[7];               /* Reserved for Future Use */
+} user64_siginfo_t;
+
+typedef struct user32_siginfo {
+	int             si_signo;       /* signal number */
+	int             si_errno;       /* errno association */
+	int             si_code;        /* signal code */
+	pid_t           si_pid;         /* sending process */
+	uid_t           si_uid;         /* sender's ruid */
+	int             si_status;      /* exit value */
+	user32_addr_t   si_addr;        /* faulting instruction (see below) */
+	union user32_sigval     si_value;       /* signal value */
+	user32_long_t   si_band;        /* band event for SIGPOLL */
+	user32_ulong_t  __pad[7];               /* Reserved for Future Use */
+} user32_siginfo_t;
+
+void siginfo_user_to_user32(user_siginfo_t *, user32_siginfo_t *);
+void siginfo_user_to_user64(user_siginfo_t *, user64_siginfo_t *);
+
+//#endif  /* BSD_KERNEL_PRIVATE */
 
 /*
  * When the signal is SIGILL or SIGFPE, si_addr contains the address of
@@ -281,6 +395,71 @@ struct  sigaction {
 	int     sa_flags;               /* see signal options below */
 };
 
+//#ifdef  BSD_KERNEL_PRIVATE
+#include <machine/types.h>
+
+union __user32_sigaction_u {
+	user32_addr_t __sa_handler;
+	user32_addr_t __sa_sigaction;
+};
+
+struct  user32_sigaction {
+	union __user32_sigaction_u __sigaction_u;  /* signal handler */
+	sigset_t sa_mask;               /* signal mask to apply */
+	int     sa_flags;               /* see signal options below */
+};
+
+struct  __user32_sigaction {
+	union __user32_sigaction_u __sigaction_u;  /* signal handler */
+	user32_addr_t sa_tramp;
+	sigset_t sa_mask;               /* signal mask to apply */
+	int     sa_flags;               /* see signal options below */
+};
+
+union __user64_sigaction_u {
+	user64_addr_t   __sa_handler;
+	user64_addr_t   __sa_sigaction;
+};
+
+struct  user64_sigaction {
+	union __user64_sigaction_u __sigaction_u;  /* signal handler */
+	sigset_t sa_mask;               /* signal mask to apply */
+	int     sa_flags;               /* see signal options below */
+};
+
+struct  __user64_sigaction {
+	union __user64_sigaction_u __sigaction_u;  /* signal handler */
+	user64_addr_t   sa_tramp;       /* signal mask to apply */
+	sigset_t sa_mask;               /* signal mask to apply */
+	int     sa_flags;               /* see signal options below */
+};
+
+union __kern_sigaction_u {
+	user_addr_t     __sa_handler;
+	user_addr_t     __sa_sigaction;
+};
+
+struct  kern_sigaction {
+	union __kern_sigaction_u __sigaction_u;  /* signal handler */
+	sigset_t sa_mask;               /* signal mask to apply */
+	int     sa_flags;               /* see signal options below */
+};
+
+struct  __kern_sigaction {
+	union __kern_sigaction_u __sigaction_u;  /* signal handler */
+	user_addr_t     sa_tramp;       /* signal mask to apply */
+	sigset_t sa_mask;               /* signal mask to apply */
+	int     sa_flags;               /* see signal options below */
+};
+
+#undef SIG_DFL
+#undef SIG_IGN
+#undef SIG_ERR
+#define  SIG_DFL        ((user_addr_t)0LL)
+#define  SIG_IGN        ((user_addr_t)1LL)
+#define  SIG_ERR        ((user_addr_t)-1LL)
+
+//#endif  /* BSD_KERNEL_PRIVATE */
 
 
 /* if SA_SIGINFO is set, sa_sigaction is to be used instead of sa_handler. */
@@ -289,6 +468,9 @@ struct  sigaction {
 
 #define SA_ONSTACK      0x0001  /* take signal on signal stack */
 #define SA_RESTART      0x0002  /* restart system on signal return */
+//#ifdef  BSD_KERNEL_PRIVATE
+#define SA_DISABLE      0x0004  /* disable taking signals on alternate stack - for user_sigaltstack.ss_flags only */
+//#endif  /* BSD_KERNEL_PRIVATE */
 #define SA_RESETHAND    0x0004  /* reset to SIG_DFL when taking signal */
 #define SA_NOCLDSTOP    0x0008  /* do not generate SIGCHLD on child stop */
 #define SA_NODEFER      0x0010  /* don't mask the signal we're delivering */
@@ -299,6 +481,9 @@ struct  sigaction {
 /* This will provide 64bit register set in a 32bit user address space */
 #define SA_64REGSET     0x0200  /* signal handler with SA_SIGINFO args with 64bit regs information */
 #endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
+//#ifdef  BSD_KERNEL_PRIVATE
+#define SA_VALIDATE_SIGRETURN_FROM_SIGTRAMP     0x0400  /* use token to validate sigreturn was called from matching sigtramp */
+//#endif  /* BSD_KERNEL_PRIVATE */
 
 /* the following are the only bits we support from user space, the
  * rest are for kernel use only.
@@ -326,11 +511,27 @@ typedef void (*sig_t)(int);     /* type of signal function */
 /*
  * Structure used in sigaltstack call.
  */
-struct  kern_sigaltstack {
-    user_addr_t     ss_sp;          /* signal stack base */
-    user_size_t     ss_size;        /* signal stack length */
-    int             ss_flags;       /* SA_DISABLE and/or SA_ONSTACK */
+//#ifdef  BSD_KERNEL_PRIVATE
+
+struct  user32_sigaltstack {
+	user32_addr_t   ss_sp;          /* signal stack base */
+	user32_size_t   ss_size;        /* signal stack length */
+	int                 ss_flags;   /* SA_DISABLE and/or SA_ONSTACK */
 };
+
+struct  user64_sigaltstack {
+	user64_addr_t   ss_sp;          /* signal stack base */
+	user64_size_t   ss_size;        /* signal stack length */
+	int             ss_flags;       /* SA_DISABLE and/or SA_ONSTACK */
+};
+
+struct  kern_sigaltstack {
+	user_addr_t     ss_sp;          /* signal stack base */
+	user_size_t     ss_size;        /* signal stack length */
+	int             ss_flags;       /* SA_DISABLE and/or SA_ONSTACK */
+};
+
+//#endif  /* BSD_KERNEL_PRIVATE */
 
 #define SS_ONSTACK      0x0001  /* take signal on signal stack */
 #define SS_DISABLE      0x0004  /* disable taking signals on alternate stack */
@@ -373,6 +574,29 @@ struct  sigstack {
  */
 #define sigmask(m)      (1 << ((m)-1))
 
+//#ifdef  KERNEL_PRIVATE
+/*
+ *	signals delivered on a per-thread basis.
+ */
+#define threadmask (sigmask(SIGILL)|sigmask(SIGTRAP)|\
+	            sigmask(SIGABRT)|sigmask(SIGEMT)|\
+	            sigmask(SIGFPE)|sigmask(SIGBUS)|\
+	            sigmask(SIGSEGV)|sigmask(SIGSYS)|\
+	            sigmask(SIGPIPE)|sigmask(SIGKILL))
+
+#define workq_threadmask ((threadmask | sigcantmask | sigmask(SIGPROF)) & ~sigmask(SIGABRT))
+
+/*
+ * Signals carried across exec.
+ */
+#define execmask   (sigmask(SIGHUP)|sigmask(SIGINT)|\
+	            sigmask(SIGQUIT)|sigmask(SIGKILL)|\
+	            sigmask(SIGTERM)|sigmask(SIGSTOP)|\
+	            sigmask(SIGTSTP)|sigmask(SIGCONT)|\
+	            sigmask(SIGTTIN)|sigmask(SIGTTOU)|\
+	            sigmask(SIGUSR1)|sigmask(SIGUSR2))
+
+//#endif  /* KERNEL_PRIVATE */
 
 #define BADSIG          SIG_ERR
 
@@ -384,6 +608,6 @@ struct  sigstack {
  * defined by <sys/signal.h>.
  */
 __BEGIN_DECLS
-    void(*signal(int, void (*)(int)))(int);
+void(*signal(int, void (*)(int)))(int);
 __END_DECLS
 #endif  /* !_SYS_SIGNAL_H_ */
