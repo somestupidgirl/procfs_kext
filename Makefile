@@ -114,10 +114,16 @@ install-only:
 	chmod -R 755 /Library/Filesystems/procfs.fs
 	chown -R root:wheel /Library/Filesystems/procfs.fs
 
+tests:
+	$(MAKE) -C test
+
 clean:
 	rm -rf $(OUT)
 	$(MAKE) -C kext clean
 	$(MAKE) -C fs clean
 	$(MAKE) -C lib clean
 
-.PHONY: all debug release install install-only clean
+clean-tests:
+	$(MAKE) -C test clean
+
+.PHONY: all debug release install install-only clean tests clean-tests

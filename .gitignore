@@ -1,5 +1,8 @@
 bin/
 wip/
+test/test_mount
+test/test_readdir
+test/*.dSYM
 **/.DS_Store
 .DS_Store
 **/*.kext
