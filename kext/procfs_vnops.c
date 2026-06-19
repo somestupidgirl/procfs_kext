@@ -9,6 +9,7 @@
 #include <libkern/libkern.h>
 #include <sys/dirent.h>
 #include <sys/errno.h>
+#include <vfs/vfs_support.h>
 #include <sys/filedesc.h>
 #include <sys/kauth.h>
 #include <sys/param.h>
@@ -95,7 +96,8 @@ struct vnodeopv_entry_desc procfs_vnodeop_entries[] = {
     { .opve_op = &vnop_access_desc,    .opve_impl = (VOPFUNC) procfs_vnop_access },      /* access */
     { .opve_op = &vnop_getattr_desc,   .opve_impl = (VOPFUNC) procfs_vnop_getattr },     /* getattr */
     { .opve_op = &vnop_read_desc,      .opve_impl = (VOPFUNC) procfs_vnop_read },        /* read */
-    { .opve_op = &vnop_readdir_desc,   .opve_impl = (VOPFUNC) procfs_vnop_readdir },     /* readdir */
+    { .opve_op = &vnop_readdir_desc,      .opve_impl = (VOPFUNC) procfs_vnop_readdir },     /* readdir */
+    { .opve_op = &vnop_readdirattr_desc,  .opve_impl = (VOPFUNC) err_readdirattr },          /* readdirattr -> ENOTSUP, forces fallback to getdirentries64 */
     { .opve_op = &vnop_readlink_desc,  .opve_impl = (VOPFUNC) procfs_vnop_readlink },    /* readlink */
     { .opve_op = &vnop_inactive_desc,  .opve_impl = (VOPFUNC) procfs_vnop_inactive },    /* inactive */
     { .opve_op = &vnop_reclaim_desc,   .opve_impl = (VOPFUNC) procfs_vnop_reclaim },     /* reclaim */
@@ -559,29 +561,25 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
 
                 // Process each process in turn. We only get back process ids for the
                 // processes that the caller has permission to access.
+                boolean_t pids_exhausted = TRUE;
                 for (int i = 0; i < pid_count; i++) {
                     pid_t this_pid = pid_list[i];
                     if (procdir) {
-                        // Use the process id as the name.
                         snprintf(name_buffer, PROCESS_NAME_SIZE, "%d", this_pid);
                     } else {
-                        // Use the process id plus process command line, to create a
-                        // unqiue entry. Skip if the process has gone away.
                         proc_t p = proc_find(this_pid);
                         if (p == PROC_NULL) {
-                            // Process disappeared.
                             continue;
                         }
                         procfs_construct_process_dir_name(p, name_buffer);
                         proc_rele(p);
                     }
                     int size = procfs_calc_dirent_size(name_buffer);
-
-                    // Copy out only if we are past the start offset.
                     if (nextpos >= startpos) {
                         error = procfs_copyout_dirent(VDIR, procfs_get_fileid(this_pid,
                                             PRNODE_NO_OBJECTID, base_node_id), name_buffer, uio, &size);
                         if (error != 0 || size == 0) {
+                            pids_exhausted = FALSE;
                             break;
                         }
                         numentries++;
@@ -590,8 +588,12 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 }
 
                 procfs_release_pids(pid_list, pid_list_size);
-                if (pid_list != NULL) {
-                    pid_list = NULL;
+                pid_list = NULL;
+                // Advance snode only when every PID was emitted so that eofflag
+                // is set correctly.  If the buffer filled mid-way, snode stays
+                // on this node and the caller will resume from nextpos.
+                if (pids_exhausted) {
+                    snode = TAILQ_NEXT(snode, psn_next);
                 }
                 break;   // Exit from the outer loop.
             } else if (threaddir) {
@@ -680,18 +682,18 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                     break;
                 }
             } else {
-                // Copy out only if we have reached the end offset
-                // from the last call.
+                // Always compute size so nextpos advances correctly even when
+                // this entry falls before startpos (i.e. is being skipped on a
+                // resumed readdir call).
+                int size = procfs_calc_dirent_size(name);
                 if (nextpos >= startpos) {
-                    int size = procfs_calc_dirent_size(name);
                     error = procfs_copyout_dirent(type, procfs_get_fileid(pid, objectid, base_node_id), name, uio, &size);
                     if (size == 0 || error != 0) {
-                        // No room to copy out, or an error occurred - stop here.
                         break;
                     }
                     numentries++;
-                    nextpos += size;
                 }
+                nextpos += size;
             }
         }
         
@@ -716,11 +718,8 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
 STATIC int
 procfs_calc_dirent_size(const char *name)
 {
-    // We want to copy out a packed directory entry, which means we
-    // need to calculate the actual length based on the length of the
-    // name field, then round it to a 4-byte boundary.
-    struct dirent entry;
-    return (int)(sizeof(struct dirent) - sizeof(entry.d_name) + ((strlen(name) + 1 + 3) & ~3));
+    struct direntry entry;
+    return (int)(sizeof(struct direntry) - sizeof(entry.d_name) + ((strlen(name) + 1 + 3) & ~3));
 }
 
 
@@ -732,25 +731,25 @@ procfs_calc_dirent_size(const char *name)
 STATIC int
 procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, int *sizep)
 {
-    int error = 0;
+    struct direntry entry;
+    bzero(&entry, sizeof(entry));
 
-    struct dirent entry;
-    entry.d_type = type;
-    entry.d_ino = (ino_t)file_id;
-    entry.d_namlen = strlen(name);
+    entry.d_type   = (uint8_t)type;
+    entry.d_ino    = file_id;
+    entry.d_seekoff = 0;
+    entry.d_namlen = (uint16_t)strlen(name);
     strlcpy(entry.d_name, name, entry.d_namlen + 1);
 
     int size = *sizep;
-    entry.d_reclen = size;
+    entry.d_reclen = (uint16_t)size;
 
+    int error = 0;
     if (size <= uio_resid(uio)) {
-        error = uiomove((const char * )&entry, (int)size, uio);
+        error = uiomove((const char *)&entry, size, uio);
         *sizep = size;
     } else {
-        // No room to copy out.
         *sizep = 0;
     }
-
     return error;
 }
 
