@@ -65,34 +65,10 @@
 #define _SYS_SIGNALVAR_H_
 
 #include <sys/appleapiopts.h>
+
+//#ifdef BSD_KERNEL_PRIVATE
+
 #include <stdatomic.h>
-
-/*
- * Kernel signal definitions and data structures,
- * not exported to user programs.
- */
-
-/*
- * Process signal actions and state, needed only within the process
- * (not necessarily resident).
- */
-struct  sigacts {
-	user_addr_t     ps_sigact[NSIG];        /* disposition of signals */
-	user_addr_t     ps_trampact[NSIG];      /* disposition of signals */
-	sigset_t ps_catchmask[NSIG];    /* signals to be blocked */
-	sigset_t ps_sigonstack;         /* signals to take on sigstack */
-	sigset_t ps_sigintr;            /* signals that interrupt syscalls */
-	sigset_t ps_sigreset;           /* signals that reset when caught */
-	sigset_t ps_signodefer;         /* signals not masked while handled */
-	sigset_t ps_siginfo;            /* signals that want SA_SIGINFO args */
-	sigset_t ps_oldmask;            /* saved mask from before sigpause */
-	user_addr_t ps_sigreturn_token; /* random token used to validate sigreturn arguments */
-	_Atomic uint32_t ps_sigreturn_validation; /* sigreturn argument validation state */
-	int     ps_flags;               /* signal flags, below */
-	int     ps_sig;                 /* for core dump/debugger XXX */
-	int     ps_code;                /* for core dump/debugger XXX */
-	int     ps_addr;                /* for core dump/debugger XXX */
-};
 
 /* signal flags */
 #define SAS_OLDMASK     0x01            /* need to restore mask before pause */
@@ -115,7 +91,8 @@ struct  sigacts {
 /*
  * get signal action for process and signal; currently only for current process
  */
-#define SIGACTION(p, sig)       (p->p_sigacts->ps_sigact[(sig)])
+#define SIGACTION(p, sig)       ({ p->p_sigacts.ps_sigact[(sig)]; })
+#define SIGTRAMP(p, sig)        ({ p->p_sigacts.ps_trampact[(sig)]; })
 
 /*
  *	Check for per-process and per thread signals.
@@ -196,15 +173,85 @@ int sigprop[NSIG] = {
 	                 sigmask(SIGFPE) | sigmask(SIGBUS)  | sigmask(SIGSEGV) | \
 	                 sigmask(SIGSYS))
 
-struct os_reason;
+/*
+ * Machine-independent functions:
+ */
 
+#if DEVELOPMENT || DEBUG
+extern bool no_sigsys;
+#define send_sigsys (!no_sigsys)
+#else
+#define send_sigsys 1
+#endif
+
+
+void    execsigs(struct proc *p, thread_t thread);
+void    gsignal(int pgid, int sig);
+int     issignal_locked(struct proc *p);
+int     CURSIG(struct proc *p);
+int clear_procsiglist(struct proc *p, int bit, int in_signalstart);
+int set_procsigmask(struct proc *p, int bit);
+void    postsig_locked(int sig);
+void    siginit(struct proc *p);
+void    trapsignal(struct proc *p, int sig, unsigned code);
+void    pt_setrunnable(struct proc *p);
+int     hassigprop(int sig, int prop);
+int setsigvec(proc_t, thread_t, int signum, struct __kern_sigaction *, boolean_t in_sigstart);
+
+struct os_reason;
+/*
+ * Machine-dependent functions:
+ */
+void    sendsig(struct proc *, /*sig_t*/ user_addr_t  action, int sig,
+    int returnmask, uint32_t code, sigset_t siginfo);
+
+void    psignal(struct proc *p, int sig);
+void    psignal_with_reason(struct proc *p, int sig, struct os_reason *signal_reason);
+void    psignal_locked(struct proc *, int);
+void    psignal_try_thread(proc_t, thread_t, int signum);
+void    psignal_try_thread_with_reason(proc_t, thread_t, int, struct os_reason*);
+void    psignal_thread_with_reason(proc_t, thread_t, int, struct os_reason*);
+void    psignal_uthread(thread_t, int);
+void    pgsignal(struct pgrp *pgrp, int sig, int checkctty);
+void    tty_pgsignal_locked(struct tty * tp, int sig, int checkctty);
+void    threadsignal(thread_t sig_actthread, int signum,
+    mach_exception_code_t code, boolean_t set_exitreason);
+int     thread_issignal(proc_t p, thread_t th, sigset_t mask);
+void    psignal_vfork(struct proc *p, task_t new_task, thread_t thread,
+    int signum);
+void    psignal_vfork_with_reason(proc_t p, task_t new_task, thread_t thread,
+    int signum, struct os_reason *signal_reason);
+void    signal_setast(thread_t sig_actthread);
+void    pgsigio(pid_t pgid, int signalnum);
+
+void sig_lock_to_exit(struct proc *p);
+int sig_try_locked(struct proc *p);
+
+//#endif  /* BSD_KERNEL_PRIVATE */
+
+//#if defined(KERNEL_PRIVATE)
 /* Forward-declare these for consumers of the SDK that don't know about BSD types */
 struct proc;
+struct thread;
 struct os_reason;
+void    psignal_sigkill_with_reason(struct proc *p, struct os_reason *signal_reason);
+void    psignal_sigkill_try_thread_with_reason(struct proc *p, struct thread *thread, struct os_reason *signal_reason);
+//#endif /* defined(KERNEL_PRIVATE) */
+
+//#ifdef XNU_KERNEL_PRIVATE
 
 /* Functions exported to Mach as well */
 
 #define COREDUMP_IGNORE_ULIMIT  0x0001 /* Ignore the process's core file ulimit. */
 #define COREDUMP_FULLFSYNC      0x0002 /* Run F_FULLFSYNC on the core file's vnode */
+
+cpu_type_t process_cpu_type(struct proc * core_proc);
+cpu_type_t process_cpu_subtype(struct proc * core_proc);
+int     is_coredump_eligible(struct proc *);
+int     coredump(struct proc *p, uint32_t reserve_mb, int coredump_flags);
+void set_thread_exit_reason(void *th, void *reason, boolean_t proc_locked);
+
+//#endif  /* XNU_KERNEL_PRIVATE */
+
 
 #endif  /* !_SYS_SIGNALVAR_H_ */
