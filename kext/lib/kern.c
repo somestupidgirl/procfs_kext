@@ -1,6 +1,7 @@
 #include <os/log.h>
 #include <os/refcnt.h>
 #include <sys/fcntl.h>
+#include <sys/guarded.h>
 #include <sys/file.h>
 #include <sys/file_internal.h>
 #include <sys/filedesc.h>
@@ -216,44 +217,6 @@ out:
     return error;
 }
 
-/*
- * Most fd's have an underlying fileproc struct; but some may be
- * guarded_fileproc structs which implement guarded fds.  The latter
- * struct (below) embeds the former.
- *
- * The two types should be distinguished by the "type" portion of fp_flags.
- * There's also a magic number to help catch misuse and bugs.
- *
- * This is a bit unpleasant, but results from the desire to allow
- * alternate file behaviours for a few file descriptors without
- * growing the fileproc data structure.
- */
-struct guarded_fileproc {
-    struct fileproc gf_fileproc;
-    u_int           gf_attrs;
-    guardid_t       gf_guard;
-};
-
-static inline struct guarded_fileproc *
-FP_TO_GFP(struct fileproc *fp)
-{
-#define typeof __typeof
-
-    struct guarded_fileproc *gfp = __container_of(fp, struct guarded_fileproc, gf_fileproc);
-
-#undef typeof
-
-    return gfp;
-}
-
-static inline int
-fp_isguarded(struct fileproc *fp, u_int attrs)
-{
-    if (FILEPROC_TYPE(fp) == FTYPE_GUARDED) {
-        return (attrs & FP_TO_GFP(fp)->gf_attrs) == attrs;
-    }
-    return 0;
-}
 
 /*
  * Returns the fdp pointer for the specified
@@ -262,37 +225,7 @@ fp_isguarded(struct fileproc *fp, u_int attrs)
 static inline volatile struct filedesc *
 proc_fdp(proc_t p)
 {
-    volatile struct filedesc *fdp = NULL;
-
-    if (p->p_fd == NULL) {
-        /*
-         * The filedesc structure is not a part
-         * of the KPI so p->p_fd will always be
-         * NULL. Consequently this will not be
-         * sufficient to get the pointer.
-         */
-        fdp = (struct filedesc *)p->p_fd;
-        if (fdp == NULL) {
-            /*
-             * Whether this is a truly valid way of
-             * getting the pointer is debatable and
-             * requires further scrutiny.
-             *
-             * Current status: No errors, werrors or
-             * warnings. No runtime issues observed.
-             * Accuracy of the data remains to be
-             * verified.
-             */
-            fdp = (struct filedesc *)&(p->p_fd);
-        }
-    } else {
-        /*
-         * Kernel only.
-         */
-        fdp = p->p_fd;
-    }
-
-    return fdp;
+    return (volatile struct filedesc *)&p->p_fd;
 }
 
 int
@@ -319,10 +252,10 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
             proc_fdlock(p);
             fdp = proc_fdp(p);
             if (fdp != NULL) {
-                if ((fdp->fd_ofileflags[fd] & UF_EXCLOSE) == UF_EXCLOSE) {
+                if (fp->fp_flags & FP_CLOEXEC) {
                     status |= PROC_FP_CLEXEC;
                 }
-                if ((fdp->fd_ofileflags[fd] & UF_FORKCLOSE) == UF_FORKCLOSE) {
+                if (fp->fp_flags & FP_CLOFORK) {
                     status |= PROC_FP_CLFORK;
                 }
 #if DEBUG
@@ -334,18 +267,18 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
             proc_fdunlock(p);
         }
 
-        if (fp_isguarded(fp, 0)) {
+        if (fp->fp_guard_attrs != 0) {
             status |= PROC_FP_GUARDED;
-            if (fp_isguarded(fp, GUARD_CLOSE)) {
+            if (fp->fp_guard_attrs & GUARD_CLOSE) {
                 guardflags |= PROC_FI_GUARD_CLOSE;
             }
-            if (fp_isguarded(fp, GUARD_DUP)) {
+            if (fp->fp_guard_attrs & GUARD_DUP) {
                 guardflags |= PROC_FI_GUARD_DUP;
             }
-            if (fp_isguarded(fp, GUARD_SOCKET_IPC)) {
+            if (fp->fp_guard_attrs & GUARD_SOCKET_IPC) {
                 guardflags |= PROC_FI_GUARD_SOCKET_IPC;
             }
-            if (fp_isguarded(fp, GUARD_FILEPORT)) {
+            if (fp->fp_guard_attrs & GUARD_FILEPORT) {
                 guardflags |= PROC_FI_GUARD_FILEPORT;
             }
         }

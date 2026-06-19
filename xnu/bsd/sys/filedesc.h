@@ -178,16 +178,10 @@ struct filedesc {
 /*
  * Per-process open flags.
  */
-#define UF_EXCLOSE      0x01            /* auto-close on exec */
-#define UF_FORKCLOSE    0x02            /* auto-close on fork */
 #define UF_RESERVED     0x04            /* open pending / in progress */
 #define UF_CLOSING      0x08            /* close in progress */
 #define UF_RESVWAIT     0x10            /* close in progress */
 #define UF_INHERIT      0x20            /* "inherit-on-exec" */
-
-#define UF_VALID_FLAGS  \
-    (UF_EXCLOSE | UF_FORKCLOSE | UF_RESERVED | UF_CLOSING |\
-     UF_RESVWAIT | UF_INHERIT)
 
 /*
  * Storage required per open file descriptor.

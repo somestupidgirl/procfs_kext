@@ -104,13 +104,15 @@ endif
 release: TARGET=release
 release: debug
 
-install: debug
-	sudo cp -r $(OUT)/procfs.kext /Library/Extensions
-	sudo cp -r $(OUT)/procfs.fs /Library/Filesystems
-	sudo chmod -R 755 /Library/Extensions/procfs.kext
-	sudo chown -R root:wheel /Library/Extensions/procfs.kext
-	sudo chmod -R 755 /Library/Filesystems/procfs.fs
-	sudo chown -R root:wheel /Library/Filesystems/procfs.fs
+install: debug install-only
+
+install-only:
+	cp -r $(OUT)/procfs.kext /Library/Extensions
+	cp -r $(OUT)/procfs.fs /Library/Filesystems
+	chmod -R 755 /Library/Extensions/procfs.kext
+	chown -R root:wheel /Library/Extensions/procfs.kext
+	chmod -R 755 /Library/Filesystems/procfs.fs
+	chown -R root:wheel /Library/Filesystems/procfs.fs
 
 clean:
 	rm -rf $(OUT)
@@ -118,4 +120,4 @@ clean:
 	$(MAKE) -C fs clean
 	$(MAKE) -C lib clean
 
-.PHONY: all debug release install clean
+.PHONY: all debug release install install-only clean

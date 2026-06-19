@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-make clean && make "$@" && sudo make install "$@" && make clean "$@"
+make clean && make "$@" && sudo make install-only "$@" && make clean "$@"

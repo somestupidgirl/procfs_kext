@@ -19,14 +19,8 @@ CFLAGS+= -target $(TARGET_TRIPLE) \
          $(ARCHFLAGS) \
          -x c \
          -std=c99 \
-         -nostdinc \
-         -fno-builtin \
-         -fno-common \
-         -I../xnu/bsd \
-         -I../xnu/libkern \
-         -I../xnu/osfmk \
          -I../lib \
-         -I$(SDKROOT)/usr/include
+         -idirafter ../xnu/bsd
 
 CFLAGS+= -Wall -Wextra -Wno-vla -Wno-nullability-completeness
 

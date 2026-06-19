@@ -26,7 +26,7 @@
 #include <sys/errno.h>
 #include <sys/malloc.h>
 #if defined (__x86_64__)
-#include <sys/proc_reg.h>
+#include <i386/proc_reg.h>
 #endif
 #include <sys/queue.h>
 //#include <sys/sdt_impl.h>

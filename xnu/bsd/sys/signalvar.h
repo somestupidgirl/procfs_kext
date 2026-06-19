@@ -70,6 +70,8 @@
 
 #include <stdatomic.h>
 
+struct tty;
+
 /* signal flags */
 #define SAS_OLDMASK     0x01            /* need to restore mask before pause */
 #define SAS_ALTSTACK    0x02            /* have alternate signal stack */

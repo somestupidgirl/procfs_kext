@@ -65,7 +65,7 @@ cexp[3] = {
 #include <i386/cpuid.h>
 #include <i386/pmCPU.h>
 #include <i386/tsc.h>
-#include <sys/proc_reg.h>
+#include <i386/proc_reg.h>
 
 /*
  * Multipliers used to encode 1*K .. 64*M in a 16 bit size field

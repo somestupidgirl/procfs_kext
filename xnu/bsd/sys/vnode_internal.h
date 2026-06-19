@@ -421,6 +421,7 @@ struct vnodeop_desc {
  */
 extern struct vnodeop_desc *vnodeop_descs[];
 
+
 /*
  * This macro is very helpful in defining those offsets in the vdesc struct.
  *
