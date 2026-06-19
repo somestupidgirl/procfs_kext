@@ -152,7 +152,9 @@ procfs_atoi(const char *p, const char **end_ptr)
  * credentials, the process id id added only if it should
  * be accessible to an entity with those credentials.
  */
-#if !defined(__arm64__) && !defined(__aarch64__)
+//#if !defined(__arm64__) && !defined(__aarch64__)
+/*
+// Unused
 STATIC int
 procfs_get_pid(proc_t p, void *udata)
 {
@@ -172,8 +174,9 @@ procfs_get_pid(proc_t p, void *udata)
 
     return PROC_RETURNED;
 }
+*/
+//#endif /* !__arm64__ */
 
-#endif /* !__arm64__ */
 /*
  * Gets a list of all of the running processes in the system that
  * can be seen by a process with given credentials. If the creds
@@ -187,58 +190,39 @@ procfs_get_pid(proc_t p, void *udata)
  * the values that it received from this function. 
  */
 void
-procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, __unused kauth_cred_t creds)
+procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds)
 {
     /*
-     * Use kern.proc.all sysctl to enumerate all processes.
-     * This replaces the private proc_iterate() symbol.
+     * Enumerate processes using proc_find() over the PID space.
+     * proc_find() is public KPI; we must call proc_rele() after each use.
+     * macOS PIDs range from 0 to 99999.
      */
-    size_t bufsize = 0;
+#define PROCFS_MAX_PID   99999
+#define PROCFS_MAX_PROCS 1024
 
-    /* First call: get required buffer size */
-    if (sysctlbyname("kern.proc.all", NULL, &bufsize, NULL, 0) != 0 || bufsize == 0) {
-        *pidpp = NULL;
-        *sizep = 0;
-        *pid_count = 0;
-        return;
-    }
-
-    struct kinfo_proc *kprocs = OSMalloc((uint32_t)bufsize, procfs_osmalloc_tag);
-    if (kprocs == NULL) {
-        *pidpp = NULL;
-        *sizep = 0;
-        *pid_count = 0;
-        return;
-    }
-
-    /* Second call: get the actual data */
-    if (sysctlbyname("kern.proc.all", kprocs, &bufsize, NULL, 0) != 0) {
-        OSFree(kprocs, (uint32_t)bufsize, procfs_osmalloc_tag);
-        *pidpp = NULL;
-        *sizep = 0;
-        *pid_count = 0;
-        return;
-    }
-
-    int nproc = (int)(bufsize / sizeof(struct kinfo_proc));
-    uint32_t pidsize = (uint32_t)(nproc * sizeof(pid_t));
+    uint32_t pidsize = PROCFS_MAX_PROCS * sizeof(pid_t);
     pid_t *pidp = OSMalloc(pidsize, procfs_osmalloc_tag);
     if (pidp == NULL) {
-        OSFree(kprocs, (uint32_t)bufsize, procfs_osmalloc_tag);
         *pidpp = NULL;
         *sizep = 0;
         *pid_count = 0;
         return;
     }
 
-    for (int i = 0; i < nproc; i++) {
-        pidp[i] = kprocs[i].kp_proc.p_pid;
+    int count = 0;
+    for (pid_t pid = 0; pid <= PROCFS_MAX_PID && count < PROCFS_MAX_PROCS; pid++) {
+        proc_t p = proc_find(pid);
+        if (p != PROC_NULL) {
+            if (creds == NULL || procfs_check_can_access_process(creds, p) == 0) {
+                pidp[count++] = pid;
+            }
+            proc_rele(p);
+        }
     }
 
-    OSFree(kprocs, (uint32_t)bufsize, procfs_osmalloc_tag);
     *pidpp = pidp;
     *sizep = pidsize;
-    *pid_count = nproc;
+    *pid_count = count;
 }
 
 /*
@@ -291,6 +275,12 @@ procfs_get_process_count(kauth_cred_t creds)
 int
 procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_count)
 {
+    /* Guard against NULL private symbols */
+    if (_task_threads == NULL || _convert_port_to_thread == NULL) {
+        *thread_ids = NULL;
+        *thread_count = 0;
+        return KERN_NOT_SUPPORTED;
+    }
     int result = KERN_SUCCESS;
     thread_act_array_t threads;
     mach_msg_type_number_t count;

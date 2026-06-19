@@ -74,7 +74,7 @@ procfs_docmdline(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
              * ps(1) would display.
              */
             if ((p->p_stat == SZOMB) || (p->p_flag & P_SYSTEM) != 0) {
-                char *comm = proc_best_name(p);
+                char *comm = (_proc_best_name != NULL) ? proc_best_name(p) : "unknown";
                 len = snprintf(buf, PAGE_SIZE, "(%s)\n", comm) + 1;
                 xlen = (len - pgoff);
                 error = uiomove((const char *)buf, xlen, uio);

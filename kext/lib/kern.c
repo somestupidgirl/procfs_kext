@@ -77,7 +77,7 @@ proc_pidshortbsdinfo(proc_t p, struct proc_bsdshortinfo * pbsd_shortp, int zombi
         pbsd_shortp->pbsi_flags |= PROC_FLAG_THCWD;
     }
 
-    if (proc_issetugid(p) != 0)  {
+    if (_proc_issetugid != NULL && proc_issetugid(p) != 0)  {
         pbsd_shortp->pbsi_flags |= PROC_FLAG_PSUGID;
     }
 
@@ -111,7 +111,8 @@ proc_pidshortbsdinfo(proc_t p, struct proc_bsdshortinfo * pbsd_shortp, int zombi
     };
 
     /* if process is a zombie skip bg state */
-    if ((zombie == 0) && (proc_status != SZOMB) && (proc_task(p) != TASK_NULL)) {
+    if (_proc_task != NULL && _proc_get_darwinbgstate != NULL &&
+        (zombie == 0) && (proc_status != SZOMB) && (proc_task(p) != TASK_NULL)) {
         proc_get_darwinbgstate(proc_task(p), &pbsd_shortp->pbsi_flags);
     }
 
@@ -125,7 +126,9 @@ int
 proc_pidtaskinfo(proc_t p, struct proc_taskinfo * ptinfo)
 {
     bzero(ptinfo, sizeof(struct proc_taskinfo));
-    fill_taskprocinfo(proc_task(p), (struct proc_taskinfo_internal *)ptinfo);
+    if (_proc_task != NULL && _fill_taskprocinfo != NULL) {
+        fill_taskprocinfo(proc_task(p), (struct proc_taskinfo_internal *)ptinfo);
+    }
 
     return 0;
 }
@@ -137,7 +140,9 @@ int
 proc_pidthreadinfo(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo)
 {
     bzero(pthinfo, sizeof(struct proc_threadinfo));
-    fill_taskthreadinfo(proc_task(p), (uint64_t)arg, thuniqueid, (struct proc_threadinfo_internal *)pthinfo, NULL, NULL);
+    if (_proc_task != NULL && _fill_taskthreadinfo != NULL) {
+        fill_taskthreadinfo(proc_task(p), (uint64_t)arg, thuniqueid, (struct proc_threadinfo_internal *)pthinfo, NULL, NULL);
+    }
 
     return 0;
 }
@@ -187,8 +192,10 @@ fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fs
     context = vfs_context_create((vfs_context_t)0);
 
     if (!error) {
-        error = vn_stat(vp, &sb, NULL, 1, 0, context);
-        munge_vinfo_stat(&sb, &vinfo->vi_stat);
+        if (_vn_stat != NULL) {
+            error = vn_stat(vp, &sb, NULL, 1, 0, context);
+            munge_vinfo_stat(&sb, &vinfo->vi_stat);
+        }
     }
 
     (void)vfs_context_rele(context);
@@ -197,7 +204,7 @@ fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, __unused boolean_t check_fs
         goto out;
     }
 
-    if (vnode_mount(vp) != dead_mountp) {
+    if (_dead_mountp != NULL && vnode_mount(vp) != dead_mountp) {
         vinfo->vi_fsid = vp->v_mount->mnt_vfsstat.f_fsid;
     } else {
         vinfo->vi_fsid.val[0] = 0;

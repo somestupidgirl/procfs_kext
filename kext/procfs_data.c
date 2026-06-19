@@ -118,21 +118,26 @@ procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p != PROC_NULL) {
         // Get the controlling terminal vnode from the process session,
         // if it has one.
-        struct session *sp = proc_session(p);
-        if (sp != SESSION_NULL) {
-            session_lock(sp);
-            vnode_t cttyvp = sp->s_ttyvp;
-            session_unlock(sp);
-            if (cttyvp != NULLVP) {
-                // Convert the vnode to a full path.
-                int name_len = MAXPATHLEN;
-                char name_buf[MAXPATHLEN + 1];
-                vn_getpath(cttyvp, name_buf, &name_len);
-                error = procfs_copy_data((const char *)&name_buf, name_len, uio);
-            } else {
-                error = ENOTTY;
+        if (_proc_session == NULL || _session_lock == NULL ||
+            _session_unlock == NULL || _session_rele == NULL) {
+            error = ENOTSUP;
+        } else {
+            struct session *sp = proc_session(p);
+            if (sp != SESSION_NULL) {
+                session_lock(sp);
+                vnode_t cttyvp = sp->s_ttyvp;
+                session_unlock(sp);
+                if (cttyvp != NULLVP) {
+                    // Convert the vnode to a full path.
+                    int name_len = MAXPATHLEN;
+                    char name_buf[MAXPATHLEN + 1];
+                    vn_getpath(cttyvp, name_buf, &name_len);
+                    error = procfs_copy_data((const char *)&name_buf, name_len, uio);
+                } else {
+                    error = ENOTTY;
+                }
+                session_rele(sp);
             }
-            session_rele(sp);
         }
         proc_rele(p);
     } else {
@@ -425,9 +430,13 @@ procfs_thread_node_size(pfsnode_t *pnp, __unused kauth_cred_t creds)
     int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != PROC_NULL) {
-        task_t task = proc_task(p);
-        if (task != NULL) {
-            size += sizeof(procfs_get_task_thread_count(task));
+        if (_proc_task != NULL) {
+            task_t task = proc_task(p);
+            if (task != NULL) {
+                size += sizeof(procfs_get_task_thread_count(task));
+            }
+        } else {
+            size += 1;
         }
         proc_rele(p);
     }
@@ -450,11 +459,15 @@ procfs_fd_node_size(pfsnode_t *pnp, __unused kauth_cred_t creds)
     if (p == PROC_NULL) {
         count = 0;
     } else {
-        proc_fdlock_spin(p);
-        fdt_foreach(fp, p) {
-            count++;
+        if (_proc_fdlock_spin == NULL || _proc_fdunlock == NULL) {
+            count = 0;
+        } else if (_proc_fdlock_spin != NULL && _proc_fdunlock != NULL) {
+            proc_fdlock_spin(p);
+            fdt_foreach(fp, p) {
+                count++;
+            }
+            proc_fdunlock(p);
         }
-        proc_fdunlock(p);
         proc_rele(p);
     }
 
