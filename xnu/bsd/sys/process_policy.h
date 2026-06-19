@@ -34,6 +34,21 @@
 #include <sys/types.h>
 #include <stdint.h>
 
+//#if defined(XNU_KERNEL_PRIVATE)
+
+//#if defined(XNU_TARGET_OS_OSX)
+#define PROCESS_POLICY_OSX  1
+//#else /* defined(XNU_TARGET_OS_OSX) */
+//#define PROCESS_POLICY_OSX  0
+//#endif /* defined(XNU_TARGET_OS_OSX) */
+
+//#else /* defined(XNU_KERNEL_PRIVATE) */
+
+//#include <TargetConditionals.h>
+
+//#define PROCESS_POLICY_OSX !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+//#endif /* defined(XNU_KERNEL_PRIVATE) */
+
 __BEGIN_DECLS
 
 /* defns of scope */
@@ -56,7 +71,7 @@ __BEGIN_DECLS
 #define PROC_POLICY_ACTION_DROP         15      /* drop an importance boost assertion */
 
 /* policies */
-#define PROC_POLICY NONE        0
+#define PROC_POLICY NONE		0
 #define PROC_POLICY_BACKGROUND          1       /* darwin background policy */
 #define PROC_POLICY_HARDWARE_ACCESS     2       /* access to various hardware */
 #define PROC_POLICY_RESOURCE_STARVATION 3       /* behavior on resource starvation */
@@ -151,20 +166,20 @@ __BEGIN_DECLS
 #define PROC_POLICY_IMP_DONATION        3       /* Mark a task as an importance source */
 
 typedef struct proc_policy_attribute {
-    uint32_t        ppattr_attribute;  /* the policy attribute to be modified or returned */
-    uint32_t        ppattr_resv;       /* pad field */
-    uint64_t        ppattr_value1;     /* 64bit policy specific attribute */
-    uint64_t        ppattr_value2;     /* 64bit policy specific attribute */
-    uint64_t        ppattr_value3;     /* 64bit policy specific attribute */
-    uint64_t        ppattr_resv1[4];    /* reserved for future use */
+	uint32_t        ppattr_attribute;  /* the policy attribute to be modified or returned */
+	uint32_t        ppattr_resv;       /* pad field */
+	uint64_t        ppattr_value1;     /* 64bit policy specific attribute */
+	uint64_t        ppattr_value2;     /* 64bit policy specific attribute */
+	uint64_t        ppattr_value3;     /* 64bit policy specific attribute */
+	uint64_t        ppattr_resv1[4];    /* reserved for future use */
 } proc_policy_attribute_t;
 
 
 typedef struct proc_policy_cpuusage_attr {
-    uint32_t        ppattr_cpu_attr;  /* specified action as in PROC_POLICY_RSRCACT_xx */
-    uint32_t        ppattr_cpu_percentage;       /* percentage of interval */
-    uint64_t        ppattr_cpu_attr_interval;     /* 64bit interval in nsecs */
-    uint64_t        ppattr_cpu_attr_deadline;     /* 64bit deadline in nsecs */
+	uint32_t        ppattr_cpu_attr;  /* specified action as in PROC_POLICY_RSRCACT_xx */
+	uint32_t        ppattr_cpu_percentage;       /* percentage of interval */
+	uint64_t        ppattr_cpu_attr_interval;     /* 64bit interval in nsecs */
+	uint64_t        ppattr_cpu_attr_deadline;     /* 64bit deadline in nsecs */
 } proc_policy_cpuusage_attr_t;
 
 #if !PROCESS_POLICY_OSX
