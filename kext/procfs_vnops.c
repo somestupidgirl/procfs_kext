@@ -64,6 +64,7 @@ STATIC int procfs_vnop_lookup(struct vnop_lookup_args *ap);
 STATIC int procfs_vnop_getattr(struct vnop_getattr_args *ap);
 STATIC int procfs_vnop_reclaim(struct vnop_reclaim_args *ap);
 STATIC int procfs_vnop_readdir(struct vnop_readdir_args *ap);
+STATIC int procfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap);
 STATIC int procfs_vnop_readlink(struct vnop_readlink_args *ap);
 STATIC int procfs_vnop_read(struct vnop_read_args *ap);
 STATIC int procfs_vnop_open(struct vnop_open_args *ap);
@@ -72,7 +73,7 @@ STATIC int procfs_vnop_access(struct vnop_access_args *ap);
 STATIC int procfs_vnop_inactive(struct vnop_inactive_args *ap);
 
 STATIC inline int procfs_calc_dirent_size(const char *name);
-STATIC int procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, int *sizep);
+STATIC int procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, int *sizep, off_t seekoff);
 STATIC int procfs_create_vnode(procfs_vnode_create_args *cap, pfsnode_t *pnp, vnode_t *vpp);
 STATIC void procfs_construct_process_dir_name(proc_t p, char *buffer);
 
@@ -98,6 +99,7 @@ struct vnodeopv_entry_desc procfs_vnodeop_entries[] = {
     { .opve_op = &vnop_read_desc,      .opve_impl = (VOPFUNC) procfs_vnop_read },        /* read */
     { .opve_op = &vnop_readdir_desc,      .opve_impl = (VOPFUNC) procfs_vnop_readdir },     /* readdir */
     { .opve_op = &vnop_readdirattr_desc,  .opve_impl = (VOPFUNC) err_readdirattr },          /* readdirattr -> ENOTSUP, forces fallback to getdirentries64 */
+    { .opve_op = &vnop_getattrlistbulk_desc, .opve_impl = (VOPFUNC) procfs_vnop_getattrlistbulk }, /* getattrlistbulk -> ENOTSUP, forces fallback to readdir+getattr */
     { .opve_op = &vnop_readlink_desc,  .opve_impl = (VOPFUNC) procfs_vnop_readlink },    /* readlink */
     { .opve_op = &vnop_inactive_desc,  .opve_impl = (VOPFUNC) procfs_vnop_inactive },    /* inactive */
     { .opve_op = &vnop_reclaim_desc,   .opve_impl = (VOPFUNC) procfs_vnop_reclaim },     /* reclaim */
@@ -155,6 +157,18 @@ STATIC
 int procfs_vnop_default(__unused struct vnop_generic_args *arg)
 {
     return 0;
+}
+
+/*
+ * We do not implement bulk attribute enumeration. Returning ENOTSUP here
+ * overrides XNU's default getattrlistbulk implementation (which mis-packs
+ * our entries and fails with ERANGE), causing callers such as ls(1)/fts(3)
+ * to fall back to plain VNOP_READDIR + VNOP_GETATTR, which work correctly.
+ */
+STATIC int
+procfs_vnop_getattrlistbulk(__unused struct vnop_getattrlistbulk_args *ap)
+{
+    return ENOTSUP;
 }
 
 /*
@@ -577,7 +591,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                     int size = procfs_calc_dirent_size(name_buffer);
                     if (nextpos >= startpos) {
                         error = procfs_copyout_dirent(VDIR, procfs_get_fileid(this_pid,
-                                            PRNODE_NO_OBJECTID, base_node_id), name_buffer, uio, &size);
+                                            PRNODE_NO_OBJECTID, base_node_id), name_buffer, uio, &size, nextpos + size);
                         if (error != 0 || size == 0) {
                             pids_exhausted = FALSE;
                             break;
@@ -615,7 +629,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                             int size = procfs_calc_dirent_size(thread_buffer);
                             // Copy out only if we are past the start offset.
                             if (nextpos >= startpos) {
-                                error = procfs_copyout_dirent(VDIR, procfs_get_fileid(pid, next_thread_id, base_node_id), thread_buffer, uio, &size);
+                                error = procfs_copyout_dirent(VDIR, procfs_get_fileid(pid, next_thread_id, base_node_id), thread_buffer, uio, &size, nextpos + size);
                                 if (error != 0 || size == 0) {
                                     break;
                                 }
@@ -660,7 +674,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
 
                         // Copy out only if we are past the start offset.
                         if (nextpos >= startpos) {
-                            error = procfs_copyout_dirent(VDIR, procfs_get_fileid(pid, i, base_node_id), fd_buffer, uio, &size);
+                            error = procfs_copyout_dirent(VDIR, procfs_get_fileid(pid, i, base_node_id), fd_buffer, uio, &size, nextpos + size);
 
                             if (error != 0 || size == 0) {
                                 break;
@@ -687,7 +701,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 // resumed readdir call).
                 int size = procfs_calc_dirent_size(name);
                 if (nextpos >= startpos) {
-                    error = procfs_copyout_dirent(type, procfs_get_fileid(pid, objectid, base_node_id), name, uio, &size);
+                    error = procfs_copyout_dirent(type, procfs_get_fileid(pid, objectid, base_node_id), name, uio, &size, nextpos + size);
                     if (size == 0 || error != 0) {
                         break;
                     }
@@ -700,7 +714,7 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
         // Continue with the next node.
         snode = TAILQ_NEXT(snode, psn_next);
     }
-    
+
     // Set output values for the next pass.
     uio_setoffset(uio, nextpos);
     *ap->a_eofflag = snode == NULL; // EOF if we handled the last entry
@@ -713,13 +727,13 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
  * Calculates the packed size for a directory entry for a given 
  * file name. The size is the sum of the fixed part of the dirent
  * structure plus the space required for the null-terminated name,
- * rounded up to a multiple of 4 bytes.
+ * rounded up to a multiple of 8 bytes (required by XNU's direntry validation).
  */
 STATIC int
 procfs_calc_dirent_size(const char *name)
 {
     struct direntry entry;
-    return (int)(sizeof(struct direntry) - sizeof(entry.d_name) + ((strlen(name) + 1 + 3) & ~3));
+    return (int)(sizeof(struct direntry) - sizeof(entry.d_name) + ((strlen(name) + 1 + 7) & ~7));
 }
 
 
@@ -729,14 +743,14 @@ procfs_calc_dirent_size(const char *name)
  * structure.
  */
 STATIC int
-procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, int *sizep)
+procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, int *sizep, off_t seekoff)
 {
     struct direntry entry;
     bzero(&entry, sizeof(entry));
 
     entry.d_type   = (uint8_t)type;
     entry.d_ino    = file_id;
-    entry.d_seekoff = 0;
+    entry.d_seekoff = (uint64_t)seekoff;
     entry.d_namlen = (uint16_t)strlen(name);
     strlcpy(entry.d_name, name, entry.d_namlen + 1);
 

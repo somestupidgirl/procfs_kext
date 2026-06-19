@@ -111,12 +111,13 @@ typedef int (*procfs_read_data_fn)(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 
 // VFS flags
 #define PROCFS_VFS_FLAGS  ( \
-        VFS_TBL64BITREADY   | \
-        VFS_TBLFSNODELOCK   | \
-        VFS_TBLLOCALVOL     | \
-        VFS_TBLNOTYPENUM    | \
-        VFS_TBLNOMACLABEL   | \
-        0                     \
+        VFS_TBL64BITREADY       | \
+        VFS_TBLFSNODELOCK       | \
+        VFS_TBLLOCALVOL         | \
+        VFS_TBLNOTYPENUM        | \
+        VFS_TBLNOMACLABEL       | \
+        VFS_TBLREADDIR_EXTENDED | \
+        0                         \
 )
 
 // Bit values for the psn_flags field.

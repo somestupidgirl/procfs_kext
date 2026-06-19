@@ -3,6 +3,7 @@ wip/
 test/test_mount
 test/test_readdir
 test/test_getdents
+test/test_getdents_multi
 test/*.dSYM
 **/.DS_Store
 .DS_Store
