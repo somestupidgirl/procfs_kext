@@ -70,14 +70,14 @@ procfs_fini(void)
         procfs_osmalloc_tag = NULL;
     }
 
-    if (pfsnode_lck_grp != NULL) {
-        lck_grp_free(pfsnode_lck_grp);
-        pfsnode_lck_grp = NULL;
-    }
-
     if (pfsnode_hash_mutex != NULL) {
         lck_mtx_free(pfsnode_hash_mutex, pfsnode_lck_grp);
         pfsnode_hash_mutex = NULL;
+    }
+
+    if (pfsnode_lck_grp != NULL) {
+        lck_grp_free(pfsnode_lck_grp);
+        pfsnode_lck_grp = NULL;
     }
 
     return 0;
@@ -139,10 +139,12 @@ procfs_stop(__unused kmod_info_t *ki, __unused void *d)
         return KERN_FAILURE;
     }
 
-    ret = vfs_fsremove(procfs_vfs_table_ref);
-    if (ret != 0) {
-        os_log(OS_LOG_DEFAULT, "vfs_fsremove() failure  errno: %d \n", ret);
-        return KERN_FAILURE;
+    if (procfs_vfs_table_ref != NULL) {
+        ret = vfs_fsremove(procfs_vfs_table_ref);
+        if (ret != 0) {
+            os_log(OS_LOG_DEFAULT, "vfs_fsremove() failure  errno: %d \n", ret);
+            return KERN_FAILURE;
+        }
     }
 
     procfs_fini();
