@@ -2,6 +2,7 @@ bin/
 wip/
 test/test_mount
 test/test_readdir
+test/test_getdents
 test/*.dSYM
 **/.DS_Store
 .DS_Store
