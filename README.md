@@ -1,45 +1,116 @@
 # ProcFS
-A kext implementation of the /proc file system for OS X based on the XNU kernel patch by Kim Topley: https://github.com/kimtopley/ProcFS
+A kext implementation of the /proc file system for macOS, based on the XNU kernel patch by Kim Topley: https://github.com/kimtopley/ProcFS
 
-Certain features and improvements are still planned and/or in development, but otherwise this should run pretty smoothly!
+Certain features and improvements are still planned and/or in development, but directory listing and the core per-process files work.
 
 Tested on:
 
-    - macOS Big Sur 11.6.3
+    - macOS 26 (Tahoe), Darwin 25.5.0, Apple Silicon (arm64e) — primary target
+    - Builds as a universal binary (arm64e + x86_64)
+
+> **Note on Apple Silicon:** under Pointer Authentication (PAC) the kernel's
+> private symbols cannot be resolved from a kext, so a few features that depend
+> on them are unavailable on ARM64 and degrade gracefully (they return
+> `ENOTSUP` or an empty listing rather than failing the mount). See
+> [Feature status](#feature-status) below.
 
 ## What is procfs?
 *procfs* lets you view the processes running on a UNIX system as nodes in the file system, where each process is represented by a single directory named from its process id. Typically, the file system is mounted at `/proc`, so the directory for process 1 would be called `/proc/1`. Beneath a process’ directory are further directories and files that give more information about the process, such as its process id, its active threads, the files that it has open, and so on. *procfs* first appeared in an early version of AT&T’s UNIX and was later implemented in various forms in System V, BSD, Solaris and Linux. You can find a history of the implementation of *procfs* at https://en.wikipedia.org/wiki/Procfs.
 
-In addition to letting you visualize running processes, *procfs* also allows some measure of control over them, at least to suitably privileged users. By writing specific data structures to certain files, you could do such things as set breakpoints and read and write process memory and registers. In fact, on some systems, this was how debugging facilities were provided. However, more modern operating systems do this differently, so some UNIX variants no longer include an implementation of *procfs*. In particular, OS X doesn’t provide *procfs* so, although it’s not strictly needed, I thought that implementing it would be an interesting side project. The code in this repository provides a very basic implementation of *procfs* for OS X. You can use it to see what processes and threads are running on the system and what files they have open. Later, I plan to add more features, neginning with the ability to inspect a thread’s address space to see which executable it is running and what shared libraries it has loaded.
+In addition to letting you visualize running processes, *procfs* also allows some measure of control over them, at least to suitably privileged users. By writing specific data structures to certain files, you could do such things as set breakpoints and read and write process memory and registers. In fact, on some systems, this was how debugging facilities were provided. However, more modern operating systems do this differently, so some UNIX variants no longer include an implementation of *procfs*. In particular, macOS doesn’t provide *procfs* so, although it’s not strictly needed, I thought that implementing it would be an interesting side project. The code in this repository provides an implementation of *procfs* for macOS. You can use it to see what processes and threads are running on the system and what files they have open. Later, I plan to add more features, beginning with the ability to inspect a thread’s address space to see which executable it is running and what shared libraries it has loaded.
 
-Each directory in the left column represents one process on the system. By default you can only see your own processes, although it is possible to set an option when mounting the file system that will let you see and get details for every process. Obviously this is a security risk, so it’s not the default mode of operation. Within each process directory are seven files and two further directories, shown in the second column of the screenshot. All of the files can be read in the normal way, but the data that they contain is not text, so they are really intended to be used in applications rather than for direct human consumption. The following table summarizes what’s in each file. You’ll find definitions of the structures in this table in the file */usr/include/sys/proc_info.h*.
+### Root directory
 
-| File    | Summary                          | Structure                     |
-|---------|----------------------------------|-------------------------------|
-|`pid`    | Process id                       | `pid_t`                         |
-|`ppid`     | Parent process id                | `pid_t`                         |
-|`pgid`     | Process group id                 | `pid_t`                         |
-|`sid`      | Session id                       | `pid_t`                         |
-|`tty`      | Controlling tty                  | string, such as `/dev/tty000` |
-|`info`     | Basic process info               | `struct proc_bsdinfo`           |
-|`taskinfo` | Info for the process’s Mach task | `struct proc_taskinfo`          |
+At the root of the file system, alongside the per-process directories, are a few
+Linux-compatible files and helpers:
 
-The `fd` directory contains one entry for each file that the process has open. Each entry is a directory that’s numbered for the corresponding file descriptor. Most processes will have at least entries 0, 1 and 2 for standard input, output and error respectively. Within each subdirectory you’ll find two files called `details` and `socket`. The `details` file contains a `vnode_fdinfowithpath` structure, which contains information about the file including its path name if it is a file system file. If the file is a socket endpoint, you can read a `socket_fdinfo` structure from the `socket` file.
+| Entry        | Summary                                                              |
+|--------------|---------------------------------------------------------------------|
+|`cpuinfo`     | Linux-style CPU information (text)                                   |
+|`loadavg`     | Linux-style load averages (text)                                    |
+|`partitions`  | Linux-style partition table (text; currently dummy values)          |
+|`version`     | Kernel version string (text)                                        |
+|`curproc`     | Symbolic link to the calling process's directory                    |
+|`byname/`     | Directory of symbolic links, one per process, named by command name |
 
-The `threads` directory contains a subdirectory for each of the process’ threads. Each thread directory contains a single file called `info` the contains thread-specific information in the form of a `proc_threadinfo` structure.
+### Per-process files
+
+Each directory named for a process id represents one process on the system. By default you can only see your own processes, although it is possible to set an option (`noprocperms`) when mounting the file system that will let you see and get details for every process. Obviously this is a security risk, so it’s not the default mode of operation. Within each process directory are the following files and two further directories. Most files contain binary structures rather than text, so they are intended to be used in applications rather than for direct human consumption. You’ll find definitions of the structures in this table in the file */usr/include/sys/proc_info.h*.
+
+| File    | Summary                          | Structure                       |
+|---------|----------------------------------|---------------------------------|
+|`pid`    | Process id                       | `pid_t` (binary `int32`)         |
+|`ppid`     | Parent process id                | `pid_t` (binary `int32`)         |
+|`pgid`     | Process group id                 | `pid_t` (binary `int32`)         |
+|`sid`      | Session id                       | `pid_t` (binary `int32`)         |
+|`cmdline`  | Process command line             | text — **not yet implemented** (stub) |
+|`tty`      | Controlling tty                  | string — **unavailable on ARM64** |
+|`info`     | Basic process info               | `struct proc_bsdshortinfo`        |
+|`taskinfo` | Info for the process’s Mach task | `struct proc_taskinfo`            |
+
+The `fd` directory contains one entry for each file that the process has open. Each entry is a directory that’s numbered for the corresponding file descriptor. Within each subdirectory you’ll find two files called `details` and `socket`. The `details` file contains a `vnode_fdinfowithpath` structure, which contains information about the file including its path name if it is a file system file. If the file is a socket endpoint, you can read a `socket_fdinfo` structure from the `socket` file.
+
+The `threads` directory contains a subdirectory for each of the process’ threads. Each thread directory contains a single file called `info` that contains thread-specific information in the form of a `proc_threadinfo` structure.
+
+## Feature status
+
+Verified with `test/test_features.sh`.
+
+**Working:**
+
+  - Directory listing of the root and per-process directories via `ls`, `find`, `readdir(3)` and `getdirentries64(2)`
+  - Root files: `cpuinfo`, `loadavg`, `partitions`, `version`
+  - `curproc` symlink and the `byname/` directory of per-process symlinks
+  - Per-process `pid`, `ppid`, `pgid`, `sid`, `info`, `taskinfo`
+
+**Unavailable on Apple Silicon (graceful degradation, not crashes):**
+
+  - `tty` — returns `ENOTSUP` (needs the private `proc_gettty` symbol)
+  - `fd/` enumeration — lists only `.`/`..` (no public KPI to enumerate another process's file descriptors)
+  - `threads/` enumeration — lists only `.`/`..` (no public KPI to enumerate a task's threads)
+
+These all depend on private kernel symbols that cannot be resolved under PAC; the relevant code paths guard the NULL symbols and degrade gracefully. On the rare configuration where those symbols are available (e.g. a kernel built with the matching private KPIs), they would populate normally.
+
+**Incomplete:**
+
+  - `cmdline` is a stub that returns the literal string `Feature not yet implemented.`
 
 ## How to build procfs
-To be able to build and install the kernel extension you must have a valid signing certificate in your keychain. Then you must open Makefile.inc and change the SIGNCERT variable to the email linked to your certificate. Once that's done, just open up a terminal window and execute:
+Build a universal (arm64e + x86_64) binary with:
 
-    make && make install
+    make ARCH=universal
 
-You can use the provided install script:
+To build and install in one step, use the provided install script (it runs
+`make clean && make && sudo make install-only && make clean`):
 
-    ./install
+    ./install ARCH=universal
 
-The script is just a simple routine of `make clean && make && make install && make clean`.
+`make install-only` copies `bin/procfs.kext` to `/Library/Extensions` and the
+`bin/procfs.fs` mount helper to `/Library/Filesystems`, and sets the required
+`root:wheel` ownership and `755` permissions on both.
 
-Once installed, open up your System Preferences, go to "Security", press "Allow" to load the kernel extension and reboot your system.
+Code signing is optional; the kext is ad-hoc signed by default. To sign with
+your own certificate instead, edit `Makefile.inc` and set the `SIGNCERT`
+variable to the identity in your keychain.
+
+### Loading the kext (Apple Silicon, macOS 26)
+
+Third-party kexts are loaded from the Auxiliary Kernel Collection (AuxKC). After
+the first install you must approve the extension in **System Settings → Privacy
+& Security** and reboot.
+
+When **re-installing a rebuilt kext**, the build's code identity (cdhash)
+changes, and a stale staging record will cause `kernelmanagerd` to reject it
+with *"tried to insert an invalid codeful kernel extension in the restricted
+lookup table."* Clear the staging area first, then the kext can be loaded into
+the running kernel without a reboot:
+
+    sudo umount ~/proc 2>/dev/null
+    sudo kmutil unload -b com.beako.filesystems.procfs
+    sudo kmutil clear-staging
+    ./install ARCH=universal
+    sudo kmutil load -p /Library/Extensions/procfs.kext
+    kextstat | grep procfs
 
 ## Mounting
 Open your Terminal application.
@@ -65,24 +136,29 @@ Note: Finder support has not yet been implemented so the contents of the proc fo
 
 Likewise you can use the `cat` command to get the contents of a file:
 
-    cat ~/proc/curproc/details
+    cat ~/proc/version
 
-For files that display only raw data you can pipe it via `hexdump` to read the contents in a hexadecimal format:
+Most per-process files contain binary structures rather than text, so pipe them
+through `hexdump` to read the raw contents:
 
-    cat proc ~/proc/curproc/details | hexdump -C
+    cat ~/proc/curproc/taskinfo | hexdump -C
 
 ## TODO:
+ - Implement `cmdline` (reachable from a kext via `sysctl(KERN_PROCARGS2)`).
+ - Revisit `fd/`, `threads/` and `tty` for Apple Silicon — they currently require private kernel symbols that are unavailable under PAC.
+ - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
  - Add Finder support.
  - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
- - Implement more linux-compatible a la NetBSD and FreeBSD.
- - Improve AMD support for CPU-related portion.
- - Add support for ARM64 once I can afford a new MBP.
+ - Implement more linux-compatible files a la NetBSD and FreeBSD.
+ - Improve AMD support for the CPU-related portion.
 
 ## Issues
 Currently known issues:
 
+- On Apple Silicon, `fd/`, `threads/` and `tty` are unavailable because they depend on private kernel symbols that cannot be resolved under PAC (see [Feature status](#feature-status)).
+- `cmdline` is not yet implemented and returns a placeholder string.
 - The `procfs_dopartitions` function in kext/procfs_linux.c is still in early stages of development so it will only return dummy values at the moment.
-- Certain fields in `procfs_docpuinfo`, in kext/procfs_linux.c, such as `bugs` and `pm` have yet to be incorprorated. Support for CPU flags for AMD CPUs is also still limited.
+- Certain fields in `procfs_docpuinfo`, in kext/procfs_linux.c, such as `bugs` and `pm` have yet to be incorporated. Support for CPU flags for AMD CPUs is also still limited.
 
 ## Contributing and Bug Reporting
 If you wish to contribute to this project then feel free to make a pull request. If you encounter any undocumented bugs then you may also file an issue under the "Issues" tab.
