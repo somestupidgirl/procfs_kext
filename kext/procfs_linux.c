@@ -21,7 +21,7 @@
 #include <libkern/version.h>
 #include <mach/machine.h>
 #include <os/log.h>
-//#include <sys/disklabel.h>
+#include <sys/disklabel.h>
 //#include <sys/disktab.h>
 #include <sys/errno.h>
 #include <sys/malloc.h>
