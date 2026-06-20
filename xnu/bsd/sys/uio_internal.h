@@ -66,7 +66,7 @@
 
 #include <sys/appleapiopts.h>
 
-//#ifdef KERNEL_PRIVATE
+#ifdef KERNEL_PRIVATE
 #include <sys/uio.h>
 #include <sys/malloc.h>
 #include <sys/param.h>
@@ -105,7 +105,7 @@ enum {
 __BEGIN_DECLS
 struct user_iovec;
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 __private_extern__ struct user_iovec * uio_iovsaddr_user( uio_t a_uio );
 __private_extern__ int uio_calculateresid_user(uio_t __attribute((nonnull)) a_uio);
 __private_extern__ uio_t  uio_createwithbuffer( int a_iovcount, off_t a_offset, int a_spacetype, int a_iodirection, void *a_buf_p, size_t a_buffer_size );
@@ -133,7 +133,7 @@ __private_extern__ int uio_copyin_phys_user(const char *__sized_by(n) c_cp, int 
 __private_extern__ int uio_copyout_phys_sys(const char *__sized_by(n) c_cp, int n, uio_t uio);
 __private_extern__ int uio_copyin_phys_sys(const char *__sized_by(n) c_cp, int n, uio_t uio);
 
-//#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE */
 
 /* use kern_iovec for system space requests */
 struct kern_iovec {
@@ -167,8 +167,8 @@ union iovecs {
 /* WARNING - use accessor calls for uio_iov and uio_resid since these */
 /* fields vary depending on the originating address space. */
 struct uio {
-	void * 		uio_iovs;       /* current iovec */
-	void * 		uio_iovbase;	/* iovec base */
+	void *          uio_iovs;       /* current iovec */
+	void *          uio_iovbase;    /* iovec base */
 	int             uio_max_iovs;   /* max number of iovecs this uio_t can hold */
 	int             uio_iovcnt;     /* active iovecs */
 	off_t           uio_offset;
@@ -221,5 +221,5 @@ __END_DECLS
 
 extern int ureadc(int c, struct uio *uio);
 
-//#endif /* KERNEL_PRIVATE */
+#endif /* KERNEL_PRIVATE */
 #endif /* !_SYS_UIO_INTERNAL_H_ */

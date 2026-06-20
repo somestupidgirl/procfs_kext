@@ -1,110 +1,152 @@
 /*
- * Copyright (c) 2007-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License.
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
-/*
- * include/arm/locks.h
- *
- * ARM64 lock type definitions for procfs_kext.
- *
- * The public Kernel.framework SDK only forward-declares these structs
- * in arm/locks.h. The full definitions are sourced from Apple's open
- * source XNU release (xnu-8792.xxx / xnu-10002.xxx) and are required
- * to compile against private headers such as sys/proc_internal.h that
- * embed lock types by value.
- *
- * Source: https://github.com/apple-oss-distributions/xnu
- *         osfmk/arm/locks.h
- */
+
 #ifndef _ARM_LOCKS_H_
 #define _ARM_LOCKS_H_
 
-#include <stdint.h>
-#include <kern/lock_types.h>
+#ifdef  MACH_KERNEL_PRIVATE
+#ifndef LCK_SPIN_IS_TICKET_LOCK
+#define LCK_SPIN_IS_TICKET_LOCK 0
+#endif
+#endif /* MACH_KERNEL_PRIVATE */
 
-/*
- * Spinlock — ARM64
- *
- * On ARM64 the hardware spinlock uses an exclusive monitor word.
- * The layout matches XNU osfmk/arm/locks.h.
- */
-typedef struct __lck_spin_t__ {
-    uintptr_t       opaque;
+#include <kern/lock_types.h>
+#ifdef  MACH_KERNEL_PRIVATE
+#include <kern/sched_hygiene.h>
+#include <kern/startup.h>
+#if LCK_SPIN_IS_TICKET_LOCK
+#include <kern/ticket_lock.h>
+#endif
+#endif
+
+#ifdef  MACH_KERNEL_PRIVATE
+#if LCK_SPIN_IS_TICKET_LOCK
+typedef lck_ticket_t lck_spin_t;
+#else
+typedef struct lck_spin_s {
+	struct hslock   hwlock;
+	unsigned long   type;
 } lck_spin_t;
 
-/*
- * Mutex — ARM64
- *
- * The ARM64 lck_mtx_t is a 16-byte structure. The layout here matches
- * XNU osfmk/arm/locks.h as of macOS Ventura/Sonoma/Sequoia (xnu-8792+).
- *
- * Fields:
- *   lck_mtxd_owner   — current owner thread (pointer-sized)
- *   lck_mtxd_state   — packed state word (waiters, flags)
- *   lck_mtxd_pad8    — padding to 16 bytes
- */
-typedef struct __lck_mtx_t__ {
-    uintptr_t       lck_mtxd_owner;
-    union {
-        struct {
-            uint16_t    lck_mtxd_waiters;
-            uint8_t     lck_mtxd_pri;
-            uint8_t     lck_mtxd_ilocked  : 1,
-                        lck_mtxd_mlocked  : 1,
-                        lck_mtxd_promoted : 1,
-                        lck_mtxd_spin     : 1,
-                        lck_mtxd_is_ext   : 1,
-                        lck_mtxd_pad3     : 3;
-        };
-        uint32_t        lck_mtxd_state;
-    };
-    uint32_t            lck_mtxd_pad8;
+#define lck_spin_data hwlock.lock_data
+
+#define LCK_SPIN_TAG_DESTROYED  0xdead  /* lock marked as Destroyed */
+
+#define LCK_SPIN_TYPE           0x00000011
+#define LCK_SPIN_TYPE_DESTROYED 0x000000ee
+#endif
+
+#elif KERNEL_PRIVATE
+
+typedef struct {
+	uintptr_t opaque[2] __kernel_data_semantics;
+} lck_spin_t;
+
+typedef struct {
+	uintptr_t opaque[2] __kernel_data_semantics;
 } lck_mtx_t;
 
-/*
- * Extended mutex — wraps lck_mtx_t with group/debug info.
- */
-typedef struct __lck_mtx_ext_t__ {
-    lck_mtx_t           lck_mtx;
-    struct _lck_grp_   *lck_mtx_grp;
-    uint64_t            lck_mtx_stat;
+typedef struct {
+	uintptr_t opaque[16];
 } lck_mtx_ext_t;
 
-/*
- * Read-write lock — ARM64
- *
- * Matches XNU osfmk/arm/locks.h lck_rw_t layout.
- * The structure is 16 bytes on ARM64.
- */
-typedef struct __lck_rw_t__ {
-    union {
-        struct {
-            uint16_t    lck_rw_shared_count;
-            uint8_t     lck_rw_interlock;
-            uint8_t     lck_rw_priv_excl    : 1,
-                        lck_rw_want_upgrade  : 1,
-                        lck_rw_want_write    : 1,
-                        lck_r_waiting        : 1,
-                        lck_w_waiting        : 1,
-                        lck_rw_can_sleep     : 1,
-                        lck_rw_padb6         : 2;
-            uint32_t    lck_rw_tag;
-            uintptr_t   lck_rw_owner;
-        };
-        struct {
-            uint32_t    data;
-            uint32_t    lck_rw_pad4;
-            uint64_t    lck_rw_pad8;
-        };
-    };
-} lck_rw_t;
+#else
 
+typedef struct __lck_spin_t__           lck_spin_t;
+typedef struct __lck_mtx_t__            lck_mtx_t;
+typedef struct __lck_mtx_ext_t__        lck_mtx_ext_t;
+
+#endif  /* !KERNEL_PRIVATE */
+#ifdef  MACH_KERNEL_PRIVATE
+
+/*
+ * static panic deadline, in timebase units, for
+ * hw_lock_{bit,lock}{,_nopreempt} and hw_wait_while_equals()
+ */
+extern uint64_t _Atomic lock_panic_timeout;
+
+/* Adaptive spin before blocking */
+extern uint64_t            MutexSpin;
+extern uint64_t            low_MutexSpin;
+extern int64_t             high_MutexSpin;
+
+#if CONFIG_PV_TICKET
+extern bool                has_lock_pv;
+#endif
+
+#ifdef LOCK_PRIVATE
+
+#define LOCK_SNOOP_SPINS        100
+#define LOCK_PRETEST            0
+
+#define wait_for_event()        __builtin_arm_wfe()
+
+#ifndef __BUILDING_XNU_LIB_UNITTEST__
+#if SCHED_HYGIENE_DEBUG
+#define lock_disable_preemption_for_thread(t) ({                                \
+	thread_t __dpft_thread = (t);                                           \
+	uint32_t *__dpft_countp = &__dpft_thread->machine.preemption_count;     \
+	uint32_t __dpft_count;                                                  \
+                                                                                \
+	__dpft_count = *__dpft_countp;                                          \
+	os_atomic_store(__dpft_countp, __dpft_count + 1, compiler_acq_rel);     \
+                                                                                \
+	if (static_if(sched_debug_preemption_disable)) {                        \
+	       if (__dpft_count == 0 && sched_preemption_disable_debug_mode) {  \
+	               _prepare_preemption_disable_measurement();               \
+	       }                                                                \
+	}                                                                       \
+})
+#else /* SCHED_HYGIENE_DEBUG */
+#define lock_disable_preemption_for_thread(t) ({                                \
+	uint32_t *__dpft_countp = &(t)->machine.preemption_count;               \
+                                                                                \
+	os_atomic_store(__dpft_countp, *__dpft_countp + 1, compiler_acq_rel);   \
+})
+#endif /* SCHED_HYGIENE_DEBUG */
+#else /* __BUILDING_XNU_LIB_UNITTEST__ */
+extern void lock_disable_preemption_for_thread(thread_t);
+#endif /* __BUILDING_XNU_LIB_UNITTEST__ */
+#define lock_enable_preemption()                enable_preemption()
+#define lock_preemption_level_for_thread(t)     get_preemption_level_for_thread(t)
+#define lock_preemption_disabled_for_thread(t)  (get_preemption_level_for_thread(t) != 0)
+#define current_thread()                        current_thread_fast()
+
+#define __hw_spin_wait_load(ptr, load_var, cond_result, cond_expr) ({ \
+	load_var = os_atomic_load_exclusive(ptr, relaxed);                      \
+	cond_result = (cond_expr);                                              \
+	if (__probable(cond_result)) {                                          \
+	        os_atomic_clear_exclusive();                                    \
+	} else {                                                                \
+	        wait_for_event();                                               \
+	}                                                                       \
+})
+
+#endif /* LOCK_PRIVATE */
+#endif /* MACH_KERNEL_PRIVATE */
 #endif /* _ARM_LOCKS_H_ */

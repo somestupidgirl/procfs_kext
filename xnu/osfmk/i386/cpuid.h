@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -39,9 +39,13 @@
 
 #include <sys/appleapiopts.h>
 
+#if defined(MACH_KERNEL_PRIVATE) && !defined(ASSEMBLER)
 #include <i386/hw_defs.h>
 #include <i386/pio.h>
 #include <i386/machine_routines.h>
+#endif
+
+#ifdef __APPLE_API_PRIVATE
 
 #define CPUID_VID_INTEL         "GenuineIntel"
 #define CPUID_VID_AMD           "AuthenticAMD"
@@ -270,16 +274,12 @@
 #define CPUID_MODEL_KABYLAKE_ULT        0x8E
 #define CPUID_MODEL_KABYLAKE_ULX        0x8E
 #define CPUID_MODEL_KABYLAKE_DT         0x9E
-#if !defined(RC_HIDE_XNU_ICELAKE)
 #define CPUID_MODEL_ICELAKE             0x7E
 #define CPUID_MODEL_ICELAKE_ULT         0x7E
 #define CPUID_MODEL_ICELAKE_ULX         0x7E
 #define CPUID_MODEL_ICELAKE_DT          0x7D
 #define CPUID_MODEL_ICELAKE_H           0x9F
-#endif /* not RC_HIDE_XNU_ICELAKE */
-#if !defined(RC_HIDE_XNU_COMETLAKE)
 #define CPUID_MODEL_COMETLAKE_DT        0xA5
-#endif /* not RC_HIDE_XNU_COMETLAKE */
 
 #define CPUID_VMM_FAMILY_NONE           0x0
 #define CPUID_VMM_FAMILY_UNKNOWN        0x1
@@ -289,8 +289,11 @@
 #define CPUID_VMM_FAMILY_HVF            0x5
 #define CPUID_VMM_FAMILY_KVM            0x6
 
+/*
+ * KVM features
+ */
 
-#if DEBUG || DEVELOPMENT
+#define CPUID_KVM_FEATURE_PV_UNHALT     _Bit(7)
 
 /*
  * Apple Paravirtualization CPUID leaves
@@ -311,8 +314,10 @@
  */
 
 #define CPUID_LEAF_FEATURE_COREDUMP         _Bit(0)
+#define CPUID_LEAF_FEATURE_XNU_DEBUG        _Bit(1)
+#define CPUID_LEAF_FEATURE_MABS_OFFSET      _Bit(2)
+#define CPUID_LEAF_FEATURE_BOOTSESSIONUUID  _Bit(3)
 
-#endif /* DEBUG || DEVELOPMENT */
 
 #ifndef ASSEMBLER
 #include <stdint.h>
@@ -360,11 +365,18 @@ typedef struct {
 	cache_type_t    type;           /* Cache type */
 	unsigned int    size;           /* Cache size */
 	unsigned int    linesize;       /* Cache line size */
+#ifdef KERNEL
 	const char      *description;   /* Cache description */
+#endif /* KERNEL */
 } cpuid_cache_desc_t;
 
+#ifdef KERNEL
 #define CACHE_DESC(value, type, size, linesize, text) \
 	{ value, type, size, linesize, text }
+#else
+#define CACHE_DESC(value, type, size, linesize, text) \
+	{ value, type, size, linesize }
+#endif /* KERNEL */
 
 /* Monitor/mwait Leaf: */
 typedef struct {
@@ -488,9 +500,10 @@ typedef struct i386_cpu_info {
 	uint64_t                cpuid_leaf7_features;
 	uint64_t                cpuid_leaf7_extfeatures;
 	cpuid_tsc_leaf_t        cpuid_tsc_leaf;
-	cpuid_xsave_leaf_t      cpuid_xsave_leaf[2];
+	cpuid_xsave_leaf_t      cpuid_xsave_leaf[8];
 } i386_cpu_info_t;
 
+#if defined(MACH_KERNEL_PRIVATE) && !defined(ASSEMBLER)
 /* Only for 32bit values */
 #define bit32(n)                (1U << (n))
 #define bitmask32(h, l)          ((bit32(h)|(bit32(h)-1)) & ~(bit32(l)-1))
@@ -502,13 +515,15 @@ typedef struct {
 	uint32_t        cpuid_vmm_bus_frequency;
 	uint32_t        cpuid_vmm_tsc_frequency;
 	uint64_t        cpuid_vmm_applepv_features;
+	uint64_t        cpuid_vmm_kvm_features;
 } i386_vmm_info_t;
 
 typedef enum {
+	CPU_INTEL_RSBST = 0,
 	CPU_INTEL_SEGCHK = 1,
 	CPU_INTEL_TSXFA = 2,
-	CPU_INTEL_TSXDA = 4,
-	CPU_INTEL_SRBDS = 8
+	CPU_INTEL_TSXDA = 3,
+	CPU_INTEL_SRBDS = 4
 } cpu_wa_e;
 
 typedef enum {
@@ -539,6 +554,53 @@ is_xeon_sp(uint8_t platid)
 	return 0;
 }
 
+extern int force_tecs_at_idle;
+
+#endif /* defined(MACH_KERNEL_PRIVATE) && !defined(ASSEMBLER) */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/*
+ * External declarations
+ */
+extern cpu_type_t       cpuid_cputype(void);
+extern cpu_subtype_t    cpuid_cpusubtype(void);
+extern void             cpuid_cpu_display(const char *);
+extern void             cpuid_feature_display(const char *);
+extern void             cpuid_extfeature_display(const char *);
+extern char *           cpuid_get_feature_names(uint64_t, char *, unsigned);
+extern char *           cpuid_get_extfeature_names(uint64_t, char *, unsigned);
+extern char *           cpuid_get_leaf7_feature_names(uint64_t, char *, unsigned);
+extern char *           cpuid_get_leaf7_extfeature_names(uint64_t, char *, unsigned);
+
+extern uint64_t         cpuid_features(void);
+extern uint64_t         cpuid_extfeatures(void);
+extern uint64_t         cpuid_leaf7_features(void);
+extern uint64_t         cpuid_leaf7_extfeatures(void);
+extern uint32_t         cpuid_family(void);
+extern uint32_t         cpuid_cpufamily(void);
+
+extern i386_cpu_info_t  *cpuid_info(void);
+extern void             cpuid_set_info(void);
+extern boolean_t        cpuid_vmm_present(void);
+extern uint32_t         cpuid_vmm_family(void);
+extern uint64_t         cpuid_vmm_get_kvm_features(void);
+extern uint64_t         cpuid_vmm_get_applepv_features(void);
+
+#ifdef MACH_KERNEL_PRIVATE
+extern i386_vmm_info_t  *cpuid_vmm_info(void);
+extern cwa_classifier_e cpuid_wa_required(cpu_wa_e wa);
+extern void cpuid_do_was(void);
+extern const char       *cpuid_vmm_family_string(void);
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* ASSEMBLER */
 
+#endif /* __APPLE_API_PRIVATE */
 #endif /* _MACHINE_CPUID_H_ */

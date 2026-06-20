@@ -73,11 +73,11 @@
 #include <sys/cdefs.h>
 #include <sys/termios.h>
 #include <sys/select.h>         /* For struct selinfo. */
-//#if XNU_KERNEL_PRIVATE
+#if XNU_KERNEL_PRIVATE
 #include <os/refcnt.h>
-//#endif
+#endif
 
-//#ifdef KERNEL
+#ifdef KERNEL
 
 __BEGIN_DECLS
 #include <kern/locks.h>
@@ -145,11 +145,11 @@ struct tty {
 	int     t_lowat;                /* Low water mark. */
 	int     t_gen;                  /* Generation number. */
 	void    *t_iokit;               /* IOKit management */
-//#if XNU_KERNEL_PRIVATE
+#if XNU_KERNEL_PRIVATE
 	os_ref_atomic_t t_refcnt;
-//#else
-//	int     t_refcnt;               /* reference count */
-//#endif
+#else
+	int     t_refcnt;               /* reference count */
+#endif
 	thread_t t_locked_thread;       /* thread that owns the lock */
 };
 
@@ -185,10 +185,10 @@ struct tty {
 #define TTMINHIWAT      roundup(100, CBSIZE)
 #define TTMAXLOWAT      256
 #define TTMINLOWAT      32
-//#else
-//struct tty;
-//struct clist;
-//#endif /* KERNEL */
+#else
+struct tty;
+struct clist;
+#endif /* KERNEL */
 
 /* These flags are kept in t_state. */
 #define TS_SO_OLOWAT    0x00001         /* Wake up when output <= low water. */
@@ -260,7 +260,7 @@ struct speedtab {
 #define TTY_OE          0x04000000      /* Overrun error */
 #define TTY_BI          0x08000000      /* Break condition */
 
-//#ifdef KERNEL
+#ifdef KERNEL
 
 /* Unique sleep addresses. */
 #define TSA_CARR_ON(tp)         ((void *)&(tp)->t_rawq)
@@ -290,7 +290,7 @@ void     clfree(struct clist *clp);
 void    cinit(void);
 void    clrbits(u_char *cp, int off, int len);
 
-//#ifdef KERNEL_PRIVATE
+#ifdef KERNEL_PRIVATE
 void    tty_init(void);
 /*
  * The locked version of this function is used from routines which hold
@@ -301,7 +301,7 @@ int     ttioctl_locked(struct tty *tp, u_long com, caddr_t data, int flag,
 
 int     ttcompat(struct tty *tp, u_long com, caddr_t data, int flag,
     struct proc *p);
-//#endif /* KERNEL_PRIVATE */
+#endif /* KERNEL_PRIVATE */
 
 void tty_lock(struct tty *tp);
 bool tty_trylock(struct tty *tp);
@@ -338,7 +338,7 @@ struct tty *ttymalloc(void);
 void     ttyfree(struct tty *);
 void     ttyfree_locked(struct tty *);
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 extern void ttyhold(struct tty *tp);
 
 #define TTY_LOCK_OWNED(tp) LCK_MTX_ASSERT(&tp->t_lock, LCK_MTX_ASSERT_OWNED)
@@ -346,10 +346,10 @@ extern void ttyhold(struct tty *tp);
 
 #define PTS_MAJOR 4
 #define PTC_MAJOR 5
-//#endif /* defined(XNU_KERNEL_PRIVATE) */
+#endif /* defined(XNU_KERNEL_PRIVATE) */
 
 __END_DECLS
 
-//#endif /* KERNEL */
+#endif /* KERNEL */
 
 #endif /* !_SYS_TTY_H_ */

@@ -50,7 +50,7 @@ typedef struct sdt_probedesc {
 extern "C" {
 #endif
 
-//#include <sys/dtrace.h>
+#include <sys/dtrace.h>
 
 struct module {
 	int sdt_nprobes;

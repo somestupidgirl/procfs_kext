@@ -77,22 +77,22 @@
 #include <sys/param.h>
 #include <sys/event.h>
 #include <sys/time.h>
-//#ifdef KERNEL
+#ifdef KERNEL
 #include <sys/kernel_types.h>
 #include <uuid/uuid.h>
-//#endif
+#endif
 #include <mach/boolean.h>
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 #include <mach/coalition.h>             /* COALITION_NUM_TYPES */
 #include <sys/codesign.h>
-//#endif
+#endif
 
-//#ifndef KERNEL
-//#include <Availability.h>
-//#endif
+#ifndef KERNEL
+#include <Availability.h>
+#endif
 
-//#if defined(XNU_KERNEL_PRIVATE) || !defined(KERNEL)
+#if defined(XNU_KERNEL_PRIVATE) || !defined(KERNEL)
 
 struct session;
 struct pgrp;
@@ -232,9 +232,9 @@ struct extern_proc {
 #define P_DIRTY_IS_DIRTY                        (P_DIRTY | P_DIRTY_SHUTDOWN)
 #define P_DIRTY_IDLE_EXIT_ENABLED               (P_DIRTY_TRACK|P_DIRTY_ALLOW_IDLE_EXIT)
 
-//#endif /* XNU_KERNEL_PRIVATE || !KERNEL */
+#endif /* XNU_KERNEL_PRIVATE || !KERNEL */
 
-//#ifdef KERNEL
+#ifdef KERNEL
 __BEGIN_DECLS
 
 extern proc_t kernproc;
@@ -244,12 +244,12 @@ extern bool proc_is_exotic(proc_t p);
 extern bool proc_is_alien(proc_t p);
 proc_t current_proc_EXTERNAL(void);
 
-//#if XNU_KERNEL_PRIVATE
+#if XNU_KERNEL_PRIVATE
 
 extern bool proc_is_driver(proc_t p);
 extern bool proc_is_third_party_debuggable_driver(proc_t p);
 
-//#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE */
 
 /*
  * __unsafe_indexable is a workaround for
@@ -281,11 +281,11 @@ extern int proc_isinferior(int pid1, int pid2);
  */
 void proc_name(int pid, char * buf, int size);
 /* returns the 32-byte name if it exists, otherwise returns the 16-byte name */
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 extern const char *proc_best_name(proc_t p);
-//#else
-//extern char *proc_best_name(proc_t p);
-//#endif
+#else
+extern char *proc_best_name(proc_t p);
+#endif
 /* this routine is similar to proc_name except it returns for current process */
 void proc_selfname(char * buf, int size);
 
@@ -322,7 +322,7 @@ extern bool proc_ident_equal_ref(proc_ident_t ident, proc_t proc);
 extern bool proc_ident_equal(proc_ident_t ident, proc_ident_t other);
 /* compare a proc_ident to an audit_token_t */
 extern bool proc_ident_equal_token(proc_ident_t ident, audit_token_t token);
-//#endif /* KERNEL_PRIVATE */
+#endif /* KERNEL_PRIVATE */
 /* find a process with a given audit token */
 extern proc_t proc_find_audit_token(const audit_token_t token);
 /* returns a handle to current process which is referenced. The reference needs to be dropped with proc_rele */
@@ -413,7 +413,7 @@ pid_t proc_pgrpid(proc_t p);
  */
 pid_t proc_sessionid(proc_t p);
 
-//#ifdef KERNEL_PRIVATE
+#ifdef KERNEL_PRIVATE
 // mark a process as being allowed to call vfs_markdependency()
 void bsd_set_dependency_capable(task_t task);
 #ifdef  __arm__
@@ -528,9 +528,9 @@ extern int proc_exitstatus(proc_t p);
  */
 extern bool   proc_is_zombie(proc_t p);
 
-//#endif /* KERNEL_PRIVATE */
+#endif /* KERNEL_PRIVATE */
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 
 extern void proc_getexecutableuuid(proc_t, unsigned char *, unsigned long);
 extern int proc_get_originatorbgstate(uint32_t *is_backgrounded);
@@ -545,9 +545,9 @@ extern bool proc_is_traced(proc_t p);
 extern void proc_coalitionids(proc_t, uint64_t[COALITION_NUM_TYPES]);
 
 extern uint64_t get_current_unique_pid(void);
-//#endif /* XNU_KERNEL_PRIVATE*/
+#endif /* XNU_KERNEL_PRIVATE*/
 
-//#ifdef KERNEL_PRIVATE
+#ifdef KERNEL_PRIVATE
 /* If buf argument is NULL, the necessary length to allocate will be set in buflen */
 extern int proc_selfexecutableargs(uint8_t *buf, size_t *buflen);
 extern off_t proc_getexecutableoffset(proc_t p);
@@ -579,47 +579,47 @@ extern int proc_set_syscall_filter_mask(proc_t p, int which, unsigned char *mask
 extern int proc_set_filter_message_flag(proc_t p, boolean_t flag);
 extern int proc_get_filter_message_flag(proc_t p, boolean_t *flag);
 
-//#endif /* KERNEL_PRIVATE */
+#endif /* KERNEL_PRIVATE */
 
 __END_DECLS
 
-//#endif  /* KERNEL */
+#endif  /* KERNEL */
 
-//#ifdef PRIVATE
+#ifdef PRIVATE
 
 /* Values for pid_shutdown_sockets */
 #define SHUTDOWN_SOCKET_LEVEL_DISCONNECT_SVC            0x00000001
 #define SHUTDOWN_SOCKET_LEVEL_DISCONNECT_ALL            0x00000002
 
-//#ifdef KERNEL
+#ifdef KERNEL
 #define SHUTDOWN_SOCKET_LEVEL_DISCONNECT_INTERNAL       0x10000000
 #define SHUTDOWN_SOCKET_LEVEL_NECP                      0x20000000
 #define SHUTDOWN_SOCKET_LEVEL_CONTENT_FILTER            0x40000000
-//#endif
+#endif
 
-//#ifndef KERNEL
+#ifndef KERNEL
 
-//__BEGIN_DECLS
+__BEGIN_DECLS
 
-//int pid_suspend(int pid);
-//int pid_resume(int pid);
-//__API_AVAILABLE(macos(11.3), ios(14.5), tvos(14.5), watchos(7.3))
-//int task_inspect_for_pid(unsigned int target_tport, int pid, unsigned int *t);  /* Returns task inspect port */
-//__API_AVAILABLE(macos(11.3), ios(14.5), tvos(14.5), watchos(7.3))
-//int task_read_for_pid(unsigned int target_tport, int pid, unsigned int *t);     /* Returns task read port */
+int pid_suspend(int pid);
+int pid_resume(int pid);
+__API_AVAILABLE(macos(11.3), ios(14.5), tvos(14.5), watchos(7.3))
+int task_inspect_for_pid(unsigned int target_tport, int pid, unsigned int *t);  /* Returns task inspect port */
+__API_AVAILABLE(macos(11.3), ios(14.5), tvos(14.5), watchos(7.3))
+int task_read_for_pid(unsigned int target_tport, int pid, unsigned int *t);     /* Returns task read port */
 
-//#if defined(__arm__) || defined(__arm64__)
-//int pid_hibernate(int pid);
-//#endif /* defined(__arm__) || defined(__arm64__)  */
-//int pid_shutdown_sockets(int pid, int level);
-//int pid_shutdown_networking(int pid, int level);
-//__END_DECLS
+#if defined(__arm__) || defined(__arm64__)
+int pid_hibernate(int pid);
+#endif /* defined(__arm__) || defined(__arm64__)  */
+int pid_shutdown_sockets(int pid, int level);
+int pid_shutdown_networking(int pid, int level);
+__END_DECLS
 
-//#endif /* !KERNEL */
+#endif /* !KERNEL */
 
 /* Entitlement to allow non-root processes to suspend/resume any task */
 #define PROCESS_RESUME_SUSPEND_ENTITLEMENT "com.apple.private.process.suspend-resume.any"
 
-//#endif /* PRIVATE */
+#endif /* PRIVATE */
 
 #endif  /* !_SYS_PROC_H_ */

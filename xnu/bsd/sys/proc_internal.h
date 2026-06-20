@@ -136,7 +136,6 @@ __options_decl(session_ref_bits_t, uint32_t, {
  *
  * Lock ordering: TTYL > LL > SL
  */
-#include <os/refcnt.h>
 struct session {
 	lck_mtx_t               s_mlock;             /* session lock          */
 	LIST_ENTRY(session)     s_hash;              /* (LL) hash linkage     */
@@ -378,7 +377,7 @@ struct proc {
 		u_int   p_argslen;       /* Length of process arguments. */
 		int     p_argc;                 /* saved argc for sysctl_procargs() */
 		user_addr_t user_stack;         /* where user stack was allocated */
-		struct  vnode * XNU_PTRAUTH_SIGNED_PTR("proc.p_textvp") p_textvp;       /* Vnode of executable. */
+		struct  vnode * p_textvp;       /* Vnode of executable. */
 		off_t   p_textoff;              /* offset in executable vnode */
 
 		sigset_t p_sigmask;             /* DEPRECATED */
@@ -821,7 +820,7 @@ __options_decl(cloneproc_flags_t, uint32_t, {
 });
 
 extern thread_t cloneproc(task_t, coalition_t *, proc_t, cloneproc_flags_t);
-extern struct proc * XNU_PTRAUTH_SIGNED_PTR("initproc") initproc;
+extern struct proc * initproc;
 extern void proc_lock(struct proc *);
 extern void proc_unlock(struct proc *);
 extern void proc_spinlock(struct proc *);

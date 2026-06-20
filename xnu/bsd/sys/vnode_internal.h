@@ -455,7 +455,7 @@ extern struct vnodeop_desc *vnodeop_descs[];
 struct ostat;
 
 /* bdevvp moved to vnode.h as private KPI */
-//void    cvtstat(struct stat *st, struct ostat *ost);
+void    cvtstat(struct stat *st, struct ostat *ost);
 void    vprint(const char *label, struct vnode *vp);
 void    vprint_path(const char *label, struct vnode *vp);
 
@@ -465,11 +465,11 @@ int     vn_setlabel(struct vnode *vp, struct label *intlabel,
     vfs_context_t context);
 #endif
 void    fifo_printinfo(struct vnode *vp);
-//int     vn_open(struct nameidata *ndp, int fmode, int cmode);
-//int     vn_open_modflags(struct nameidata *ndp, int *fmode, int cmode);
-//int     vn_open_auth(struct nameidata *ndp, int *fmode, struct vnode_attr *, vnode_t authvp);
+int     vn_open(struct nameidata *ndp, int fmode, int cmode);
+int     vn_open_modflags(struct nameidata *ndp, int *fmode, int cmode);
+int     vn_open_auth(struct nameidata *ndp, int *fmode, struct vnode_attr *, vnode_t authvp);
 int     vn_close(vnode_t, int flags, vfs_context_t ctx);
-//errno_t vn_remove(vnode_t dvp, vnode_t *vpp, struct nameidata *ndp, int32_t flags, struct vnode_attr *vap, vfs_context_t ctx);
+errno_t vn_remove(vnode_t dvp, vnode_t *vpp, struct nameidata *ndp, int32_t flags, struct vnode_attr *vap, vfs_context_t ctx);
 errno_t vn_rename(struct vnode *fdvp, struct vnode **fvpp, struct componentname *fcnp, struct vnode_attr *fvap,
     struct vnode *tdvp, struct vnode **tvpp, struct componentname *tcnp, struct vnode_attr *tvap,
     uint32_t flags, vfs_context_t ctx);
@@ -513,9 +513,9 @@ void vnode_attr_handle_uid_and_gid(struct vnode_attr *vap, mount_t mp, vfs_conte
 #define VN_CREATE_UNION                 (1<<2)
 #define VN_CREATE_NOLABEL               (1<<3)
 #define VN_CREATE_DOOPEN                (1<<4)  /* Open file if a batched operation is available */
-//errno_t vn_create(vnode_t, vnode_t *, struct nameidata *, struct vnode_attr *, uint32_t, int, uint32_t*, vfs_context_t);
-//int     vn_mkdir(vnode_t dvp, vnode_t *vpp, struct nameidata *ndp, struct vnode_attr *vap, vfs_context_t ctx);
-//int     vn_rmdir(vnode_t dvp, vnode_t *vpp, struct nameidata *ndp, struct vnode_attr *vap, vfs_context_t ctx);
+errno_t vn_create(vnode_t, vnode_t *, struct nameidata *, struct vnode_attr *, uint32_t, int, uint32_t*, vfs_context_t);
+int     vn_mkdir(vnode_t dvp, vnode_t *vpp, struct nameidata *ndp, struct vnode_attr *vap, vfs_context_t ctx);
+int     vn_rmdir(vnode_t dvp, vnode_t *vpp, struct nameidata *ndp, struct vnode_attr *vap, vfs_context_t ctx);
 
 int     vn_getxattr(vnode_t, const char *, uio_t, size_t *, int, vfs_context_t);
 int     vn_setxattr(vnode_t, const char *, uio_t, int, vfs_context_t);

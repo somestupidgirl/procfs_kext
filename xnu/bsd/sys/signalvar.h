@@ -66,11 +66,9 @@
 
 #include <sys/appleapiopts.h>
 
-//#ifdef BSD_KERNEL_PRIVATE
+#ifdef BSD_KERNEL_PRIVATE
 
 #include <stdatomic.h>
-
-struct tty;
 
 /* signal flags */
 #define SAS_OLDMASK     0x01            /* need to restore mask before pause */
@@ -229,18 +227,18 @@ void    pgsigio(pid_t pgid, int signalnum);
 void sig_lock_to_exit(struct proc *p);
 int sig_try_locked(struct proc *p);
 
-//#endif  /* BSD_KERNEL_PRIVATE */
+#endif  /* BSD_KERNEL_PRIVATE */
 
-//#if defined(KERNEL_PRIVATE)
+#if defined(KERNEL_PRIVATE)
 /* Forward-declare these for consumers of the SDK that don't know about BSD types */
 struct proc;
 struct thread;
 struct os_reason;
 void    psignal_sigkill_with_reason(struct proc *p, struct os_reason *signal_reason);
 void    psignal_sigkill_try_thread_with_reason(struct proc *p, struct thread *thread, struct os_reason *signal_reason);
-//#endif /* defined(KERNEL_PRIVATE) */
+#endif /* defined(KERNEL_PRIVATE) */
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 
 /* Functions exported to Mach as well */
 
@@ -253,7 +251,7 @@ int     is_coredump_eligible(struct proc *);
 int     coredump(struct proc *p, uint32_t reserve_mb, int coredump_flags);
 void set_thread_exit_reason(void *th, void *reason, boolean_t proc_locked);
 
-//#endif  /* XNU_KERNEL_PRIVATE */
+#endif  /* XNU_KERNEL_PRIVATE */
 
 
 #endif  /* !_SYS_SIGNALVAR_H_ */

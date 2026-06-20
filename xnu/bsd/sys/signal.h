@@ -69,13 +69,6 @@
 #ifndef _SYS_SIGNAL_H_
 #define _SYS_SIGNAL_H_
 
-#if defined(__x86_64__)
-#include <i386/types.h>
-#elif defined(__arm64__) || defined(__aarch64__)
-#include <arm/types.h>
-#endif
-typedef unsigned int uint32_t;
-
 #include <sys/cdefs.h>
 #include <sys/appleapiopts.h>
 #include <Availability.h>
@@ -152,9 +145,9 @@ typedef unsigned int uint32_t;
 
 #include <machine/_mcontext.h>
 
-//#ifndef KERNEL
-//#include <sys/_pthread/_pthread_attr_t.h>
-//#endif /* KERNEL */
+#ifndef KERNEL
+#include <sys/_pthread/_pthread_attr_t.h>
+#endif /* KERNEL */
 
 #include <sys/_types/_sigaltstack.h>
 #include <sys/_types/_ucontext.h>
@@ -175,17 +168,17 @@ union sigval {
 #define SIGEV_THREAD    3       /* [NOTIMP] [RTS] call notification function */
 #define SIGEV_KEVENT    4       /* Generate a kevent */
 
-//#ifndef KERNEL
-//struct sigevent {
-//	int                             sigev_notify;                           /* Notification type */
-//	int                             sigev_signo;                            /* Signal number */
-//	union sigval    sigev_value;                            /* Signal value */
-//	void                    (*sigev_notify_function)(union sigval);   /* Notification function */
-//	pthread_attr_t  *sigev_notify_attributes;       /* Notification attributes */
-//};
-//#endif /* KERNEL */
+#ifndef KERNEL
+struct sigevent {
+	int                             sigev_notify;                           /* Notification type */
+	int                             sigev_signo;                            /* Signal number */
+	union sigval    sigev_value;                            /* Signal value */
+	void                    (*sigev_notify_function)(union sigval);   /* Notification function */
+	pthread_attr_t  *sigev_notify_attributes;       /* Notification attributes */
+};
+#endif /* KERNEL */
 
-//#ifdef BSD_KERNEL_PRIVATE
+#ifdef BSD_KERNEL_PRIVATE
 
 union user64_sigval {
 	struct {
@@ -233,7 +226,7 @@ struct user_sigevent {
 	user_addr_t     sigev_notify_attributes;        /* Notify attributes */
 };
 
-//#endif  /* BSD_KERNEL_PRIVATE */
+#endif  /* BSD_KERNEL_PRIVATE */
 
 typedef struct __siginfo {
 	int     si_signo;               /* signal number */
@@ -248,7 +241,7 @@ typedef struct __siginfo {
 	unsigned long   __pad[7];       /* Reserved for Future Use */
 } siginfo_t;
 
-//#ifdef BSD_KERNEL_PRIVATE
+#ifdef BSD_KERNEL_PRIVATE
 
 typedef struct user_siginfo {
 	int             si_signo;       /* signal number */
@@ -292,7 +285,7 @@ typedef struct user32_siginfo {
 void siginfo_user_to_user32(user_siginfo_t *, user32_siginfo_t *);
 void siginfo_user_to_user64(user_siginfo_t *, user64_siginfo_t *);
 
-//#endif  /* BSD_KERNEL_PRIVATE */
+#endif  /* BSD_KERNEL_PRIVATE */
 
 /*
  * When the signal is SIGILL or SIGFPE, si_addr contains the address of
@@ -395,7 +388,7 @@ struct  sigaction {
 	int     sa_flags;               /* see signal options below */
 };
 
-//#ifdef  BSD_KERNEL_PRIVATE
+#ifdef  BSD_KERNEL_PRIVATE
 #include <machine/types.h>
 
 union __user32_sigaction_u {
@@ -459,7 +452,7 @@ struct  __kern_sigaction {
 #define  SIG_IGN        ((user_addr_t)1LL)
 #define  SIG_ERR        ((user_addr_t)-1LL)
 
-//#endif  /* BSD_KERNEL_PRIVATE */
+#endif  /* BSD_KERNEL_PRIVATE */
 
 
 /* if SA_SIGINFO is set, sa_sigaction is to be used instead of sa_handler. */
@@ -468,9 +461,9 @@ struct  __kern_sigaction {
 
 #define SA_ONSTACK      0x0001  /* take signal on signal stack */
 #define SA_RESTART      0x0002  /* restart system on signal return */
-//#ifdef  BSD_KERNEL_PRIVATE
+#ifdef  BSD_KERNEL_PRIVATE
 #define SA_DISABLE      0x0004  /* disable taking signals on alternate stack - for user_sigaltstack.ss_flags only */
-//#endif  /* BSD_KERNEL_PRIVATE */
+#endif  /* BSD_KERNEL_PRIVATE */
 #define SA_RESETHAND    0x0004  /* reset to SIG_DFL when taking signal */
 #define SA_NOCLDSTOP    0x0008  /* do not generate SIGCHLD on child stop */
 #define SA_NODEFER      0x0010  /* don't mask the signal we're delivering */
@@ -481,9 +474,9 @@ struct  __kern_sigaction {
 /* This will provide 64bit register set in a 32bit user address space */
 #define SA_64REGSET     0x0200  /* signal handler with SA_SIGINFO args with 64bit regs information */
 #endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
-//#ifdef  BSD_KERNEL_PRIVATE
+#ifdef  BSD_KERNEL_PRIVATE
 #define SA_VALIDATE_SIGRETURN_FROM_SIGTRAMP     0x0400  /* use token to validate sigreturn was called from matching sigtramp */
-//#endif  /* BSD_KERNEL_PRIVATE */
+#endif  /* BSD_KERNEL_PRIVATE */
 
 /* the following are the only bits we support from user space, the
  * rest are for kernel use only.
@@ -511,7 +504,7 @@ typedef void (*sig_t)(int);     /* type of signal function */
 /*
  * Structure used in sigaltstack call.
  */
-//#ifdef  BSD_KERNEL_PRIVATE
+#ifdef  BSD_KERNEL_PRIVATE
 
 struct  user32_sigaltstack {
 	user32_addr_t   ss_sp;          /* signal stack base */
@@ -531,7 +524,7 @@ struct  kern_sigaltstack {
 	int             ss_flags;       /* SA_DISABLE and/or SA_ONSTACK */
 };
 
-//#endif  /* BSD_KERNEL_PRIVATE */
+#endif  /* BSD_KERNEL_PRIVATE */
 
 #define SS_ONSTACK      0x0001  /* take signal on signal stack */
 #define SS_DISABLE      0x0004  /* disable taking signals on alternate stack */
@@ -574,7 +567,7 @@ struct  sigstack {
  */
 #define sigmask(m)      (1 << ((m)-1))
 
-//#ifdef  KERNEL_PRIVATE
+#ifdef  KERNEL_PRIVATE
 /*
  *	signals delivered on a per-thread basis.
  */
@@ -596,7 +589,7 @@ struct  sigstack {
 	            sigmask(SIGTTIN)|sigmask(SIGTTOU)|\
 	            sigmask(SIGUSR1)|sigmask(SIGUSR2))
 
-//#endif  /* KERNEL_PRIVATE */
+#endif  /* KERNEL_PRIVATE */
 
 #define BADSIG          SIG_ERR
 

@@ -36,19 +36,19 @@
 #include <mach/mach_types.h>
 #include <mach/machine/vm_types.h>
 
-//#ifdef  KERNEL_PRIVATE
+#ifdef  KERNEL_PRIVATE
 
-//#ifndef MACH_KERNEL_PRIVATE
+#ifndef MACH_KERNEL_PRIVATE
 
-//struct zone;
+struct zone;
 
-//#ifndef __LP64__
-//struct wait_queue { unsigned int opaque[2]; uintptr_t opaquep[2]; };
-//#else
-//struct wait_queue { unsigned char opaque[32]; };
-//#endif
+#ifndef __LP64__
+struct wait_queue { unsigned int opaque[2]; uintptr_t opaquep[2]; };
+#else
+struct wait_queue { unsigned char opaque[32]; };
+#endif
 
-//#endif  /* MACH_KERNEL_PRIVATE */
+#endif  /* MACH_KERNEL_PRIVATE */
 
 typedef struct zone                     *zone_t;
 #define         ZONE_NULL               ((zone_t) 0)
@@ -60,7 +60,7 @@ typedef struct wait_queue               *wait_queue_t;
 typedef void *                          ipc_kobject_t;
 #define         IKO_NULL                        ((ipc_kobject_t) 0)
 
-//#endif  /* KERNEL_PRIVATE */
+#endif  /* KERNEL_PRIVATE */
 
 typedef void *event_t;          /* wait event */
 #define         NO_EVENT                        ((event_t) 0)
@@ -207,17 +207,17 @@ typedef int wait_timeout_urgency_t;
 #define TIMEOUT_NO_LEEWAY               (0ULL)
 #define TIMEOUT_WAIT_FOREVER            (0ULL)
 
-//#if defined(KERNEL_PRIVATE) || SCHED_TEST_HARNESS
+#if defined(KERNEL_PRIVATE) || SCHED_TEST_HARNESS
 
 /*
  * n.b. this is defined in thread_call.h, but in the TIMEOUT_URGENCY flags space:
  * #define THREAD_CALL_CONTINUOUS	0x100
  */
 
-//#ifdef  MACH_KERNEL_PRIVATE
+#ifdef  MACH_KERNEL_PRIVATE
 
 #include <kern/misc_protos.h>
-//typedef  struct clock                   *clock_t;
+typedef  struct clock                   *clock_t;
 
 typedef struct mig_object               *mig_object_t;
 #define MIG_OBJECT_NULL                 ((mig_object_t) 0)
@@ -234,12 +234,12 @@ typedef struct affinity_set             *affinity_set_t;
 typedef struct run_queue               *run_queue_t;
 #define RUN_QUEUE_NULL                 ((run_queue_t) 0)
 
-//#else   /* MACH_KERNEL_PRIVATE */
+#else   /* MACH_KERNEL_PRIVATE */
 
-//struct wait_queue_set;
-//struct _wait_queue_link;
+struct wait_queue_set;
+struct _wait_queue_link;
 
-//#endif  /* MACH_KERNEL_PRIVATE */
+#endif  /* MACH_KERNEL_PRIVATE */
 
 typedef struct wait_queue_set   *wait_queue_set_t;
 #define WAIT_QUEUE_SET_NULL     ((wait_queue_set_t)0)
@@ -393,6 +393,6 @@ __options_decl(cluster_shared_rsrc_type_t, uint32_t, {
 	CLUSTER_SHARED_RSRC_TYPE_NONE                   = CLUSTER_SHARED_RSRC_TYPE_COUNT,
 });
 
-//#endif  /* defined(KERNEL_PRIVATE) || SCHED_TEST_HARNESS */
+#endif  /* defined(KERNEL_PRIVATE) || SCHED_TEST_HARNESS */
 
 #endif  /* _KERN_KERN_TYPES_H_ */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2020 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -44,6 +44,8 @@
 #include <netinet/tcp.h>
 #include <mach/machine.h>
 #include <uuid/uuid.h>
+
+__BEGIN_DECLS
 
 
 #define PROC_ALL_PIDS           1
@@ -96,26 +98,6 @@ struct proc_bsdshortinfo {
 	uint32_t                pbsi_rfu;               /* reserved for future use*/
 };
 
-struct proc_uniqidentifierinfo {
-	uint8_t                 p_uuid[16];             /* UUID of the main executable */
-	uint64_t                p_uniqueid;             /* 64 bit unique identifier for process */
-	uint64_t                p_puniqueid;            /* unique identifier for process's parent */
-	int32_t                 p_idversion;            /* pid version */
-	uint32_t                p_reserve2;             /* reserved for future use */
-	uint64_t                p_reserve3;             /* reserved for future use */
-	uint64_t                p_reserve4;             /* reserved for future use */
-};
-
-
-struct proc_bsdinfowithuniqid {
-	struct proc_bsdinfo             pbsd;
-	struct proc_uniqidentifierinfo  p_uniqidentifier;
-};
-
-struct proc_archinfo {
-	cpu_type_t              p_cputype;
-	cpu_subtype_t           p_cpusubtype;
-};
 
 /* pbi_flags values */
 #define PROC_FLAG_SYSTEM        1       /*  System process */
@@ -137,18 +119,10 @@ struct proc_archinfo {
 #define PROC_FLAG_PA_SUSP       0x1000  /* The process is currently suspended due to resource starvation */
 #define PROC_FLAG_PSUGID        0x2000   /* process has set privileges since last exec */
 #define PROC_FLAG_EXEC          0x4000   /* process has called exec  */
-/* private */
-#define PROC_FLAG_DARWINBG      0x8000  /* process in darwin background */
-#define PROC_FLAG_EXT_DARWINBG  0x10000 /* process in darwin background - external enforcement */
-#define PROC_FLAG_IOS_APPLEDAEMON 0x20000       /* Process is apple daemon  */
-#define PROC_FLAG_DELAYIDLESLEEP 0x40000        /* Process is marked to delay idle sleep on disk IO */
-#define PROC_FLAG_IOS_IMPPROMOTION 0x80000      /* Process is daemon which receives importane donation  */
-#define PROC_FLAG_ADAPTIVE              0x100000         /* Process is adaptive */
-#define PROC_FLAG_ADAPTIVE_IMPORTANT    0x200000         /* Process is adaptive, and is currently important */
-#define PROC_FLAG_IMPORTANCE_DONOR   0x400000 /* Process is marked as an importance donor */
-#define PROC_FLAG_SUPPRESSED         0x800000 /* Process is suppressed */
-#define PROC_FLAG_APPLICATION 0x1000000 /* Process is an application */
-#define PROC_FLAG_IOS_APPLICATION PROC_FLAG_APPLICATION /* Process is an application */
+#ifdef  PRIVATE
+/* Additional PROC_FLAG values in proc_info_private.h */
+#endif
+
 
 struct proc_taskinfo {
 	uint64_t                pti_virtual_size;       /* virtual memory size (bytes) */
@@ -216,41 +190,43 @@ struct proc_regioninfo {
 	uint64_t                pri_size;
 };
 
-#define PROC_REGION_SUBMAP          1
-#define PROC_REGION_SHARED          2
+#define PROC_REGION_SUBMAP      1
+#define PROC_REGION_SHARED      2
 
-#define SM_COW                      1
-#define SM_PRIVATE                  2
-#define SM_EMPTY                    3
-#define SM_SHARED                   4
-#define SM_TRUESHARED               5
-#define SM_PRIVATE_ALIASED          6
-#define SM_SHARED_ALIASED           7
-#define SM_LARGE_PAGE               8
+#define SM_COW             1
+#define SM_PRIVATE         2
+#define SM_EMPTY           3
+#define SM_SHARED          4
+#define SM_TRUESHARED      5
+#define SM_PRIVATE_ALIASED 6
+#define SM_SHARED_ALIASED  7
+#define SM_LARGE_PAGE      8
 
 
 /*
  *	Thread run states (state field).
  */
 
-#define TH_STATE_RUNNING            1       /* thread is running normally */
-#define TH_STATE_STOPPED            2       /* thread is stopped */
-#define TH_STATE_WAITING            3       /* thread is waiting normally */
-#define TH_STATE_UNINTERRUPTIBLE    4       /* thread is in an uninterruptible wait */
-#define TH_STATE_HALTED             5       /* thread is halted at a clean point */
+#define TH_STATE_RUNNING        1       /* thread is running normally */
+#define TH_STATE_STOPPED        2       /* thread is stopped */
+#define TH_STATE_WAITING        3       /* thread is waiting normally */
+#define TH_STATE_UNINTERRUPTIBLE 4      /* thread is in an uninterruptible
+	                                 *  wait */
+#define TH_STATE_HALTED         5       /* thread is halted at a
+	                                 *  clean point */
 
 /*
  *	Thread flags (flags field).
  */
-#define TH_FLAGS_SWAPPED            0x1     /* thread is swapped out */
-#define TH_FLAGS_IDLE               0x2     /* thread is an idle thread */
+#define TH_FLAGS_SWAPPED        0x1     /* thread is swapped out */
+#define TH_FLAGS_IDLE           0x2     /* thread is an idle thread */
 
 
 struct proc_workqueueinfo {
-    uint32_t        pwq_nthreads;           /* total number of workqueue threads */
-    uint32_t        pwq_runthreads;         /* total number of running workqueue threads */
-    uint32_t        pwq_blockedthreads;     /* total number of blocked workqueue threads */
-    uint32_t        pwq_state;
+	uint32_t        pwq_nthreads;           /* total number of workqueue threads */
+	uint32_t        pwq_runthreads;         /* total number of running workqueue threads */
+	uint32_t        pwq_blockedthreads;     /* total number of blocked workqueue threads */
+	uint32_t        pwq_state;
 };
 
 /*
@@ -259,20 +235,32 @@ struct proc_workqueueinfo {
 #define WQ_EXCEEDED_CONSTRAINED_THREAD_LIMIT 0x1
 #define WQ_EXCEEDED_TOTAL_THREAD_LIMIT 0x2
 #define WQ_FLAGS_AVAILABLE 0x4
+/*
+ * WQ_EXCEEDED_COOPERATIVE_THREAD_LIMIT is set if wq has scheduled cooperative
+ * threads upto the cooperative thread pool limit and there is still more work
+ * pending in the cooperative pool that require a thread.
+ */
+#define WQ_EXCEEDED_COOPERATIVE_THREAD_LIMIT 0x8
+/*
+ * WQ_EXCEEDED_ACTIVE_CONSTRAINED_THREAD_LIMIT is set when wq has pending thread
+ * requests for the constrained thread pool; but, has failed the allowance check
+ * because of active thread limit.
+ */
+#define WQ_EXCEEDED_ACTIVE_CONSTRAINED_THREAD_LIMIT 0x10
 
 struct proc_fileinfo {
-    uint32_t        fi_openflags;
-    uint32_t        fi_status;
-    off_t           fi_offset;
-    int32_t         fi_type;
-    uint32_t        fi_guardflags;
+	uint32_t                fi_openflags;
+	uint32_t                fi_status;
+	off_t                   fi_offset;
+	int32_t                 fi_type;
+	uint32_t                fi_guardflags;
 };
 
 /* stats flags in proc_fileinfo */
-#define PROC_FP_SHARED                  1       /* shared by more than one fd */
-#define PROC_FP_CLEXEC                  2       /* close on exec */
-#define PROC_FP_GUARDED                 4       /* guarded fd */
-#define PROC_FP_CLFORK                  8       /* close on fork */
+#define PROC_FP_SHARED  1       /* shared by more than one fd */
+#define PROC_FP_CLEXEC  2       /* close on exec */
+#define PROC_FP_GUARDED 4       /* guarded fd */
+#define PROC_FP_CLFORK  8       /* close on fork */
 
 #define PROC_FI_GUARD_CLOSE             (1u << 0)
 #define PROC_FI_GUARD_DUP               (1u << 1)
@@ -280,88 +268,93 @@ struct proc_fileinfo {
 #define PROC_FI_GUARD_FILEPORT          (1u << 3)
 
 struct proc_exitreasonbasicinfo {
-    uint32_t       beri_namespace;
-    uint64_t       beri_code;
-    uint64_t       beri_flags;
-    uint32_t       beri_reason_buf_size;
+	uint32_t                        beri_namespace;
+	uint64_t                        beri_code;
+	uint64_t                        beri_flags;
+	uint32_t                        beri_reason_buf_size;
 } __attribute__((packed));
 
 struct proc_exitreasoninfo {
-    uint32_t        eri_namespace;
-    uint64_t        eri_code;
-    uint64_t        eri_flags;
-    uint32_t        eri_reason_buf_size;
-    uint64_t        eri_kcd_buf;
+	uint32_t                        eri_namespace;
+	uint64_t                        eri_code;
+	uint64_t                        eri_flags;
+	uint32_t                        eri_reason_buf_size;
+	uint64_t                        eri_kcd_buf;
 } __attribute__((packed));
 
 /*
  * A copy of stat64 with static sized fields.
  */
 struct vinfo_stat {
-    uint32_t        vst_dev;            /* [XSI] ID of device containing file */
-    uint16_t        vst_mode;           /* [XSI] Mode of file (see below) */
-    uint16_t        vst_nlink;          /* [XSI] Number of hard links */
-    uint64_t        vst_ino;            /* [XSI] File serial number */
-    uid_t           vst_uid;            /* [XSI] User ID of the file */
-    gid_t           vst_gid;            /* [XSI] Group ID of the file */
-    int64_t         vst_atime;          /* [XSI] Time of last access */
-    int64_t         vst_atimensec;      /* nsec of last access */
-    int64_t         vst_mtime;          /* [XSI] Last data modification time */
-    int64_t         vst_mtimensec;      /* last data modification nsec */
-    int64_t         vst_ctime;          /* [XSI] Time of last status change */
-    int64_t         vst_ctimensec;      /* nsec of last status change */
-    int64_t         vst_birthtime;      /*  File creation time(birth)  */
-    int64_t         vst_birthtimensec;  /* nsec of File creation time */
-    off_t           vst_size;           /* [XSI] file size, in bytes */
-    int64_t         vst_blocks;         /* [XSI] blocks allocated for file */
-    int32_t         vst_blksize;        /* [XSI] optimal blocksize for I/O */
-    uint32_t        vst_flags;          /* user defined flags for file */
-    uint32_t        vst_gen;            /* file generation number */
-    uint32_t        vst_rdev;           /* [XSI] Device ID */
-    int64_t         vst_qspare[2];      /* RESERVED: DO NOT USE! */
+	uint32_t        vst_dev;        /* [XSI] ID of device containing file */
+	uint16_t        vst_mode;       /* [XSI] Mode of file (see below) */
+	uint16_t        vst_nlink;      /* [XSI] Number of hard links */
+	uint64_t        vst_ino;        /* [XSI] File serial number */
+	uid_t           vst_uid;        /* [XSI] User ID of the file */
+	gid_t           vst_gid;        /* [XSI] Group ID of the file */
+	int64_t         vst_atime;      /* [XSI] Time of last access */
+	int64_t         vst_atimensec;  /* nsec of last access */
+	int64_t         vst_mtime;      /* [XSI] Last data modification time */
+	int64_t         vst_mtimensec;  /* last data modification nsec */
+	int64_t         vst_ctime;      /* [XSI] Time of last status change */
+	int64_t         vst_ctimensec;  /* nsec of last status change */
+	int64_t         vst_birthtime;  /*  File creation time(birth)  */
+	int64_t         vst_birthtimensec;      /* nsec of File creation time */
+	off_t           vst_size;       /* [XSI] file size, in bytes */
+	int64_t         vst_blocks;     /* [XSI] blocks allocated for file */
+	int32_t         vst_blksize;    /* [XSI] optimal blocksize for I/O */
+	uint32_t        vst_flags;      /* user defined flags for file */
+	uint32_t        vst_gen;        /* file generation number */
+	uint32_t        vst_rdev;       /* [XSI] Device ID */
+	int64_t         vst_qspare[2];  /* RESERVED: DO NOT USE! */
 };
 
 struct vnode_info {
-    struct vinfo_stat       vi_stat;
-    int                     vi_type;
-    int                     vi_pad;
-    fsid_t                  vi_fsid;
+	struct vinfo_stat       vi_stat;
+	int                     vi_type;
+	int                     vi_pad;
+	fsid_t                  vi_fsid;
 };
 
 struct vnode_info_path {
-    struct vnode_info       vip_vi;
-    char                    vip_path[MAXPATHLEN];   /* tail end of it  */
+	struct vnode_info       vip_vi;
+	char                    vip_path[MAXPATHLEN];   /* tail end of it  */
 };
 
 struct vnode_fdinfo {
-    struct proc_fileinfo    pfi;
-    struct vnode_info       pvi;
+	struct proc_fileinfo    pfi;
+	struct vnode_info       pvi;
 };
 
 struct vnode_fdinfowithpath {
-    struct proc_fileinfo    pfi;
-    struct vnode_info_path  pvip;
+	struct proc_fileinfo    pfi;
+	struct vnode_info_path  pvip;
 };
 
 struct proc_regionwithpathinfo {
-    struct proc_regioninfo  prp_prinfo;
-    struct vnode_info_path  prp_vip;
+	struct proc_regioninfo  prp_prinfo;
+	struct vnode_info_path  prp_vip;
 };
 
 struct proc_regionpath {
-    uint64_t prpo_addr;
-    uint64_t prpo_regionlength;
-    char prpo_path[MAXPATHLEN];
+	uint64_t prpo_addr;
+	uint64_t prpo_regionlength;
+	char prpo_path[MAXPATHLEN];
 };
 
 struct proc_vnodepathinfo {
-    struct vnode_info_path  pvi_cdir;
-    struct vnode_info_path  pvi_rdir;
+	struct vnode_info_path  pvi_cdir;
+	struct vnode_info_path  pvi_rdir;
 };
 
 struct proc_threadwithpathinfo {
-    struct proc_threadinfo  pt;
-    struct vnode_info_path  pvip;
+	struct proc_threadinfo  pt;
+	struct vnode_info_path  pvip;
+};
+
+struct proc_archinfo {
+	cpu_type_t              p_cputype;
+	cpu_subtype_t           p_cpusubtype;
 };
 
 /*
@@ -377,37 +370,38 @@ struct proc_threadwithpathinfo {
 #define INI_IPV6        0x2
 
 struct in4in6_addr {
-    u_int32_t               i46a_pad32[3];
-    struct in_addr          i46a_addr4;
+	u_int32_t               i46a_pad32[3];
+	struct in_addr          i46a_addr4;
 };
 
 struct in_sockinfo {
-    int                         insi_fport;             /* foreign port */
-    int                         insi_lport;             /* local port */
-    uint64_t                    insi_gencnt;            /* generation count of this instance */
-    uint32_t                    insi_flags;             /* generic IP/datagram flags */
-    uint32_t                    insi_flow;
-    uint8_t                     insi_vflag;             /* ini_IPV4 or ini_IPV6 */
-    uint8_t                     insi_ip_ttl;            /* time to live proto */
-    uint32_t                    rfu_1;                  /* reserved */
-    /* protocol dependent part */
-    union {
-        struct in4in6_addr      ina_46;
-        struct in6_addr         ina_6;
-    }                           insi_faddr;             /* foreign host table entry */
-    union {
-        struct in4in6_addr      ina_46;
-        struct in6_addr         ina_6;
-    }                           insi_laddr;             /* local host table entry */
-    struct {
-        u_char                  in4_tos;                /* type of service */
-    }                           insi_v4;
-    struct {
-        uint8_t                 in6_hlim;
-        int                     in6_cksum;
-        u_short                 in6_ifindex;
-        short                   in6_hops;
-    }                           insi_v6;
+	int                                     insi_fport;             /* foreign port */
+	int                                     insi_lport;             /* local port */
+	uint64_t                                insi_gencnt;            /* generation count of this instance */
+	uint32_t                                insi_flags;             /* generic IP/datagram flags */
+	uint32_t                                insi_flow;
+
+	uint8_t                                 insi_vflag;             /* ini_IPV4 or ini_IPV6 */
+	uint8_t                                 insi_ip_ttl;            /* time to live proto */
+	uint32_t                                rfu_1;                  /* reserved */
+	/* protocol dependent part */
+	union {
+		struct in4in6_addr      ina_46;
+		struct in6_addr         ina_6;
+	}                                       insi_faddr;             /* foreign host table entry */
+	union {
+		struct in4in6_addr      ina_46;
+		struct in6_addr         ina_6;
+	}                                       insi_laddr;             /* local host table entry */
+	struct {
+		u_char                  in4_tos;                        /* type of service */
+	}                                       insi_v4;
+	struct {
+		uint8_t                 in6_hlim;
+		int                     in6_cksum;
+		u_short                 in6_ifindex;
+		short                   in6_hops;
+	}                                       insi_v6;
 };
 
 /*
@@ -434,13 +428,13 @@ struct in_sockinfo {
 #define TSI_S_RESERVED          11      /* pseudo state: reserved */
 
 struct tcp_sockinfo {
-    struct in_sockinfo          tcpsi_ini;
-    int                         tcpsi_state;
-    int                         tcpsi_timer[TSI_T_NTIMERS];
-    int                         tcpsi_mss;
-    uint32_t                    tcpsi_flags;
-    uint32_t                    rfu_1;          /* reserved */
-    uint64_t                    tcpsi_tp;       /* opaque handle of TCP protocol control block */
+	struct in_sockinfo              tcpsi_ini;
+	int                             tcpsi_state;
+	int                             tcpsi_timer[TSI_T_NTIMERS];
+	int                             tcpsi_mss;
+	uint32_t                        tcpsi_flags;
+	uint32_t                        rfu_1;          /* reserved */
+	uint64_t                        tcpsi_tp;       /* opaque handle of TCP protocol control block */
 };
 
 /*
@@ -449,16 +443,16 @@ struct tcp_sockinfo {
 
 
 struct un_sockinfo {
-    uint64_t                    unsi_conn_so;   /* opaque handle of connected socket */
-    uint64_t                    unsi_conn_pcb;  /* opaque handle of connected protocol control block */
-    union {
-        struct sockaddr_un      ua_sun;
-        char                    ua_dummy[SOCK_MAXADDRLEN];
-    }                           unsi_addr;      /* bound address */
-    union {
-        struct sockaddr_un      ua_sun;
-        char                    ua_dummy[SOCK_MAXADDRLEN];
-    }                           unsi_caddr;     /* address of socket connected to */
+	uint64_t                                unsi_conn_so;   /* opaque handle of connected socket */
+	uint64_t                                unsi_conn_pcb;  /* opaque handle of connected protocol control block */
+	union {
+		struct sockaddr_un      ua_sun;
+		char                    ua_dummy[SOCK_MAXADDRLEN];
+	}                                       unsi_addr;      /* bound address */
+	union {
+		struct sockaddr_un      ua_sun;
+		char                    ua_dummy[SOCK_MAXADDRLEN];
+	}                                       unsi_caddr;     /* address of socket connected to */
 };
 
 /*
@@ -466,9 +460,9 @@ struct un_sockinfo {
  */
 
 struct ndrv_info {
-    uint32_t        ndrvsi_if_family;
-    uint32_t        ndrvsi_if_unit;
-    char            ndrvsi_if_name[IF_NAMESIZE];
+	uint32_t        ndrvsi_if_family;
+	uint32_t        ndrvsi_if_unit;
+	char            ndrvsi_if_name[IF_NAMESIZE];
 };
 
 /*
@@ -476,9 +470,9 @@ struct ndrv_info {
  */
 
 struct kern_event_info {
-    uint32_t        kesi_vendor_code_filter;
-    uint32_t        kesi_class_filter;
-    uint32_t        kesi_subclass_filter;
+	uint32_t        kesi_vendor_code_filter;
+	uint32_t        kesi_class_filter;
+	uint32_t        kesi_subclass_filter;
 };
 
 /*
@@ -500,10 +494,10 @@ struct kern_ctl_info {
  */
 
 struct vsock_sockinfo {
-    uint32_t        local_cid;
-    uint32_t        local_port;
-    uint32_t        remote_cid;
-    uint32_t        remote_port;
+	uint32_t        local_cid;
+	uint32_t        local_port;
+	uint32_t        remote_cid;
+	uint32_t        remote_port;
 };
 
 /* soi_state */
@@ -524,141 +518,146 @@ struct vsock_sockinfo {
 #define SOI_S_DRAINING          0x4000  /* close waiting for blocked system calls to drain */
 
 struct sockbuf_info {
-    uint32_t                sbi_cc;
-    uint32_t                sbi_hiwat;                      /* SO_RCVBUF, SO_SNDBUF */
-    uint32_t                sbi_mbcnt;
-    uint32_t                sbi_mbmax;
-    uint32_t                sbi_lowat;
-    short                   sbi_flags;
-    short                   sbi_timeo;
+	uint32_t                sbi_cc;
+	uint32_t                sbi_hiwat;                      /* SO_RCVBUF, SO_SNDBUF */
+	uint32_t                sbi_mbcnt;
+	uint32_t                sbi_mbmax;
+	uint32_t                sbi_lowat;
+	short                   sbi_flags;
+	short                   sbi_timeo;
 };
 
 enum {
-    SOCKINFO_GENERIC        = 0,
-    SOCKINFO_IN             = 1,
-    SOCKINFO_TCP            = 2,
-    SOCKINFO_UN             = 3,
-    SOCKINFO_NDRV           = 4,
-    SOCKINFO_KERN_EVENT     = 5,
-    SOCKINFO_KERN_CTL       = 6,
-    SOCKINFO_VSOCK          = 7,
+	SOCKINFO_GENERIC        = 0,
+	SOCKINFO_IN             = 1,
+	SOCKINFO_TCP            = 2,
+	SOCKINFO_UN             = 3,
+	SOCKINFO_NDRV           = 4,
+	SOCKINFO_KERN_EVENT     = 5,
+	SOCKINFO_KERN_CTL       = 6,
+	SOCKINFO_VSOCK          = 7,
 };
 
 struct socket_info {
-    struct vinfo_stat                       soi_stat;
-    uint64_t                                soi_so;                /* opaque handle of socket */
-    uint64_t                                soi_pcb;               /* opaque handle of protocol control block */
-    int                                     soi_type;
-    int                                     soi_protocol;
-    int                                     soi_family;
-    short                                   soi_options;
-    short                                   soi_linger;
-    short                                   soi_state;
-    short                                   soi_qlen;
-    short                                   soi_incqlen;
-    short                                   soi_qlimit;
-    short                                   soi_timeo;
-    u_short                                 soi_error;
-    uint32_t                                soi_oobmark;
-    struct sockbuf_info                     soi_rcv;
-    struct sockbuf_info                     soi_snd;
-    int                                     soi_kind;
-    uint32_t                                rfu_1;                  /* reserved */
-    union {
-        struct in_sockinfo                  pri_in;                 /* SOCKINFO_IN */
-        struct tcp_sockinfo                 pri_tcp;                /* SOCKINFO_TCP */
-        struct un_sockinfo                  pri_un;                 /* SOCKINFO_UN */
-        struct ndrv_info                    pri_ndrv;               /* SOCKINFO_NDRV */
-        struct kern_event_info              pri_kern_event;         /* SOCKINFO_KERN_EVENT */
-        struct kern_ctl_info                pri_kern_ctl;           /* SOCKINFO_KERN_CTL */
-        struct vsock_sockinfo               pri_vsock;              /* SOCKINFO_VSOCK */
-    }                                       soi_proto;
+	struct vinfo_stat                       soi_stat;
+	uint64_t                                soi_so;         /* opaque handle of socket */
+	uint64_t                                soi_pcb;        /* opaque handle of protocol control block */
+	int                                     soi_type;
+	int                                     soi_protocol;
+	int                                     soi_family;
+	short                                   soi_options;
+	short                                   soi_linger;
+	short                                   soi_state;
+	short                                   soi_qlen;
+	short                                   soi_incqlen;
+	short                                   soi_qlimit;
+	short                                   soi_timeo;
+	u_short                                 soi_error;
+	uint32_t                                soi_oobmark;
+	struct sockbuf_info                     soi_rcv;
+	struct sockbuf_info                     soi_snd;
+	int                                     soi_kind;
+	uint32_t                                rfu_1;          /* reserved */
+	union {
+		struct in_sockinfo      pri_in;                 /* SOCKINFO_IN */
+		struct tcp_sockinfo     pri_tcp;                /* SOCKINFO_TCP */
+		struct un_sockinfo      pri_un;                 /* SOCKINFO_UN */
+		struct ndrv_info        pri_ndrv;               /* SOCKINFO_NDRV */
+		struct kern_event_info  pri_kern_event;         /* SOCKINFO_KERN_EVENT */
+		struct kern_ctl_info    pri_kern_ctl;           /* SOCKINFO_KERN_CTL */
+		struct vsock_sockinfo   pri_vsock;              /* SOCKINFO_VSOCK */
+	}                                       soi_proto;
 };
 
 struct socket_fdinfo {
-    struct proc_fileinfo    pfi;
-    struct socket_info      psi;
+	struct proc_fileinfo    pfi;
+	struct socket_info      psi;
 };
 
 
 
 struct psem_info {
-    struct vinfo_stat       psem_stat;
-    char                    psem_name[MAXPATHLEN];
+	struct vinfo_stat       psem_stat;
+	char                    psem_name[MAXPATHLEN];
 };
 
 struct psem_fdinfo {
-    struct proc_fileinfo    pfi;
-    struct psem_info        pseminfo;
+	struct proc_fileinfo    pfi;
+	struct psem_info        pseminfo;
 };
 
+
+
 struct pshm_info  {
-    struct vinfo_stat       pshm_stat;
-    uint64_t                pshm_mappaddr;
-    char                    pshm_name[MAXPATHLEN];
+	struct vinfo_stat       pshm_stat;
+	uint64_t                pshm_mappaddr;
+	char                    pshm_name[MAXPATHLEN];
 };
 
 struct pshm_fdinfo {
-    struct proc_fileinfo    pfi;
-    struct pshm_info        pshminfo;
+	struct proc_fileinfo    pfi;
+	struct pshm_info        pshminfo;
 };
 
 
 struct pipe_info {
-    struct vinfo_stat       pipe_stat;
-    uint64_t                pipe_handle;
-    uint64_t                pipe_peerhandle;
-    int                     pipe_status;
-    int                     rfu_1;  /* reserved */
+	struct vinfo_stat       pipe_stat;
+	uint64_t                pipe_handle;
+	uint64_t                pipe_peerhandle;
+	int                     pipe_status;
+	int                     rfu_1;  /* reserved */
 };
 
 struct pipe_fdinfo {
-    struct proc_fileinfo    pfi;
-    struct pipe_info        pipeinfo;
+	struct proc_fileinfo    pfi;
+	struct pipe_info        pipeinfo;
 };
 
 
 struct kqueue_info {
-    struct vinfo_stat       kq_stat;
-    uint32_t                kq_state;
-    uint32_t                rfu_1;  /* reserved */
+	struct vinfo_stat       kq_stat;
+	uint32_t                kq_state;
+	uint32_t                rfu_1;  /* reserved */
 };
 
 struct kqueue_dyninfo {
-    struct kqueue_info     kqdi_info;
-    uint64_t               kqdi_servicer;
-    uint64_t               kqdi_owner;
-    uint32_t               kqdi_sync_waiters;
-    uint8_t                kqdi_sync_waiter_qos;
-    uint8_t                kqdi_async_qos;
-    uint16_t               kqdi_request_state;
-    uint8_t                kqdi_events_qos;
-    uint8_t                kqdi_pri;
-    uint8_t                kqdi_pol;
-    uint8_t                kqdi_cpupercent;
-    uint8_t                _kqdi_reserved0[4];
-    uint64_t               _kqdi_reserved1[4];
+	struct kqueue_info kqdi_info;
+	uint64_t kqdi_servicer;
+	uint64_t kqdi_owner;
+	uint32_t kqdi_sync_waiters;
+	uint8_t  kqdi_sync_waiter_qos;
+	uint8_t  kqdi_async_qos;
+	uint16_t kqdi_request_state;
+	uint8_t  kqdi_events_qos;
+	uint8_t  kqdi_pri;
+	uint8_t  kqdi_pol;
+	uint8_t  kqdi_cpupercent;
+	uint8_t  _kqdi_reserved0[4];
+	uint64_t _kqdi_reserved1[4];
 };
 
 /* keep in sync with KQ_* in sys/eventvar.h */
-#define PROC_KQUEUE_SELECT      0x01
-#define PROC_KQUEUE_SLEEP       0x02
-#define PROC_KQUEUE_32          0x08
-#define PROC_KQUEUE_64          0x10
-#define PROC_KQUEUE_QOS         0x20
+#define PROC_KQUEUE_SELECT      0x0001
+#define PROC_KQUEUE_SLEEP       0x0002
+#define PROC_KQUEUE_32          0x0008
+#define PROC_KQUEUE_64          0x0010
+#define PROC_KQUEUE_QOS         0x0020
+#ifdef PRIVATE
+/* Additional PROC_KQUEUE values in proc_info_private.h */
+#endif /* PRIVATE */
 
 struct kqueue_fdinfo {
-    struct proc_fileinfo    pfi;
-    struct kqueue_info      kqueueinfo;
+	struct proc_fileinfo    pfi;
+	struct kqueue_info      kqueueinfo;
 };
 
 struct appletalk_info {
-    struct vinfo_stat       atalk_stat;
+	struct vinfo_stat       atalk_stat;
 };
 
 struct appletalk_fdinfo {
-    struct proc_fileinfo    pfi;
-    struct appletalk_info   appletalkinfo;
+	struct proc_fileinfo    pfi;
+	struct appletalk_info   appletalkinfo;
 };
 
 typedef uint64_t proc_info_udata_t;
@@ -673,17 +672,52 @@ typedef uint64_t proc_info_udata_t;
 #define PROX_FDTYPE_PIPE        6
 #define PROX_FDTYPE_FSEVENTS    7
 #define PROX_FDTYPE_NETPOLICY   9
+#define PROX_FDTYPE_CHANNEL     10
+#define PROX_FDTYPE_NEXUS       11
 
 struct proc_fdinfo {
-    int32_t                 proc_fd;
-    uint32_t                proc_fdtype;
+	int32_t                 proc_fd;
+	uint32_t                proc_fdtype;
 };
 
 struct proc_fileportinfo {
-    uint32_t                proc_fileport;
-    uint32_t                proc_fdtype;
+	uint32_t                proc_fileport;
+	uint32_t                proc_fdtype;
 };
 
+/*
+ * Channel
+ */
+
+/* type */
+#define PROC_CHANNEL_TYPE_USER_PIPE             0
+#define PROC_CHANNEL_TYPE_KERNEL_PIPE           1
+#define PROC_CHANNEL_TYPE_NET_IF                2
+#define PROC_CHANNEL_TYPE_FLOW_SWITCH           3
+
+/* flags */
+#define PROC_CHANNEL_FLAGS_MONITOR_TX           0x1
+#define PROC_CHANNEL_FLAGS_MONITOR_RX           0x2
+#define PROC_CHANNEL_FLAGS_MONITOR_NO_COPY      0x4
+#define PROC_CHANNEL_FLAGS_EXCLUSIVE            0x10
+#define PROC_CHANNEL_FLAGS_USER_PACKET_POOL     0x20
+#define PROC_CHANNEL_FLAGS_DEFUNCT_OK           0x40
+#define PROC_CHANNEL_FLAGS_LOW_LATENCY          0x80
+#define PROC_CHANNEL_FLAGS_MONITOR                                      \
+	(PROC_CHANNEL_FLAGS_MONITOR_TX | PROC_CHANNEL_FLAGS_MONITOR_RX)
+
+struct proc_channel_info {
+	uuid_t                  chi_instance;
+	uint32_t                chi_port;
+	uint32_t                chi_type;
+	uint32_t                chi_flags;
+	uint32_t                rfu_1;/* reserved */
+};
+
+struct channel_fdinfo {
+	struct proc_fileinfo    pfi;
+	struct proc_channel_info channelinfo;
+};
 
 /* Flavors for proc_pidinfo() */
 #define PROC_PIDLISTFDS                 1
@@ -735,57 +769,12 @@ struct proc_fileportinfo {
 #define PROC_PID_RUSAGE                 16
 #define PROC_PID_RUSAGE_SIZE            0
 
-#define PROC_PIDUNIQIDENTIFIERINFO      17
-#define PROC_PIDUNIQIDENTIFIERINFO_SIZE \
-	                                (sizeof(struct proc_uniqidentifierinfo))
-
-#define PROC_PIDT_BSDINFOWITHUNIQID     18
-#define PROC_PIDT_BSDINFOWITHUNIQID_SIZE \
-	                                (sizeof(struct proc_bsdinfowithuniqid))
-
 #define PROC_PIDARCHINFO                19
-#define PROC_PIDARCHINFO_SIZE           \
-	                                (sizeof(struct proc_archinfo))
+#define PROC_PIDARCHINFO_SIZE           (sizeof(struct proc_archinfo))
 
-#define PROC_PIDCOALITIONINFO           20
-#define PROC_PIDCOALITIONINFO_SIZE      (sizeof(struct proc_pidcoalitioninfo))
-
-#define PROC_PIDNOTEEXIT                21
-#define PROC_PIDNOTEEXIT_SIZE           (sizeof(uint32_t))
-
-#define PROC_PIDREGIONPATHINFO2         22
-#define PROC_PIDREGIONPATHINFO2_SIZE    (sizeof(struct proc_regionwithpathinfo))
-
-#define PROC_PIDREGIONPATHINFO3         23
-#define PROC_PIDREGIONPATHINFO3_SIZE    (sizeof(struct proc_regionwithpathinfo))
-
-#define PROC_PIDEXITREASONINFO          24
-#define PROC_PIDEXITREASONINFO_SIZE     (sizeof(struct proc_exitreasoninfo))
-
-#define PROC_PIDEXITREASONBASICINFO     25
-#define PROC_PIDEXITREASONBASICINFOSIZE (sizeof(struct proc_exitreasonbasicinfo))
-
-#define PROC_PIDLISTUPTRS      26
-#define PROC_PIDLISTUPTRS_SIZE (sizeof(uint64_t))
-
-#define PROC_PIDLISTDYNKQUEUES      27
-#define PROC_PIDLISTDYNKQUEUES_SIZE (sizeof(kqueue_id_t))
-
-#define PROC_PIDLISTTHREADIDS           28
-#define PROC_PIDLISTTHREADIDS_SIZE      (2* sizeof(uint32_t))
-
-#define PROC_PIDVMRTFAULTINFO           29
-#define PROC_PIDVMRTFAULTINFO_SIZE (7 * sizeof(uint64_t))
-
-#define PROC_PIDPLATFORMINFO 30
-#define PROC_PIDPLATFORMINFO_SIZE (sizeof(uint32_t))
-
-#define PROC_PIDREGIONPATH              31
-#define PROC_PIDREGIONPATH_SIZE         (sizeof(struct proc_regionpath))
-
-#define PROC_PIDIPCTABLEINFO 32
-#define PROC_PIDIPCTABLEINFO_SIZE (sizeof(struct proc_ipctableinfo))
-
+#ifdef  PRIVATE
+/* Additional PROC_PID values in proc_info_private.h */
+#endif /* PRIVATE */
 /* Flavors for proc_pidfdinfo */
 
 #define PROC_PIDFDVNODEINFO             1
@@ -812,10 +801,12 @@ struct proc_fileportinfo {
 #define PROC_PIDFDATALKINFO             8
 #define PROC_PIDFDATALKINFO_SIZE        (sizeof(struct appletalk_fdinfo))
 
-#define PROC_PIDFDKQUEUE_EXTINFO        9
-#define PROC_PIDFDKQUEUE_EXTINFO_SIZE   (sizeof(struct kevent_extinfo))
-#define PROC_PIDFDKQUEUE_KNOTES_MAX     (1024 * 128)
-#define PROC_PIDDYNKQUEUES_MAX          (1024 * 128)
+#ifdef PRIVATE
+/* Additional PROC_PIDFD values in proc_info_private.h */
+#endif /* PRIVATE */
+
+#define PROC_PIDFDCHANNELINFO           10
+#define PROC_PIDFDCHANNELINFO_SIZE      (sizeof(struct channel_fdinfo))
 
 /* Flavors for proc_pidfileportinfo */
 
@@ -854,6 +845,7 @@ struct proc_fileportinfo {
 #define PROC_DIRTY_DEFER                0x4
 #define PROC_DIRTY_LAUNCH_IN_PROGRESS   0x8
 #define PROC_DIRTY_DEFER_ALWAYS         0x10
+#define PROC_DIRTY_SHUTDOWN_ON_CLEAN    0x20
 
 /* proc_get_dirty() flags */
 #define PROC_DIRTY_TRACKED              0x1
@@ -865,62 +857,10 @@ struct proc_fileportinfo {
 #define PROC_UDATA_INFO_GET             1
 #define PROC_UDATA_INFO_SET             2
 
-/* Flavors for proc_pidoriginatorinfo */
-#define PROC_PIDORIGINATOR_UUID         0x1
-#define PROC_PIDORIGINATOR_UUID_SIZE    (sizeof(uuid_t))
-
-#define PROC_PIDORIGINATOR_BGSTATE      0x2
-#define PROC_PIDORIGINATOR_BGSTATE_SIZE (sizeof(uint32_t))
-
-#define PROC_PIDORIGINATOR_PID_UUID     0x3
-#define PROC_PIDORIGINATOR_PID_UUID_SIZE (sizeof(struct proc_originatorinfo))
-
-/* Flavors for proc_listcoalitions */
-#define LISTCOALITIONS_ALL_COALS        1
-#define LISTCOALITIONS_ALL_COALS_SIZE   (sizeof(struct procinfo_coalinfo))
-
-#define LISTCOALITIONS_SINGLE_TYPE      2
-#define LISTCOALITIONS_SINGLE_TYPE_SIZE (sizeof(struct procinfo_coalinfo))
-
-/* reasons for proc_can_use_foreground_hw */
-#define PROC_FGHW_OK                     0 /* pid may use foreground HW */
-#define PROC_FGHW_DAEMON_OK              1
-#define PROC_FGHW_DAEMON_LEADER         10 /* pid is in a daemon coalition */
-#define PROC_FGHW_LEADER_NONUI          11 /* coalition leader is in a non-focal state */
-#define PROC_FGHW_LEADER_BACKGROUND     12 /* coalition leader is in a background state */
-#define PROC_FGHW_DAEMON_NO_VOUCHER     13 /* pid is a daemon with no adopted voucher */
-#define PROC_FGHW_NO_VOUCHER_ATTR       14 /* pid has adopted a voucher with no bank/originator attribute */
-#define PROC_FGHW_NO_ORIGINATOR         15 /* pid has adopted a voucher for a process that's gone away */
-#define PROC_FGHW_ORIGINATOR_BACKGROUND 16 /* pid has adopted a voucher for an app that's in the background */
-#define PROC_FGHW_VOUCHER_ERROR         98 /* error in voucher / originator callout */
-#define PROC_FGHW_ERROR                 99 /* syscall parameter/permissions error */
-
-/* flavors for proc_piddynkqueueinfo */
-#define PROC_PIDDYNKQUEUE_INFO         0
-#define PROC_PIDDYNKQUEUE_INFO_SIZE    (sizeof(struct kqueue_dyninfo))
-#define PROC_PIDDYNKQUEUE_EXTINFO      1
-#define PROC_PIDDYNKQUEUE_EXTINFO_SIZE (sizeof(struct kevent_extinfo))
-
-/* __proc_info() call numbers */
-#define PROC_INFO_CALL_LISTPIDS          0x1
-#define PROC_INFO_CALL_PIDINFO           0x2
-#define PROC_INFO_CALL_PIDFDINFO         0x3
-#define PROC_INFO_CALL_KERNMSGBUF        0x4
-#define PROC_INFO_CALL_SETCONTROL        0x5
-#define PROC_INFO_CALL_PIDFILEPORTINFO   0x6
-#define PROC_INFO_CALL_TERMINATE         0x7
-#define PROC_INFO_CALL_DIRTYCONTROL      0x8
-#define PROC_INFO_CALL_PIDRUSAGE         0x9
-#define PROC_INFO_CALL_PIDORIGINATORINFO 0xa
-#define PROC_INFO_CALL_LISTCOALITIONS    0xb
-#define PROC_INFO_CALL_CANUSEFGHW        0xc
-#define PROC_INFO_CALL_PIDDYNKQUEUEINFO  0xd
-#define PROC_INFO_CALL_UDATA_INFO        0xe
-
-/* __proc_info_extended_id() flags */
-#define PIF_COMPARE_IDVERSION           0x01
-#define PIF_COMPARE_UNIQUEID            0x02
-
 __END_DECLS
+
+#ifdef  PRIVATE
+#include <sys/proc_info_private.h>
+#endif
 
 #endif /*_SYS_PROC_INFO_H */

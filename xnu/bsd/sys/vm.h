@@ -71,14 +71,14 @@
 #include <sys/appleapiopts.h>
 #include <sys/cdefs.h>
 
-//#ifdef BSD_KERNEL_PRIVATE
+#ifdef BSD_KERNEL_PRIVATE
 
 /* Machine specific config stuff */
-//#if     defined(KERNEL) && !defined(MACH_USER_API)
+#if     defined(KERNEL) && !defined(MACH_USER_API)
 #include <sys/vmmeter.h>
 #include <sys/queue.h>
 #include <mach/vm_param.h>
-//#endif
+#endif
 
 /*
  * Shareable process virtual address space.
@@ -100,7 +100,7 @@ struct vmspace {
 	caddr_t vm_maxsaddr;    /* user VA at max stack growth */
 };
 
-//#ifdef KERNEL
+#ifdef KERNEL
 /* LP64 version of vmspace.  all pointers
  * grow when we're dealing with a 64-bit process.
  * WARNING - keep in sync with vmspace
@@ -131,32 +131,32 @@ struct user_vmspace {
 	user_addr_t vm_maxsaddr;        /* user VA at max stack growth */
 };
 
-//#endif /* KERNEL */
+#endif /* KERNEL */
 
 #include <kern/thread.h>
 
-//#else /* BSD_KERNEL_PRIVATE */
+#else /* BSD_KERNEL_PRIVATE */
 
-//#include <sys/_types/_caddr_t.h> /* caddr_t */
-//#include <sys/_types/_int32_t.h> /* int32_t */
+#include <sys/_types/_caddr_t.h> /* caddr_t */
+#include <sys/_types/_int32_t.h> /* int32_t */
 
 /* just to keep kinfo_proc happy */
 /* NOTE: Pointer fields are size variant for LP64 */
-//struct vmspace {
-//	int32_t dummy;
-//	caddr_t dummy2;
-//	int32_t dummy3[5];
-//	caddr_t dummy4[3];
-//};
+struct vmspace {
+	int32_t dummy;
+	caddr_t dummy2;
+	int32_t dummy3[5];
+	caddr_t dummy4[3];
+};
 
-//#endif /* BSD_KERNEL_PRIVATE */
+#endif /* BSD_KERNEL_PRIVATE */
 
-//#ifdef KERNEL
+#ifdef KERNEL
 
 __BEGIN_DECLS
 struct proc *current_proc(void);
 __END_DECLS
 
-//#endif /* KERNEL */
+#endif /* KERNEL */
 
 #endif /* _SYS_VM_H */

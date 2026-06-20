@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -53,10 +53,28 @@
  * any improvements or extensions that they make and grant Carnegie Mellon
  * the rights to redistribute these changes.
  */
+
 /*
  */
-#ifndef I386_PIO_H
-#define I386_PIO_H
-#include <mach_assert.h>
-#include <architecture/i386/pio.h>
-#endif /* I386_PIO_H */
+
+/*
+ *	Machine-dependent definitions for cpu identification.
+ *
+ */
+#ifdef  KERNEL_PRIVATE
+
+#ifndef _ARM_CPU_NUMBER_H_
+#define _ARM_CPU_NUMBER_H_
+
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
+extern int      cpu_number(void);
+extern int      cpu_cluster_id(void);
+
+__END_DECLS
+
+#endif  /* _ARM_CPU_NUMBER_H_ */
+
+#endif  /* KERNEL_PRIVATE */

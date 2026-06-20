@@ -97,20 +97,20 @@ struct proc_regioninfo_internal {
 	uint64_t                pri_size;
 };
 
-//#ifdef  MACH_KERNEL_PRIVATE
+#ifdef  MACH_KERNEL_PRIVATE
 
 #define PROC_REGION_SUBMAP      1
 #define PROC_REGION_SHARED      2
 
-//extern uint32_t vnode_vid(void *vp);
+extern uint32_t vnode_vid(void *vp);
 
 #if CONFIG_IOSCHED
 extern struct vnode *vnode_mountdevvp(struct vnode *);
 #endif
 
-//extern boolean_t vnode_isonexternalstorage(void *vp);
+extern boolean_t vnode_isonexternalstorage(void *vp);
 
-//#endif /* MACH_KERNEL_PRIVATE */
+#endif /* MACH_KERNEL_PRIVATE */
 
 extern int fill_procregioninfo(task_t t, uint64_t arg, struct proc_regioninfo_internal *pinfo, uintptr_t *vp, uint32_t *vid);
 extern int fill_procregioninfo_onlymappedvnodes(task_t t, uint64_t arg, struct proc_regioninfo_internal *pinfo, uintptr_t *vp, uint32_t *vid);

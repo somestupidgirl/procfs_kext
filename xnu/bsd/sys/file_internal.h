@@ -68,7 +68,7 @@
 #include <sys/fcntl.h>
 #include <sys/unistd.h>
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 #include <sys/errno.h>
 #include <sys/queue.h>
 #include <sys/cdefs.h>
@@ -570,6 +570,6 @@ int fchdir(proc_t p, vfs_context_t ctx, int fd, bool per_thread);
 
 __END_DECLS
 
-//#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE */
 
 #endif /* !_SYS_FILE_INTERNAL_H_ */

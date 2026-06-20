@@ -68,7 +68,7 @@
 struct waitq_set;
 #ifndef KERNEL
 /* stuff that *used* to be included by user.h, or is now needed */
-//#include <errno.h>
+#include <errno.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/ucred.h>
@@ -204,8 +204,8 @@ struct uthread {
 	/* Persistent memory allocations across system calls */
 	struct _select {
 		/* bits to select on */
-		u_int32_t * XNU_PTRAUTH_SIGNED_PTR("uthread.uu_select.ibits") ibits;
-		u_int32_t * XNU_PTRAUTH_SIGNED_PTR("uthread.uu_select.obits") obits;
+		u_int32_t * ibits;
+		u_int32_t * obits;
 		uint    nbytes; /* number of bytes in ibits and obits */
 	} uu_select;                    /* saved state for select() */
 

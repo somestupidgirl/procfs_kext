@@ -62,7 +62,7 @@
  *
  */
 
-//#ifdef  KERNEL_PRIVATE
+#ifdef  KERNEL_PRIVATE
 
 #ifndef _KERN_ZALLOC_H_
 #define _KERN_ZALLOC_H_
@@ -466,7 +466,7 @@ __options_decl(zalloc_flags_t, uint32_t, {
 	Z_ZERO          = 0x0004,
 	Z_REALLOCF      = 0x0008,
 
-//#if XNU_KERNEL_PRIVATE
+#if XNU_KERNEL_PRIVATE
 	Z_NOSOFTLIMIT   = 0x0020,
 	Z_SET_NOTEARLY = 0x0040,
 	Z_SPRAYQTN      = 0x0080,
@@ -485,7 +485,7 @@ __options_decl(zalloc_flags_t, uint32_t, {
 	Z_VM_TAG_BT_BIT = 0x1000,
 	Z_PCPU          = 0x2000,
 	Z_NOZZC         = 0x4000,
-//#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE */
 	Z_NOFAIL        = 0x8000,
 
 	/* convenient c++ spellings */
@@ -497,7 +497,7 @@ __options_decl(zalloc_flags_t, uint32_t, {
 #endif
 
 	Z_KPI_MASK             = Z_WAITOK | Z_NOWAIT | Z_NOPAGEWAIT | Z_ZERO,
-//#if XNU_KERNEL_PRIVATE
+#if XNU_KERNEL_PRIVATE
 	Z_ZERO_VM_TAG_BT_BIT   = Z_ZERO | Z_VM_TAG_BT_BIT,
 	/** used by kalloc to propagate vm tags for -zt */
 	Z_VM_TAG_MASK   = 0xffff0000,
@@ -505,7 +505,7 @@ __options_decl(zalloc_flags_t, uint32_t, {
 #define Z_VM_TAG_SHIFT        16
 #define Z_VM_TAG(fl, tag)     ((zalloc_flags_t)((fl) | ((tag) << Z_VM_TAG_SHIFT)))
 #define Z_VM_TAG_BT(fl, tag)  ((zalloc_flags_t)(Z_VM_TAG(fl, tag) | Z_VM_TAG_BT_BIT))
-//#endif
+#endif
 });
 
 /*
@@ -1112,7 +1112,7 @@ extern zone_t   zinit(
 	__attribute__((visibility("hidden"))) \
 	extern type_t *__single __zalloc__##var##__type_name
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 #pragma mark - XNU only interfaces
 
 #include <kern/cpu_number.h>
@@ -1957,7 +1957,6 @@ extern void zone_get_stats(
  * @brief
  * The callback type for the ZONE_EXHAUSTED event.
  */
-#include <kern/startup.h>
 typedef void (zone_exhausted_cb_t)(zone_id_t zid, zone_t zone, bool exhausted);
 
 /*!
@@ -2629,7 +2628,7 @@ extern void     zone_gc_trim(void);
 extern void     zone_gc_drain(void);
 
 __exported_pop
-//#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE */
 
 /*
  * This macro is currently used by AppleImage4 (rdar://83924635)
@@ -2641,4 +2640,4 @@ __ASSUME_PTR_ABI_SINGLE_END __END_DECLS
 
 #endif  /* _KERN_ZALLOC_H_ */
 
-//#endif  /* KERNEL_PRIVATE */
+#endif  /* KERNEL_PRIVATE */

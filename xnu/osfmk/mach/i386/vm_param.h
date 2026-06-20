@@ -77,23 +77,32 @@
  */
 
 /*
- *  File:   vm_param.h
- *  Author: Avadis Tevanian, Jr.
- *  Date:   1985
+ *	File:	vm_param.h
+ *	Author:	Avadis Tevanian, Jr.
+ *	Date:	1985
  *
- *  I386 machine dependent virtual memory parameters.
- *  Most of the declarations are preceeded by I386_ (or i386_)
- *  which is OK because only I386 specific code will be using
- *  them.
+ *	I386 machine dependent virtual memory parameters.
+ *	Most of the declarations are preceeded by I386_ (or i386_)
+ *	which is OK because only I386 specific code will be using
+ *	them.
  */
 
 #ifndef _MACH_I386_VM_PARAM_H_
 #define _MACH_I386_VM_PARAM_H_
 
+#if defined (__i386__) || defined (__x86_64__)
+
+#if !defined(KERNEL) && !defined(__ASSEMBLER__)
+
+#include <mach/vm_page_size.h>
+#endif
+
 #define BYTE_SIZE               8               /* byte size in bits */
 
 #define I386_PGBYTES            4096            /* bytes per 80386 page */
 #define I386_PGSHIFT            12              /* bitshift for pages */
+
+#if defined(KERNEL)
 
 #define PAGE_SIZE               I386_PGBYTES
 #define PAGE_SHIFT              I386_PGSHIFT
@@ -112,8 +121,8 @@
 #define I386_LPGMASK            (I386_LPGBYTES-1)
 
 /*
- *  Convert bytes to pages and convert pages to bytes.
- *  No rounding is used.
+ *	Convert bytes to pages and convert pages to bytes.
+ *	No rounding is used.
  */
 
 #define i386_btop(x)            ((ppnum_t)((x) >> I386_PGSHIFT))
@@ -122,22 +131,44 @@
 #define machine_ptob(x)         i386_ptob(x)
 
 /*
- *  Round off or truncate to the nearest page.  These will work
- *  for either addresses or counts.  (i.e. 1 byte rounds to 1 page
- *  bytes.
+ *	Round off or truncate to the nearest page.  These will work
+ *	for either addresses or counts.  (i.e. 1 byte rounds to 1 page
+ *	bytes.
  */
 
 #define i386_round_page(x)      ((((pmap_paddr_t)(x)) + I386_PGBYTES - 1) & \
-                                    ~(I386_PGBYTES-1))
+	                                ~(I386_PGBYTES-1))
 #define i386_trunc_page(x)      (((pmap_paddr_t)(x)) & ~(I386_PGBYTES-1))
 
+#else /* KERNEL */
 
+#if !defined(__MAC_OS_X_VERSION_MIN_REQUIRED) || (__MAC_OS_X_VERSION_MIN_REQUIRED < 101600)
+#define PAGE_SHIFT              I386_PGSHIFT
+#define PAGE_SIZE               I386_PGBYTES
+#define PAGE_MASK               (PAGE_SIZE-1)
+#else /* !defined(__MAC_OS_X_VERSION_MIN_REQUIRED) || (__MAC_OS_X_VERSION_MIN_REQUIRED < 101600) */
+#define PAGE_SHIFT              vm_page_shift
+#define PAGE_SIZE               vm_page_size
+#define PAGE_MASK               vm_page_mask
+#endif /* !defined(__MAC_OS_X_VERSION_MIN_REQUIRED) || (__MAC_OS_X_VERSION_MIN_REQUIRED < 101600) */
+
+#define PAGE_MAX_SHIFT          14
+#define PAGE_MAX_SIZE           (1 << PAGE_MAX_SHIFT)
+#define PAGE_MAX_MASK           (PAGE_MAX_SIZE-1)
+
+#define PAGE_MIN_SHIFT          12
+#define PAGE_MIN_SIZE           (1 << PAGE_MIN_SHIFT)
+#define PAGE_MIN_MASK           (PAGE_MIN_SIZE-1)
+
+#endif /* KERNEL */
 
 #define VM_MIN_ADDRESS64        ((user_addr_t) 0x0000000000000000ULL)
 /*
- * default top of user stack... it grows down from here
+ * Default top of user stack, grows down from here.
+ * Address chosen to be 1G (3rd level page table entry) below SHARED_REGION_BASE_X86_64
+ * minus additional 1Meg (1/2 1st level page table coverage) to allow a redzone after it.
  */
-#define VM_USRSTACK64           ((user_addr_t) 0x00007FFEEFC00000ULL)
+#define VM_USRSTACK64           ((user_addr_t) (0x00007FF7C0000000ull - (1024 * 1024)))
 
 /*
  * XXX TODO: Obsolete?
@@ -165,13 +196,22 @@
 #define VM_USRSTACK32           ((vm_offset_t) 0xC0000000)      /* ASLR slides stack down by up to 1 MB */
 #define VM_MAX_ADDRESS          ((vm_offset_t) 0xFFE00000)
 
+
+#ifdef  KERNEL_PRIVATE
+
+#define TEST_PAGE_SIZE_16K      FALSE
+#define TEST_PAGE_SIZE_4K       TRUE
+
+/* Kernel-wide values */
+#define KB              (1024ULL)
+#define MB              (1024*KB)
+#define GB              (1024*MB)
+
 /*
- * XXX
- * The kernel max VM address is limited to 0xFF3FFFFF for now because
- * some data structures are explicitly allocated at 0xFF400000 without
- * VM's knowledge (see osfmk/i386/locore.s for the allocation of PTmap and co.).
- * We can't let VM allocate memory from there.
+ * Maximum physical memory supported.
  */
+#define K64_MAXMEM      (2048*GB)
+#define KERNEL_MAXMEM   K64_MAXMEM
 
 /*
  * +-----------------------+--------+--------+------------------------+
@@ -193,13 +233,101 @@
 #define KEXT_ALLOC_BASE(x)              ((x) - KEXT_ALLOC_MAX_OFFSET)
 #define KEXT_ALLOC_SIZE(x)              (KEXT_ALLOC_MAX_OFFSET - (x))
 
+#define VM_USER_STRIP_PTR(_v) (_v)
 #define VM_KERNEL_STRIP_PTR(_v) (_v)
+#define VM_KERNEL_STRIP_UPTR(_v) (_v)
 
 #define VM_KERNEL_ADDRESS(va) \
-    (((vm_address_t)(va) >= VM_MIN_KERNEL_AND_KEXT_ADDRESS) && \
-    ((vm_address_t)(va)  <= VM_MAX_KERNEL_ADDRESS))
+	(((vm_address_t)(va) >= VM_MIN_KERNEL_AND_KEXT_ADDRESS) && \
+	((vm_address_t)(va)  <= VM_MAX_KERNEL_ADDRESS))
 
 #define VM_MAP_MIN_ADDRESS      MACH_VM_MIN_ADDRESS
 #define VM_MAP_MAX_ADDRESS      MACH_VM_MAX_ADDRESS
+
+/* FIXME  - always leave like this? */
+#if KASAN
+/* Increase the stack sizes to account for the redzones that get added to every
+ * stack object. */
+# define INTSTACK_SIZE (I386_PGBYTES*4*4)
+# define KERNEL_STACK_SIZE (I386_PGBYTES*4*4)
+#elif DEBUG
+# define INTSTACK_SIZE (I386_PGBYTES*4)
+# define KERNEL_STACK_SIZE (I386_PGBYTES*6)
+#else
+/*
+ * KERNEL_STACK_MULTIPLIER can be defined externally to get a larger
+ * kernel stack size. For example, adding "-DKERNEL_STACK_MULTIPLIER=2"
+ * helps avoid kernel stack overflows when compiling with "-O0".
+ */
+#ifndef KERNEL_STACK_MULTIPLIER
+#define KERNEL_STACK_MULTIPLIER (1)
+#endif /* KERNEL_STACK_MULTIPLIER */
+# define INTSTACK_SIZE (I386_PGBYTES*4)
+# define KERNEL_STACK_SIZE (I386_PGBYTES*4*KERNEL_STACK_MULTIPLIER)
+#endif
+
+#ifdef  MACH_KERNEL_PRIVATE
+
+/* For implementing legacy 32-bit interfaces */
+#define VM32_SUPPORT                    1
+#define VM32_MIN_ADDRESS                ((vm32_offset_t) 0)
+#define VM32_MAX_ADDRESS                ((vm32_offset_t) (VM_MAX_PAGE_ADDRESS & 0xFFFFFFFF))
+
+/*
+ * kalloc() parameters:
+ *
+ * Historically kalloc's underlying zones were power-of-2 sizes, with a
+ * KALLOC_MINSIZE of 16 bytes.  The allocator ensured that
+ * (sizeof == alignof) >= 16 for all kalloc allocations.
+ *
+ * Today kalloc may use zones with intermediate sizes, constrained by
+ * KALLOC_MINSIZE and a minimum alignment, expressed by KALLOC_LOG2_MINALIGN.
+ *
+ * The common alignment for LP64 is for longs and pointers i.e. 8 bytes.
+ */
+#define KALLOC_MINSIZE          16      /* minimum allocation size */
+#define KALLOC_LOG2_MINALIGN    4       /* log2 minimum alignment */
+
+#define LINEAR_KERNEL_ADDRESS   ((vm_offset_t) 0x00000000)
+
+#define VM_MIN_KERNEL_LOADED_ADDRESS    ((vm_offset_t) 0xFFFFFF8000000000UL)
+#define VM_MAX_KERNEL_LOADED_ADDRESS    ((vm_offset_t) 0xFFFFFF801FFFFFFFUL)
+
+/*
+ *	Conversion between 80386 pages and VM pages
+ */
+
+#define trunc_i386_to_vm(p)     (atop(trunc_page(i386_ptob(p))))
+#define round_i386_to_vm(p)     (atop(round_page(i386_ptob(p))))
+#define vm_to_i386(p)           (i386_btop(ptoa(p)))
+
+#define PMAP_SET_CACHE_ATTR(mem, object, cache_attr, batch_pmap_op)     \
+	MACRO_BEGIN                                                     \
+	        pmap_set_cache_attributes(VM_PAGE_GET_PHYS_PAGE(mem), (cache_attr));    \
+	        (object)->set_cache_attr = TRUE;                                \
+	        (void) batch_pmap_op;                                   \
+	MACRO_END
+
+#define PMAP_BATCH_SET_CACHE_ATTR(object, user_page_list, cache_attr, num_pages, batch_pmap_op) \
+	MACRO_BEGIN                                                     \
+	(void) user_page_list;                                          \
+	(void) num_pages;                                               \
+	(void) batch_pmap_op;                                           \
+	MACRO_END
+
+#define IS_USERADDR64_CANONICAL(addr)                   \
+	((addr) < (VM_MAX_USER_PAGE_ADDRESS))
+
+#endif  /* MACH_KERNEL_PRIVATE */
+
+#ifdef XNU_KERNEL_PRIVATE
+
+#define ML_ADDRPERM(addr, slide) ((addr) + (slide))
+
+#endif /* XNU_KERNEL_PRIVATE */
+
+#endif  /* KERNEL_PRIVATE */
+
+#endif /* defined (__i386__) || defined (__x86_64__) */
 
 #endif  /* _MACH_I386_VM_PARAM_H_ */

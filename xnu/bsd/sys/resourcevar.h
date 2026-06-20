@@ -67,10 +67,10 @@
 #include <sys/appleapiopts.h>
 #include <sys/resource.h>
 #include <sys/_types/_caddr_t.h>
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 #include <kern/smr_types.h>
 #include <os/refcnt.h>
-//#endif
+#endif
 
 /*
  * Kernel per-process accounting / statistics
@@ -91,7 +91,7 @@ struct pstats {
 	} p_prof;
 
 	uint64_t ps_start;              /* starting time ; compat only */
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 	struct  rusage_info_child ri_child;     /* (PL) sum of additional stats for reaped children (proc_pid_rusage) */
 	struct user_uprof {                         /* profile arguments */
 		struct user_uprof *pr_next;  /* multiple prof buffers allowed */
@@ -102,10 +102,10 @@ struct pstats {
 		user_ulong_t    pr_addr;        /* temp storage for addr until AST */
 		user_ulong_t    pr_ticks;       /* temp storage for ticks until AST */
 	} user_p_prof;
-//#endif // XNU_KERNEL_PRIVATE
+#endif // XNU_KERNEL_PRIVATE
 };
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 #pragma GCC visibility push(hidden)
 /*
  * Kernel shareable process resource limits:
@@ -139,5 +139,5 @@ int iopolicysys_vfs_materialize_dataless_files(struct proc *p, int cmd, int scop
     int policy, struct _iopol_param_t *iop_param);
 
 #pragma GCC visibility pop
-//#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE */
 #endif  /* !_SYS_RESOURCEVAR_H_ */

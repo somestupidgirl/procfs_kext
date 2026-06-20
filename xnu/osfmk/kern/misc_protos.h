@@ -56,13 +56,11 @@
 #endif  /* MAX */
 
 /* Set a bit in a bit array */
-#undef setbit
 extern void setbit(
 	int             which,
 	int             *bitmap);
 
 /* Clear a bit in a bit array */
-#undef clrbit
 extern void clrbit(
 	int             which,
 	int             *bitmap);
@@ -146,11 +144,11 @@ extern int copyout_atomic64(
 	user_addr_t         user_addr);
 
 /* Move a NUL-terminated string from a user space to kernel space */
-//extern int copyinstr(
-//	const user_addr_t   user_addr,
-//	char                *kernel_addr,
-//	vm_size_t           max,
-//	vm_size_t           *actual);
+extern int copyinstr(
+	const user_addr_t   user_addr,
+	char                *kernel_addr,
+	vm_size_t           max,
+	vm_size_t           *actual);
 
 /* Move arbitrarily-aligned data from a user space to kernel space */
 extern int copyinmsg(
@@ -176,16 +174,16 @@ extern integer_t sprintf(char *buf, const char *fmt, ...) __printflike(2, 3) __d
 extern int printf(const char *format, ...) __printflike(1, 2);
 extern int vprintf(const char *format, va_list ap) __printflike(1, 0);
 
-//#if KERNEL_PRIVATE
+#if KERNEL_PRIVATE
 int     _consume_printf_args(int, ...);
-//#endif
+#endif
 
 #if CONFIG_NO_PRINTF_STRINGS
-//#if KERNEL_PRIVATE
+#if KERNEL_PRIVATE
 #define printf(x, ...)  _consume_printf_args( 0, ## __VA_ARGS__ )
-//#else
-//#define printf(x, ...)  do {} while (0)
-//#endif
+#else
+#define printf(x, ...)  do {} while (0)
+#endif
 #endif
 
 extern int paniclog_append_noflush(const char *format, ...) __printflike(1, 2);

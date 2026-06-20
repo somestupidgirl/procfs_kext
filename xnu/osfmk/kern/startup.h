@@ -29,7 +29,7 @@
  * @OSF_COPYRIGHT@
  */
 
-//#ifdef  XNU_KERNEL_PRIVATE
+#ifdef  XNU_KERNEL_PRIVATE
 
 #ifndef _KERN_STARTUP_H_
 #define _KERN_STARTUP_H_
@@ -938,28 +938,28 @@ extern void event_register_handler(struct event_hdr *event_hdr);
 	__STARTUP_ARG(name, lno, EVENT, STARTUP_RANK_FIRST,                     \
 	    event_register_handler, &name##_event_##lno.evt_link)
 
-//#ifdef  MACH_BSD
+#ifdef  MACH_BSD
 
 /* BSD subsystem initialization */
 extern void bsd_init(void);
 
 extern int serverperfmode;
 
-//#if defined(XNU_TARGET_OS_OSX)
+#if defined(XNU_TARGET_OS_OSX)
 static inline bool
 kernel_is_macos_or_server(void)
 {
 	return true;
 }
-//#else /* XNU_TARGET_OS_OSX */
-//static inline bool
-//kernel_is_macos_or_server(void)
-//{
-//	return serverperfmode != 0;
-//}
-//#endif /* XNU_TARGET_OS_OSX */
+#else /* XNU_TARGET_OS_OSX */
+static inline bool
+kernel_is_macos_or_server(void)
+{
+	return serverperfmode != 0;
+}
+#endif /* XNU_TARGET_OS_OSX */
 
-//#endif  /* MACH_BSD */
+#endif  /* MACH_BSD */
 
 __exported_pop
 
@@ -967,4 +967,4 @@ __END_DECLS
 
 #endif  /* _KERN_STARTUP_H_ */
 
-//#endif  /* XNU_KERNEL_PRIVATE */
+#endif  /* XNU_KERNEL_PRIVATE */

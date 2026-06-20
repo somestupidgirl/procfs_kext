@@ -71,12 +71,12 @@
 #define _SYS_MOUNT_INTERNAL_H_
 
 #include <sys/appleapiopts.h>
-//#ifndef KERNEL
-//#include <sys/ucred.h>
-//#else
+#ifndef KERNEL
+#include <sys/ucred.h>
+#else
 #include <sys/kernel_types.h>
 #include <sys/namei.h>
-//#endif
+#endif
 #include <sys/_types/_graftdmg_un.h>
 #include <sys/queue.h>
 #include <sys/lock.h>
@@ -109,12 +109,9 @@ struct mount {
 	TAILQ_ENTRY(mount)      mnt_list;                   /* mount list */
 	int32_t                 mnt_count;                  /* reference on the mount */
 	lck_mtx_t               mnt_mlock;                  /* mutex that protects mount point */
-	//const struct vfsops     * XNU_PTRAUTH_SIGNED_PTR("mount.vfsops") mnt_op;        /* operations on fs */
-	const struct vfsops     *mnt_op;        /* operations on fs */
-	//struct vfstable         * XNU_PTRAUTH_SIGNED_PTR("mount.mnt_vtable") mnt_vtable;        /* configuration info */
-	struct vfstable         *mnt_vtable;        /* configuration info */
-	//struct vnode            * XNU_PTRAUTH_SIGNED_PTR("mount.mnt_vnodecovered") mnt_vnodecovered;    /* vnode we mounted on */
-	struct vnode            *mnt_vnodecovered;    /* vnode we mounted on */
+	const struct vfsops     *mnt_op;                    /* operations on fs */
+	struct vfstable         *mnt_vtable;                /* configuration info */
+	struct vnode            *mnt_vnodecovered;          /* vnode we mounted on */
 	struct vnodelst         mnt_vnodelist;              /* list of vnodes this mount */
 	struct vnodelst         mnt_workerqueue;            /* list of vnodes this mount */
 	struct vnodelst         mnt_newvnodes;              /* list of vnodes this mount */
@@ -235,7 +232,7 @@ struct mount {
 #define MNT_IOSCALE(ioqueue_depth)      ((ioqueue_depth + (MNT_DEFAULT_IOQUEUE_DEPTH - 1)) / MNT_DEFAULT_IOQUEUE_DEPTH)
 
 /* mount point to which dead vps point to */
-//extern struct mount * const dead_mountp;
+extern struct mount * const dead_mountp;
 
 /*
  * Internal filesystem control flags stored in mnt_kern_flag.
@@ -337,11 +334,11 @@ struct vfstable {
 #define VFC_VFSVNOP_NOUPDATEID_RENAME   0x8000
 #define VFC_VFSVNOP_SECLUDE_RENAME      0x10000
 
-//extern int maxvfstypenum;               /* highest defined filesystem type */
-//extern struct vfstable  *vfsconf;       /* head of list of filesystem types */
-//extern const int maxvfsslots;           /* Maximum statically allocated slots available to be used */
-//extern int numused_vfsslots;    /* number of statically allocated slots already used */
-//extern int numregistered_fses;  /* number of total registered filesystems */
+extern int maxvfstypenum;               /* highest defined filesystem type */
+extern struct vfstable  *vfsconf;       /* head of list of filesystem types */
+extern const int maxvfsslots;           /* Maximum statically allocated slots available to be used */
+extern int numused_vfsslots;    /* number of statically allocated slots already used */
+extern int numregistered_fses;  /* number of total registered filesystems */
 
 /* the following two are xnu private */
 struct vfstable *       vfstable_add(struct     vfstable *);
@@ -424,7 +421,6 @@ struct user32_statfs {
 
 __BEGIN_DECLS
 
-/*
 extern uint32_t mount_generation;
 extern TAILQ_HEAD(mntlist, mount) mountlist;
 void mount_list_lock(void);
@@ -441,7 +437,6 @@ void mount_unlock_renames(mount_t);
 void mount_ref(mount_t, int);
 void mount_drop(mount_t, int);
 int  mount_refdrain(mount_t);
-*/
 
 /* vfs_rootmountalloc should be kept as a private api */
 errno_t vfs_rootmountalloc(const char *, const char *, mount_t *mpp);
@@ -504,26 +499,25 @@ void mount_iterreset(mount_t);
  * NOTE: kernel_mount() does not force MNT_NOSUID, MNT_NOEXEC, or MNT_NODEC for non-privileged
  * mounting credentials, as the mount(2) system call does.
  */
-//int kernel_mount(const char *, vnode_t, vnode_t, const char *, void *, size_t, int, uint32_t, vfs_context_t);
+int kernel_mount(const char *, vnode_t, vnode_t, const char *, void *, size_t, int, uint32_t, vfs_context_t);
 
 /* Throttled I/O API.  KPI/SPI is in systm.h. */
 
-//int  throttle_get_io_policy(struct uthread **ut);
-//int  throttle_get_passive_io_policy(struct uthread **ut);
-//void *throttle_info_update_by_mount(mount_t mp);
-//void rethrottle_thread(uthread_t ut);
+int  throttle_get_io_policy(struct uthread **ut);
+int  throttle_get_passive_io_policy(struct uthread **ut);
+void *throttle_info_update_by_mount(mount_t mp);
+void rethrottle_thread(uthread_t ut);
 
 
 /* throttled I/O helper function */
 /* convert the lowest bit to a device index */
-//extern int num_trailing_0(uint64_t n);
+extern int num_trailing_0(uint64_t n);
 
 /* sync lock */
-//extern int sync_timeout_seconds;
+extern int sync_timeout_seconds;
 
-//KALLOC_TYPE_DECLARE(mount_zone);
+KALLOC_TYPE_DECLARE(mount_zone);
 
 __END_DECLS
 
 #endif /* !_SYS_MOUNT_INTERNAL_H_ */
-

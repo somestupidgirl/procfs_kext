@@ -636,7 +636,7 @@ typedef uint32_t task_corpse_forking_behavior_t;
 
 #define TASK_CORPSE_FORKING_DISABLED_MEM_DIAG  0x01 /* Disable corpse forking because the task is running under a diagnostic tool */
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 
 __options_decl(task_control_port_options_t, uint32_t, {
 	TASK_CONTROL_PORT_OPTIONS_NONE     = 0x00000000,
@@ -649,7 +649,7 @@ __options_decl(task_control_port_options_t, uint32_t, {
 		TASK_CONTROL_PORT_IMMOVABLE_HARD),
 });
 
-//#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE */
 
 /*
  * Obsolete interfaces.

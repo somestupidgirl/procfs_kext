@@ -83,7 +83,7 @@
 #define NDFILE          25              /* 125 bytes */
 #define NDEXTENT        50              /* 250 bytes in 256-byte alloc. */
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 
 #include <sys/kernel_types.h>
 #include <kern/locks.h>
@@ -139,8 +139,8 @@ struct filedesc {
 #endif /* CONFIG_PROC_RESOURCE_LIMITS */
 
 	int                 fd_knlistsize;  /* (L) size of knlist */
-	int                 unused_padding;/* Due to alignment */
-	struct fileproc   **XNU_PTRAUTH_SIGNED_PTR("filedesc.fd_ofiles") fd_ofiles; /* (L) file structures for open files */
+	int                 unused_padding; /* Due to alignment */
+	struct fileproc   **fd_ofiles;      /* (L) file structures for open files */
 	char               *fd_ofileflags;  /* (L) per-process open file flags */
 
 	struct  klist      *fd_knlist;      /* (L) list of attached knotes */
@@ -458,6 +458,6 @@ void fd_check_limit_exceeded(struct filedesc *fdp);
 void kqworkloop_check_limit_exceeded(struct filedesc *fdp);
 #endif /* CONFIG_PROC_RESOURCE_LIMITS */
 
-//#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE */
 
 #endif /* !_SYS_FILEDESC_H_ */

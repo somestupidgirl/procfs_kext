@@ -91,17 +91,17 @@ typedef int32_t                 user_time_t;
 typedef int64_t                 user_off_t;
 #endif
 
-//#if KERNEL
+#if KERNEL
 #ifndef VM_UNSAFE_TYPES
 typedef user_addr_t             user_addr_ut;
 typedef user_size_t             user_size_ut;
 #endif /* VM_SAFE_TYPES */
-//#endif /* KERNEL */
+#endif /* KERNEL */
 
 #define USER_ADDR_NULL  ((user_addr_t) 0)
 #define CAST_USER_ADDR_T(a_ptr)   ((user_addr_t)((uintptr_t)(a_ptr)))
 
-//#ifdef KERNEL
+#ifdef KERNEL
 
 /*
  * These types are used when you know the word size of the target
@@ -151,7 +151,7 @@ typedef __int64_t               user32_off_t __attribute__((aligned(4)));
 typedef __int64_t               user32_off_t;
 #endif
 
-//#endif /* KERNEL */
+#endif /* KERNEL */
 
 #endif /* !_ANSI_SOURCE && (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 

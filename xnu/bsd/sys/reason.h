@@ -33,11 +33,11 @@
 
 __BEGIN_DECLS
 
-//#ifdef KERNEL_PRIVATE
+#ifdef KERNEL_PRIVATE
 
 #include <kern/kern_cdata.h>
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 #include <os/refcnt.h>
 #include <kern/locks.h>
 
@@ -91,11 +91,11 @@ int exit_with_exclave_exception(struct proc *p, exception_info_t exception, uint
 #endif
 void exit_with_mach_exception_using_ast(exception_info_t exception, uint32_t flags, bool fatal);
 
-//#else /* XNU_KERNEL_PRIVATE */
+#else /* XNU_KERNEL_PRIVATE */
 
-//typedef void * os_reason_t;
+typedef void * os_reason_t;
 
-//#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE */
 
 os_reason_t os_reason_create(uint32_t osr_namespace, uint64_t osr_code);
 int os_reason_alloc_buffer_noblock(os_reason_t cur_reason, uint32_t osr_bufsize);
@@ -196,7 +196,7 @@ void os_reason_set_description_data(os_reason_t cur_reason, uint32_t type, void 
 #define ENCODE_OSR_CODE_TO_MACH_EXCEPTION_CODE(code, osr_code) \
 	(code) = (code) | ((osr_code) & ((uint64_t)UINT32_MAX))
 
-//#ifndef KERNEL
+#ifndef KERNEL
 /*
  * abort_with_reason: Used to exit the current process and pass along
  *                    specific information about why it is being terminated.
@@ -208,8 +208,8 @@ void os_reason_set_description_data(os_reason_t cur_reason, uint32_t type, void 
  *
  * Outputs:             Does not return.
  */
-//void abort_with_reason(uint32_t reason_namespace, uint64_t reason_code, const char *reason_string, uint64_t reason_flags)
-//__attribute__((noreturn, cold));
+void abort_with_reason(uint32_t reason_namespace, uint64_t reason_code, const char *reason_string, uint64_t reason_flags)
+__attribute__((noreturn, cold));
 
 /*
  * abort_with_payload: Used to exit the current process and pass along
@@ -226,8 +226,8 @@ void os_reason_set_description_data(os_reason_t cur_reason, uint32_t type, void 
  *
  * Outputs:             Does not return.
  */
-//void abort_with_payload(uint32_t reason_namespace, uint64_t reason_code, void *payload, uint32_t payload_size, const char *reason_string,
-//    uint64_t reason_flags) __attribute__((noreturn, cold));
+void abort_with_payload(uint32_t reason_namespace, uint64_t reason_code, void *payload, uint32_t payload_size, const char *reason_string,
+    uint64_t reason_flags) __attribute__((noreturn, cold));
 
 /*
  * terminate_with_reason: Used to terminate a specific process and pass along
@@ -244,7 +244,7 @@ void os_reason_set_description_data(os_reason_t cur_reason, uint32_t type, void 
  *                      returns -1 and sets errno to EPERM if the caller is not privileged enough to kill the process with the requested PID
  *                      returns 0 otherwise
  */
-//int terminate_with_reason(int pid, uint32_t reason_namespace, uint64_t reason_code, const char *reason_string, uint64_t reason_flags);
+int terminate_with_reason(int pid, uint32_t reason_namespace, uint64_t reason_code, const char *reason_string, uint64_t reason_flags);
 
 /*
  * terminate_with_payload: Used to terminate a specific process and pass along
@@ -265,9 +265,9 @@ void os_reason_set_description_data(os_reason_t cur_reason, uint32_t type, void 
  *                      returns -1 and sets errno to EPERM if the caller is not privileged enough to kill the process with the requested PID
  *                      returns 0 otherwise
  */
-//int terminate_with_payload(int pid, uint32_t reason_namespace, uint64_t reason_code, void *payload, uint32_t payload_size,
-//    const char *reason_string, uint64_t reason_flags);
-//#endif /* KERNEL */
+int terminate_with_payload(int pid, uint32_t reason_namespace, uint64_t reason_code, void *payload, uint32_t payload_size,
+    const char *reason_string, uint64_t reason_flags);
+#endif /* KERNEL */
 
 /*
  * codesigning exit reasons

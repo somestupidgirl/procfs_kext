@@ -243,7 +243,7 @@ typedef struct {
 } vm_rtfault_record_t;
 
 #endif /* PRIVATE */
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 
 #define VM_TAG_ACTIVE_UPDATE    1
 
@@ -302,7 +302,7 @@ typedef struct vm_allocation_site vm_allocation_site_t;
 extern int vmrtf_extract(uint64_t, boolean_t, unsigned long, void *, unsigned long *);
 extern unsigned int vmrtfaultinfo_bufsz(void);
 
-//#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE */
 
 __END_DECLS
 

@@ -34,20 +34,20 @@
 #include <sys/types.h>
 #include <stdint.h>
 
-//#if defined(XNU_KERNEL_PRIVATE)
+#if defined(XNU_KERNEL_PRIVATE)
 
-//#if defined(XNU_TARGET_OS_OSX)
+#if defined(XNU_TARGET_OS_OSX)
 #define PROCESS_POLICY_OSX  1
-//#else /* defined(XNU_TARGET_OS_OSX) */
-//#define PROCESS_POLICY_OSX  0
-//#endif /* defined(XNU_TARGET_OS_OSX) */
+#else /* defined(XNU_TARGET_OS_OSX) */
+#define PROCESS_POLICY_OSX  0
+#endif /* defined(XNU_TARGET_OS_OSX) */
 
-//#else /* defined(XNU_KERNEL_PRIVATE) */
+#else /* defined(XNU_KERNEL_PRIVATE) */
 
-//#include <TargetConditionals.h>
+#include <TargetConditionals.h>
 
-//#define PROCESS_POLICY_OSX !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
-//#endif /* defined(XNU_KERNEL_PRIVATE) */
+#define PROCESS_POLICY_OSX !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+#endif /* defined(XNU_KERNEL_PRIVATE) */
 
 __BEGIN_DECLS
 

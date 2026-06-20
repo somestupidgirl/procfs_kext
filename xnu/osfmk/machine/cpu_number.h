@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -25,21 +25,19 @@
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
-#ifndef _MACHINE_DISKLABEL_H_
-#define _MACHINE_DISKLABEL_H_
+#ifdef  KERNEL_PRIVATE
 
-#include <sys/appleapiopts.h>
+#ifndef _MACHINE_CPU_NUMBER_H
+#define _MACHINE_CPU_NUMBER_H
 
-#ifdef __APPLE_API_OBSOLETE
-#define LABELSECTOR     (1024 / DEV_BSIZE)      /* sector containing label */
-#define LABELOFFSET     0                       /* offset of label in sector */
-#define MAXPARTITIONS   8                       /* number of partitions */
-#define RAW_PART        2                       /* raw partition: xx?c */
+#if defined (__i386__) || defined (__x86_64__)
+#include "i386/cpu_number.h"
+#elif defined (__arm__) || defined (__arm64__)
+#include "arm/cpu_number.h"
+#else
+#error architecture not supported
+#endif
 
-/* Just a dummy */
-struct cpu_disklabel {
-	int     cd_dummy;                       /* must have one element. */
-};
-#endif /* __APPLE_API_OBSOLETE */
+#endif /* _MACHINE_CPU_NUMBER_H */
 
-#endif /* _MACHINE_DISKLABEL_H_ */
+#endif  /* KERNEL_PRIVATE */

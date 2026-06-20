@@ -33,11 +33,11 @@
 #include <sys/cdefs.h>
 
 #include <sys/_types/_iovec_t.h>
-//#ifdef PRIVATE
+#ifdef PRIVATE
 
 __BEGIN_DECLS
 
-//#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 
 #ifndef _GUARDID_T
 #define _GUARDID_T
@@ -168,19 +168,19 @@ enum guard_vn_exception_codes {
 #define kVNG_POLICY_UPRINTMSG   (1u << 5)
 #define kVNG_POLICY_EXC_CORE    (1u << 6)
 
-//#if BSD_KERNEL_PRIVATE
+#if BSD_KERNEL_PRIVATE
 struct fileglob;
 extern int vnguard_exceptions_active(void);
 extern void vnguard_policy_init(void);
 #if CONFIG_MACF && CONFIG_VNGUARD
 extern void vng_file_label_destroy(struct fileglob *fg);
 #endif /* CONFIG_MACF && CONFIG_VNGUARD */
-//#endif /* BSD_KERNEL_PRIVATE */
+#endif /* BSD_KERNEL_PRIVATE */
 
-//#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 __END_DECLS
 
-//#endif /* PRIVATE */
+#endif /* PRIVATE */
 
 #endif /* !_SYS_GUARDED_H_ */

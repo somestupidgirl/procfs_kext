@@ -54,7 +54,7 @@
  * the rights to redistribute these changes.
  */
 
-//#ifdef  KERNEL_PRIVATE
+#ifdef  KERNEL_PRIVATE
 
 #ifndef _KERN_KALLOC_H_
 #define _KERN_KALLOC_H_
@@ -1887,4 +1887,4 @@ __ASSUME_PTR_ABI_SINGLE_END __END_DECLS
 
 #endif  /* _KERN_KALLOC_H_ */
 
-//#endif  /* KERNEL_PRIVATE */
+#endif  /* KERNEL_PRIVATE */

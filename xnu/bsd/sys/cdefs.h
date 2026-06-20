@@ -941,19 +941,19 @@
 /*
  * symbol release macros
  */
-//#ifdef KERNEL
+#ifdef KERNEL
 #define __DARWIN_ALIAS_STARTING(_mac, _iphone, x)
-//#else
-//#include <sys/_symbol_aliasing.h>
+#else
+#include <sys/_symbol_aliasing.h>
 
-//#if defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)
-//#define __DARWIN_ALIAS_STARTING(_mac, _iphone, x)   __DARWIN_ALIAS_STARTING_IPHONE_##_iphone(x)
-//#elif defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)
-//#define __DARWIN_ALIAS_STARTING(_mac, _iphone, x)   __DARWIN_ALIAS_STARTING_MAC_##_mac(x)
-//#else
-//#define __DARWIN_ALIAS_STARTING(_mac, _iphone, x)   x
-//#endif
-//#endif /* KERNEL */
+#if defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)
+#define __DARWIN_ALIAS_STARTING(_mac, _iphone, x)   __DARWIN_ALIAS_STARTING_IPHONE_##_iphone(x)
+#elif defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)
+#define __DARWIN_ALIAS_STARTING(_mac, _iphone, x)   __DARWIN_ALIAS_STARTING_MAC_##_mac(x)
+#else
+#define __DARWIN_ALIAS_STARTING(_mac, _iphone, x)   x
+#endif
+#endif /* KERNEL */
 
 
 /*
@@ -1011,13 +1011,13 @@
 #endif
 
 /* POSIX C deprecation macros */
-//#ifdef KERNEL
+#ifdef KERNEL
 #define __POSIX_C_DEPRECATED(ver)
-//#else
-//#include <sys/_posix_availability.h>
+#else
+#include <sys/_posix_availability.h>
 
-//#define __POSIX_C_DEPRECATED(ver) ___POSIX_C_DEPRECATED_STARTING_##ver
-//#endif
+#define __POSIX_C_DEPRECATED(ver) ___POSIX_C_DEPRECATED_STARTING_##ver
+#endif
 
 /*
  * Set a single macro which will always be defined and can be used to determine
@@ -1241,7 +1241,7 @@
 	                       _Pragma("clang diagnostic pop")
 #endif
 
-//#if defined(PRIVATE) || defined(KERNEL)
+#if defined(PRIVATE) || defined(KERNEL)
 /*
  * Check if __probable and __improbable have already been defined elsewhere.
  * These macros inform the compiler (and humans) about which branches are likely
@@ -1271,7 +1271,7 @@
 #define __compiler_materialize_and_prevent_reordering_on(var) \
 	__asm__ ("" : "=r"(var) : "0"(var))
 
-//#endif /* KERNEL || PRIVATE */
+#endif /* KERNEL || PRIVATE */
 
 #define __compiler_barrier() __asm__ __volatile__("" ::: "memory")
 
@@ -1316,7 +1316,7 @@
 	        typedef _type _name; enum __VA_ARGS__ __enum_closed __enum_options
 #endif
 
-//#if XNU_KERNEL_PRIVATE
+#if XNU_KERNEL_PRIVATE
 /*
  * __xnu_struct_group() can be used to declare a set of fields to be grouped
  * together logically in order to perform safer memory operations
@@ -1336,7 +1336,7 @@
 	    struct group_type __VA_ARGS__ group_name; \
 	}
 #endif
-//#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE */
 
 #if defined(KERNEL) && __has_attribute(xnu_usage_semantics)
 /*
