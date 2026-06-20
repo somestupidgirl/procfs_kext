@@ -10,6 +10,39 @@
 #ifndef procfs_h
 #define procfs_h
 
+#ifndef KERNEL
+#define KERNEL
+
+#ifndef PRIVATE
+#define PRIVATE
+
+#ifndef KERNEL_PRIVATE
+#define KERNEL_PRIVATE
+
+#ifndef XNU_KERNEL_PRIVATE
+#define XNU_KERNEL_PRIVATE
+
+#ifndef BSD_KERNEL_PRIVATE
+#define BSD_KERNEL_PRIVATE
+
+#ifndef MACH_KERNEL_PRIVATE
+#define MACH_KERNEL_PRIVATE
+
+#ifndef __APPLE_API_PRIVATE
+#define __APPLE_API_PRIVATE
+
+#ifndef _DARWIN_C_SOURCE
+#define _DARWIN_C_SOURCE
+
+#ifndef MACH_BSD
+#define MACH_BSD
+
+#ifndef XNU_TARGET_OS_OSX
+#define XNU_TARGET_OS_OSX
+
+#ifndef XNU_PLATFORM_MacOSX
+#define XNU_PLATFORM_MacOSX
+
 #pragma mark -
 #pragma mark Definitions for both user-level and kernel components
 
