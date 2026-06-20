@@ -46,6 +46,12 @@ CFLAGS+=    -I../../lib                         \
             -isystem $(USR_HEADERS)             \
             -DDEBUG
 
+# Compile the vendored XNU headers in their kernel-private configuration,
+# matching the kext build (see kext/Makefile).
+CFLAGS+=    -DKERNEL -DPRIVATE -DKERNEL_PRIVATE -DXNU_KERNEL_PRIVATE \
+            -DBSD_KERNEL_PRIVATE -DMACH_KERNEL_PRIVATE -D__APPLE_API_PRIVATE \
+            -D_DARWIN_C_SOURCE -DMACH_BSD -DXNU_TARGET_OS_OSX -DXNU_PLATFORM_MacOSX
+
 EXT =       a
 LIB =       libklookup.$(EXT)
 SRCS =      $(wildcard *.c)

@@ -31,6 +31,23 @@ CFLAGS+= -DKEXTNAME_S=\"$(KEXTNAME)\" \
 TIME_STAMP:= $(shell date +'%Y/%m/%d\ %H:%M:%S%z')
 CFLAGS+=     -D__TS__=\"$(TIME_STAMP)\"
 
+# Compile the vendored XNU headers in their kernel-private configuration.
+# These must be defined on the command line (not just in procfs.h) so they
+# are visible to every header from the very first include in each translation
+# unit; otherwise headers like <arm/types.h> are processed before the macros
+# are seen and omit definitions such as user32_t/user64_t.
+CFLAGS+= -DKERNEL \
+         -DPRIVATE \
+         -DKERNEL_PRIVATE \
+         -DXNU_KERNEL_PRIVATE \
+         -DBSD_KERNEL_PRIVATE \
+         -DMACH_KERNEL_PRIVATE \
+         -D__APPLE_API_PRIVATE \
+         -D_DARWIN_C_SOURCE \
+         -DMACH_BSD \
+         -DXNU_TARGET_OS_OSX \
+         -DXNU_PLATFORM_MacOSX
+
 # xnu/bsd is needed on all arches for headers not in the SDK (sys/exec.h etc.)
 # xnu/osfmk is only needed on ARM64 (x86_64 SDK has complete lock definitions)
 ifeq ($(findstring arm64,$(TARGET_TRIPLE)),arm64)
