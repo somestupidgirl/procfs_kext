@@ -435,7 +435,7 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
  * Linux-compatible /proc/loadavg
  */
 int
-procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 {
     int error = 0;
     int len = 0, xlen = 0;
@@ -443,30 +443,26 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     vm_offset_t pgno = trunc_page(off);
     off_t pgoff = (off - pgno);
 
-    int lastpid = 30000;
-
     char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 
-    /* averunnable and nprocs are private symbols - use sysctl instead */
-    uint32_t num_procs = 1;
-    int32_t load1 = 0, load5 = 0, load15 = 0;
-    size_t sysctl_sz = sizeof(num_procs);
-    sysctlbyname("kern.nprocs", &num_procs, &sysctl_sz, NULL, 0);
-    struct loadavg la;
-    bzero(&la, sizeof(la));
-    sysctl_sz = sizeof(la);
-    if (sysctlbyname("vm.loadavg", &la, &sysctl_sz, NULL, 0) == 0 && la.fscale > 0) {
-        load1  = (int)(la.ldavg[0] * 100 / la.fscale);
-        load5  = (int)(la.ldavg[1] * 100 / la.fscale);
-        load15 = (int)(la.ldavg[2] * 100 / la.fscale);
-    }
+    // The load-average values are unavailable on Apple Silicon: the kernel's
+    // `averunnable` global is not exported to kexts, is absent from the kernel
+    // symbol table (so it cannot be resolved dynamically either), and the
+    // vm.loadavg sysctl returns EPERM from kernel context. We therefore report
+    // 0.00 for the three averages. The process count below is real.
+    int load1 = 0, load5 = 0, load15 = 0;
+
+    int total_procs = procfs_get_process_count(vfs_context_ucred(ctx));
+    int running = 1;
+    int lastpid = 0;
+
     len = snprintf(buf, LBFSZ,
         "%d.%02d %d.%02d %d.%02d %d/%d %d\n",
         load1  / 100, load1  % 100,
         load5  / 100, load5  % 100,
         load15 / 100, load15 % 100,
-        1,
-        (int)num_procs,
+        running,
+        total_procs,
         lastpid
     );
 

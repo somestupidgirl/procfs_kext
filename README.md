@@ -27,7 +27,7 @@ Linux-compatible files and helpers:
 | Entry        | Summary                                                              |
 |--------------|---------------------------------------------------------------------|
 |`cpuinfo`     | Linux-style CPU information (text)                                   |
-|`loadavg`     | Linux-style load averages (text)                                    |
+|`loadavg`     | Linux-style load averages (text; process count is real, load values are 0 on ARM64 — see below) |
 |`partitions`  | Linux-style partition table (text; currently dummy values)          |
 |`version`     | Kernel version string (text)                                        |
 |`curproc`     | Symbolic link to the calling process's directory                    |
@@ -70,6 +70,14 @@ Verified with `test/test_features.sh`.
   - `threads/` enumeration — lists only `.`/`..` (no public KPI to enumerate a task's threads)
 
 These all depend on private kernel symbols that cannot be resolved under PAC; the relevant code paths guard the NULL symbols and degrade gracefully. On the rare configuration where those symbols are available (e.g. a kernel built with the matching private KPIs), they would populate normally.
+
+**Partially available:**
+
+  - `loadavg` — the process-count field is real, but the three load-average
+    values read 0.00 on Apple Silicon. The kernel's `averunnable` global is not
+    exported to kexts, is absent from the (stripped) kernel symbol table, and
+    the `vm.loadavg` sysctl returns `EPERM` from kernel context, so there is no
+    safe way to obtain the values.
 
 **Incomplete:**
 
@@ -147,10 +155,8 @@ through `hexdump` to read the raw contents:
  - Implement `cmdline` (reachable from a kext via `sysctl(KERN_PROCARGS2)`).
  - Revisit `fd/`, `threads/` and `tty` for Apple Silicon — they currently require private kernel symbols that are unavailable under PAC.
  - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
- - Add Finder support.
  - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
  - Implement more linux-compatible files a la NetBSD and FreeBSD.
- - Improve AMD support for the CPU-related portion.
 
 ## Issues
 Currently known issues:
