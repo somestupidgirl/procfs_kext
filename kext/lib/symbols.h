@@ -151,34 +151,6 @@ extern void                     (*_pgrp_iterate)(struct pgrp *pgrp, unsigned int
                                 _pgrp_iterate(pgrp)
 
 #pragma mark -
-#pragma mark Session
-
-/*
- *  Get session id by passed-in process.
- */
-extern struct session *         (*_proc_session)(proc_t p);
-#define                         proc_session(p) \
-                                _proc_session(p)
-/*
- * Release session.
- */
-extern void                     (*_session_rele)(struct session *sess);
-#define                         session_rele(sess) \
-                                _session_rele(sess)
-/*
- * Mutex lock for session.
- */
-extern void                     (*_session_lock)(struct session * sess);
-#define                         session_lock(sess) \
-                                _session_lock(sess)
-/*
- * Mutex unlock for session.
- */
-extern void                     (*_session_unlock)(struct session * sess);
-#define                         session_unlock(sess) \
-                                _session_unlock(sess)
-
-#pragma mark -
 #pragma mark TTY
 
 /*
@@ -300,42 +272,6 @@ extern proc_t                   (*_forkproc)(proc_t parent_proc);
 extern void                     (*_forkproc_free)(proc_t);
 #define                         forkproc_free(p) \
                                 _forkproc_free(p)
-/*
- * Filedesc table iteration: next.
- */
-extern struct fdt_iterator      (*_fdt_next)(proc_t p, int fd, bool only_settled);
-#define                         fdt_next(p, fd, only_settled) \
-                                _fdt_next(p, fd, only_settled)
-/*
- * Filedesc table iteration: previous.
- */
-extern struct fdt_iterator      (*_fdt_prev)(proc_t p, int fd, bool only_settled);
-#define                         fdt_prev(p, fd, only_settled) \
-                                _fdt_prev(p, fd, only_settled)
-/*
- * Mutex lock for process file descriptor.
- */
-extern void                     (*_proc_fdlock)(proc_t p);
-#define                         proc_fdlock(p) \
-                                _proc_fdlock(p)
-/*
- * Mutex lock assert for process file descriptor.
- */
-extern void                     (*_proc_fdlock_assert)(proc_t p, int assertflags);
-#define                         proc_fdlock_assert(p, assertflags) \
-                                _proc_fdlock_assert(p, assertflags)
-/*
- * Mutex spinlock for process file descriptor.
- */
-extern void                     (*_proc_fdlock_spin)(proc_t p);
-#define                         proc_fdlock_spin(p) \
-                                _proc_fdlock_spin(p)
-/*
- * Mutex unlock for process file descriptor.
- */
-extern void                     (*_proc_fdunlock)(proc_t p);
-#define                         proc_fdunlock(p) \
-                                _proc_fdunlock(p)
 
 #pragma mark -
 #pragma mark KPI functions from libproc.
