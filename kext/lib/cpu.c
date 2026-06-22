@@ -818,6 +818,16 @@ x86_64_bug_flags[] = {
  * ============================================================ */
 #elif defined(__arm64__) || defined(__aarch64__)
 
+#include <arm/cpuid.h>
+
+static SECURITY_READ_ONLY_LATE(arm_cpu_info_t) cpuid_cpu_info;
+
+arm_cpu_info_t *
+cpuid_info(void)
+{
+    return &cpuid_cpu_info;
+}
+
 /*
  * Apple CPU part numbers derived from hw.cpufamily values.
  * These correspond to ARM's assigned part numbers for Apple cores.

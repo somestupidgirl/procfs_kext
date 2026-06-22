@@ -43,6 +43,8 @@ extern char        *get_leaf7_ext_flags(void);
 
 #if defined(__arm64__) || defined(__aarch64__)
 
+#include <arm/cpuid.h>
+
 /*
  * These functions provide the data needed to populate
  * /proc/cpuinfo entries in Linux ARM64 format:
@@ -77,6 +79,8 @@ extern const char  *arm64_cpu_name(void);
 
 /* BogoMIPS string computed from hw.tbfrequency, e.g. "48.00" */
 extern const char  *arm64_bogomips(void);
+
+extern arm_cpu_info_t *cpuid_info(void);
 
 #endif /* __arm64__ || __aarch64__ */
 
