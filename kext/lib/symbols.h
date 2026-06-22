@@ -25,13 +25,13 @@ struct tty;
 #pragma mark -
 #pragma mark Global variables for process.
 
-extern struct proc *            (*_initproc);
-#define                         initproc \
-                                *_initproc;
+//extern struct proc *            (*_initproc);
+//#define                         initproc \
+//                                *_initproc;
 
-extern struct proclist          (*_allproc);
-#define                         allproc \
-                                *_allproc
+//extern struct proclist          (*_allproc);
+//#define                         allproc \
+//                                *_allproc
 
 //extern int                      (*_nprocs);
 //#define                         nprocs \
@@ -106,9 +106,9 @@ extern void                     (*_proc_list_unlock)(void);
 /*
  * Process iteration.
  */
-extern void                     (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
-#define                         proc_iterate(flags, co, arg, ff, fa) \
-                                _proc_iterate(flags, co, arg, ff, fa)
+//extern void                     (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+//#define                         proc_iterate(flags, co, arg, ff, fa) \
+//                                _proc_iterate(flags, co, arg, ff, fa)
 
 #pragma mark -
 #pragma mark Process Group

@@ -24,7 +24,12 @@
 #include "symbols.h"
 
 /*
- * From bsd/conf/param.c
+ * =========== From bsd/kern/bsd_init.c ===========
+ */
+proc_t XNU_PTRAUTH_SIGNED_PTR("initproc") initproc;
+
+/*
+ * =========== From bsd/conf/param.c ===========
  */
 #if !defined(__x86_64__)
 #define NPROC 1000          /* Account for DEFAULT_TOTAL_CORPSES_ALLOWED by making this slightly lower than we can. */
@@ -48,7 +53,7 @@ int hard_maxproc = HNPROC;      /* hardcoded limit */
 int nprocs = 0; /* XXX */
 
 /*
- * From bsd/kern/kern_synch.c
+ * =========== From bsd/kern/kern_synch.c ===========
  */
 extern void compute_averunnable(void *);        /* XXX */
 
@@ -79,7 +84,226 @@ compute_averunnable(void *arg)
 }
 
 /*
- * From bsd/kern/proc_info.c
+ * =========== From bsd/kern/kern_proc.c ===========
+ */
+/*
+ * The pidlist_* routines support the functions in this file that
+ * walk lists of processes applying filters and callouts to the
+ * elements of the list.
+ *
+ * A prior implementation used a single linear array, which can be
+ * tricky to allocate on large systems. This implementation creates
+ * an SLIST of modestly sized arrays of PIDS_PER_ENTRY elements.
+ *
+ * The array should be sized large enough to keep the overhead of
+ * walking the list low, but small enough that blocking allocations of
+ * pidlist_entry_t structures always succeed.
+ */
+
+#define PIDS_PER_ENTRY 1021
+
+typedef struct pidlist_entry {
+    SLIST_ENTRY(pidlist_entry) pe_link;
+    u_int pe_nused;
+    pid_t pe_pid[PIDS_PER_ENTRY];
+} pidlist_entry_t;
+
+typedef struct {
+    SLIST_HEAD(, pidlist_entry) pl_head;
+    struct pidlist_entry *pl_active;
+    u_int pl_nalloc;
+} pidlist_t;
+
+static __inline__ pidlist_t *
+pidlist_init(pidlist_t *pl)
+{
+    SLIST_INIT(&pl->pl_head);
+    pl->pl_active = NULL;
+    pl->pl_nalloc = 0;
+    return pl;
+}
+
+static u_int
+pidlist_alloc(pidlist_t *pl, u_int needed)
+{
+    while (pl->pl_nalloc < needed) {
+        pidlist_entry_t *pe = kalloc_type(pidlist_entry_t,
+            Z_WAITOK | Z_ZERO | Z_NOFAIL);
+        SLIST_INSERT_HEAD(&pl->pl_head, pe, pe_link);
+        pl->pl_nalloc += (sizeof(pe->pe_pid) / sizeof(pe->pe_pid[0]));
+    }
+    return pl->pl_nalloc;
+}
+
+static void
+pidlist_free(pidlist_t *pl)
+{
+    pidlist_entry_t *pe;
+    while (NULL != (pe = SLIST_FIRST(&pl->pl_head))) {
+        SLIST_FIRST(&pl->pl_head) = SLIST_NEXT(pe, pe_link);
+        kfree_type(pidlist_entry_t, pe);
+    }
+    pl->pl_nalloc = 0;
+}
+
+static __inline__ void
+pidlist_set_active(pidlist_t *pl)
+{
+    pl->pl_active = SLIST_FIRST(&pl->pl_head);
+    assert(pl->pl_active);
+}
+
+static void
+pidlist_add_pid(pidlist_t *pl, pid_t pid)
+{
+    pidlist_entry_t *pe = pl->pl_active;
+    if (pe->pe_nused >= sizeof(pe->pe_pid) / sizeof(pe->pe_pid[0])) {
+        if (NULL == (pe = SLIST_NEXT(pe, pe_link))) {
+            panic("pidlist allocation exhausted");
+        }
+        pl->pl_active = pe;
+    }
+    pe->pe_pid[pe->pe_nused++] = pid;
+}
+
+static __inline__ u_int
+pidlist_nalloc(const pidlist_t *pl)
+{
+    return pl->pl_nalloc;
+}
+
+struct proclist allproc = LIST_HEAD_INITIALIZER(allproc);
+struct proclist zombproc = LIST_HEAD_INITIALIZER(zombproc);
+
+void
+proc_iterate(
+    unsigned int flags,
+    proc_iterate_fn_t callout,
+    void *arg,
+    proc_iterate_fn_t filterfn,
+    void *filterarg)
+{
+    pidlist_t pid_list, *pl = pidlist_init(&pid_list);
+    u_int pid_count_available = 0;
+
+    assert(callout != NULL);
+
+    /* allocate outside of the proc_list_lock */
+    for (;;) {
+        proc_list_lock();
+        pid_count_available = nprocs + 1; /* kernel_task not counted in nprocs */
+        assert(pid_count_available > 0);
+        if (pidlist_nalloc(pl) >= pid_count_available) {
+            break;
+        }
+        proc_list_unlock();
+
+        pidlist_alloc(pl, pid_count_available);
+    }
+    pidlist_set_active(pl);
+
+    /* filter pids into the pid_list */
+
+    u_int pid_count = 0;
+    if (flags & PROC_ALLPROCLIST) {
+        proc_t p;
+        ALLPROC_FOREACH(p) {
+            /* ignore processes that are being forked */
+            if (p->p_stat == SIDL || proc_is_shadow(p)) {
+                continue;
+            }
+            if ((filterfn != NULL) && (filterfn(p, filterarg) == 0)) {
+                continue;
+            }
+            pidlist_add_pid(pl, proc_pid(p));
+            if (++pid_count >= pid_count_available) {
+                break;
+            }
+        }
+    }
+
+    if ((pid_count < pid_count_available) &&
+        (flags & PROC_ZOMBPROCLIST)) {
+        proc_t p;
+        ZOMBPROC_FOREACH(p) {
+            if (proc_is_shadow(p)) {
+                continue;
+            }
+            if ((filterfn != NULL) && (filterfn(p, filterarg) == 0)) {
+                continue;
+            }
+            pidlist_add_pid(pl, proc_pid(p));
+            if (++pid_count >= pid_count_available) {
+                break;
+            }
+        }
+    }
+
+    proc_list_unlock();
+
+    /* call callout on processes in the pid_list */
+
+    const pidlist_entry_t *pe;
+    SLIST_FOREACH(pe, &(pl->pl_head), pe_link) {
+        for (u_int i = 0; i < pe->pe_nused; i++) {
+            const pid_t pid = pe->pe_pid[i];
+            proc_t p = proc_find(pid);
+            if (p) {
+                if ((flags & PROC_NOWAITTRANS) == 0) {
+                    proc_transwait(p, 0);
+                }
+                const int callout_ret = callout(p, arg);
+
+                switch (callout_ret) {
+                case PROC_RETURNED_DONE:
+                    proc_rele(p);
+                    OS_FALLTHROUGH;
+                case PROC_CLAIMED_DONE:
+                    goto out;
+
+                case PROC_RETURNED:
+                    proc_rele(p);
+                    OS_FALLTHROUGH;
+                case PROC_CLAIMED:
+                    break;
+                default:
+                    panic("%s: callout =%d for pid %d",
+                        __func__, callout_ret, pid);
+                    break;
+                }
+            } else if (flags & PROC_ZOMBPROCLIST) {
+                p = proc_find_zombref(pid);
+                if (!p) {
+                    continue;
+                }
+                const int callout_ret = callout(p, arg);
+
+                switch (callout_ret) {
+                case PROC_RETURNED_DONE:
+                    proc_drop_zombref(p);
+                    OS_FALLTHROUGH;
+                case PROC_CLAIMED_DONE:
+                    goto out;
+
+                case PROC_RETURNED:
+                    proc_drop_zombref(p);
+                    OS_FALLTHROUGH;
+                case PROC_CLAIMED:
+                    break;
+                default:
+                    panic("%s: callout =%d for zombie %d",
+                        __func__, callout_ret, pid);
+                    break;
+                }
+            }
+        }
+    }
+out:
+    pidlist_free(pl);
+}
+
+/*
+ * =========== From bsd/kern/proc_info.c ===========
  */
 int
 proc_pidshortbsdinfo(proc_t p, struct proc_bsdshortinfo * pbsd_shortp, int zombie)
@@ -177,9 +401,6 @@ proc_pidshortbsdinfo(proc_t p, struct proc_bsdshortinfo * pbsd_shortp, int zombi
     return 0;
 }
 
-/*
- * From bsd/kern/proc_info.c
- */
 int
 proc_pidtaskinfo(proc_t p, struct proc_taskinfo * ptinfo)
 {
@@ -191,9 +412,6 @@ proc_pidtaskinfo(proc_t p, struct proc_taskinfo * ptinfo)
     return 0;
 }
 
-/*
- * From bsd/kern/proc_info.c
- */
 int
 proc_pidthreadinfo(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo)
 {
@@ -350,3 +568,4 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
 
     return (0);
 }
+

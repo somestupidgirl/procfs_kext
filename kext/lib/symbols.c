@@ -11,8 +11,8 @@
 #define SYM_INIT(sym) \
 	__typeof(_##sym) _##sym = NULL
 
-SYM_INIT(initproc);
-SYM_INIT(allproc);
+//SYM_INIT(initproc);
+//SYM_INIT(allproc);
 //SYM_INIT(nprocs);
 //SYM_INIT(maxproc);
 //SYM_INIT(maxprocperuid);
@@ -27,7 +27,7 @@ SYM_INIT(proc_lock);
 SYM_INIT(proc_unlock);
 SYM_INIT(proc_list_lock);
 SYM_INIT(proc_list_unlock);
-SYM_INIT(proc_iterate);
+//SYM_INIT(proc_iterate);
 SYM_INIT(proc_pgrp);
 SYM_INIT(pg_rele);
 SYM_INIT(pgfind);
