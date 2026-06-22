@@ -38,8 +38,6 @@ SYM_INIT(proc_session);
 SYM_INIT(session_rele);
 SYM_INIT(session_lock);
 SYM_INIT(session_unlock);
-SYM_INIT(proc_gettty);
-SYM_INIT(proc_gettty_dev);
 SYM_INIT(tty_lock);
 SYM_INIT(tty_unlock);
 SYM_INIT(forkproc);

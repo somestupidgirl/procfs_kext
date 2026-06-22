@@ -182,21 +182,9 @@ extern void                     (*_session_unlock)(struct session * sess);
 #pragma mark TTY
 
 /*
- * Copies the associated tty vnode for a given process if it exists.
- * The caller needs to decrement the iocount of the vnode.
- * Rreturns 0 on success. ENOENT if the process has no associated TTY.
- * EINVAL if arguments are NULL or vnode_getwithvid fails.
+ * proc_gettty() and proc_gettty_dev() are exported KPI on this kernel, so they
+ * are linked directly from <sys/proc.h> rather than stubbed here.
  */
-extern int                      (*_proc_gettty)(proc_t p, vnode_t *vp);
-#define                         proc_gettty(p, vp) \
-                                _proc_gettty(p, vp)
-/*
- * Populates the associated tty device for a given process if it exists.
- * Returns 0 on success or EINVAL on failure.
- */
-extern int                      (*_proc_gettty_dev)(proc_t p, dev_t *dev);
-#define                         proc_gettty_dev(p, dev) \
-                                _proc_gettty_dev(p, dev)
 /*
  * Mutex lock for TTY.
  */
