@@ -15,6 +15,8 @@
 #if defined(__x86_64__)
 #include <i386/cpuid.h>
 #include <i386/tsc.h>
+#else
+#include <arm/cpuid.h>
 #endif
 #include <libkern/libkern.h>
 #include <libkern/OSMalloc.h>
@@ -26,6 +28,8 @@
 #include <sys/malloc.h>
 #if defined (__x86_64__)
 #include <i386/proc_reg.h>
+#else
+#include <arm/proc_reg.h>
 #endif
 #include <sys/queue.h>
 #include <sys/sysctl.h>
