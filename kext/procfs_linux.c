@@ -22,14 +22,12 @@
 #include <mach/machine.h>
 #include <os/log.h>
 #include <sys/disklabel.h>
-//#include <sys/disktab.h>
 #include <sys/errno.h>
 #include <sys/malloc.h>
 #if defined (__x86_64__)
 #include <i386/proc_reg.h>
 #endif
 #include <sys/queue.h>
-//#include <sys/sdt_impl.h>
 #include <sys/sysctl.h>
 
 #include <miscfs/procfs/procfs.h>
