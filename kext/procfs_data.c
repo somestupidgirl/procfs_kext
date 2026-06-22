@@ -115,35 +115,27 @@ procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     int error = 0;
 
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    if (p != PROC_NULL) {
-        // Get the controlling terminal vnode from the process session,
-        // if it has one.
-        if (_proc_session == NULL || _session_lock == NULL ||
-            _session_unlock == NULL || _session_rele == NULL) {
-            error = ENOTSUP;
-        } else {
-            struct session *sp = proc_session(p);
-            if (sp != SESSION_NULL) {
-                session_lock(sp);
-                vnode_t cttyvp = sp->s_ttyvp;
-                session_unlock(sp);
-                if (cttyvp != NULLVP) {
-                    // Convert the vnode to a full path.
-                    int name_len = MAXPATHLEN;
-                    char name_buf[MAXPATHLEN + 1];
-                    vn_getpath(cttyvp, name_buf, &name_len);
-                    error = procfs_copy_data((const char *)&name_buf, name_len, uio);
-                } else {
-                    error = ENOTTY;
-                }
-                session_rele(sp);
-            }
-        }
-        proc_rele(p);
-    } else {
-        error = ESRCH;
+    if (p == PROC_NULL) {
+        return ESRCH;
     }
 
+    // proc_gettty() returns the controlling terminal's vnode (with an iocount
+    // that we must release) or ENOENT if the process has no controlling tty.
+    vnode_t cttyvp = NULLVP;
+    error = proc_gettty(p, &cttyvp);
+    if (error == 0 && cttyvp != NULLVP) {
+        // Convert the vnode to a full path.
+        int name_len = MAXPATHLEN;
+        char name_buf[MAXPATHLEN + 1];
+        if (vn_getpath(cttyvp, name_buf, &name_len) == 0) {
+            error = procfs_copy_data((const char *)&name_buf, name_len, uio);
+        }
+        vnode_put(cttyvp);
+    } else if (error == ENOENT) {
+        error = ENOTTY;
+    }
+
+    proc_rele(p);
     return error;
 }
 
