@@ -86,6 +86,7 @@ compute_averunnable(void *arg)
 /*
  * =========== From bsd/kern/kern_proc.c ===========
  */
+
 /*
  * The pidlist_* routines support the functions in this file that
  * walk lists of processes applying filters and callouts to the
@@ -174,133 +175,6 @@ pidlist_nalloc(const pidlist_t *pl)
 
 struct proclist allproc = LIST_HEAD_INITIALIZER(allproc);
 struct proclist zombproc = LIST_HEAD_INITIALIZER(zombproc);
-
-void
-proc_iterate(
-    unsigned int flags,
-    proc_iterate_fn_t callout,
-    void *arg,
-    proc_iterate_fn_t filterfn,
-    void *filterarg)
-{
-    pidlist_t pid_list, *pl = pidlist_init(&pid_list);
-    u_int pid_count_available = 0;
-
-    assert(callout != NULL);
-
-    /* allocate outside of the proc_list_lock */
-    for (;;) {
-        proc_list_lock();
-        pid_count_available = nprocs + 1; /* kernel_task not counted in nprocs */
-        assert(pid_count_available > 0);
-        if (pidlist_nalloc(pl) >= pid_count_available) {
-            break;
-        }
-        proc_list_unlock();
-
-        pidlist_alloc(pl, pid_count_available);
-    }
-    pidlist_set_active(pl);
-
-    /* filter pids into the pid_list */
-
-    u_int pid_count = 0;
-    if (flags & PROC_ALLPROCLIST) {
-        proc_t p;
-        ALLPROC_FOREACH(p) {
-            /* ignore processes that are being forked */
-            if (p->p_stat == SIDL || proc_is_shadow(p)) {
-                continue;
-            }
-            if ((filterfn != NULL) && (filterfn(p, filterarg) == 0)) {
-                continue;
-            }
-            pidlist_add_pid(pl, proc_pid(p));
-            if (++pid_count >= pid_count_available) {
-                break;
-            }
-        }
-    }
-
-    if ((pid_count < pid_count_available) &&
-        (flags & PROC_ZOMBPROCLIST)) {
-        proc_t p;
-        ZOMBPROC_FOREACH(p) {
-            if (proc_is_shadow(p)) {
-                continue;
-            }
-            if ((filterfn != NULL) && (filterfn(p, filterarg) == 0)) {
-                continue;
-            }
-            pidlist_add_pid(pl, proc_pid(p));
-            if (++pid_count >= pid_count_available) {
-                break;
-            }
-        }
-    }
-
-    proc_list_unlock();
-
-    /* call callout on processes in the pid_list */
-
-    const pidlist_entry_t *pe;
-    SLIST_FOREACH(pe, &(pl->pl_head), pe_link) {
-        for (u_int i = 0; i < pe->pe_nused; i++) {
-            const pid_t pid = pe->pe_pid[i];
-            proc_t p = proc_find(pid);
-            if (p) {
-                if ((flags & PROC_NOWAITTRANS) == 0) {
-                    proc_transwait(p, 0);
-                }
-                const int callout_ret = callout(p, arg);
-
-                switch (callout_ret) {
-                case PROC_RETURNED_DONE:
-                    proc_rele(p);
-                    OS_FALLTHROUGH;
-                case PROC_CLAIMED_DONE:
-                    goto out;
-
-                case PROC_RETURNED:
-                    proc_rele(p);
-                    OS_FALLTHROUGH;
-                case PROC_CLAIMED:
-                    break;
-                default:
-                    panic("%s: callout =%d for pid %d",
-                        __func__, callout_ret, pid);
-                    break;
-                }
-            } else if (flags & PROC_ZOMBPROCLIST) {
-                p = proc_find_zombref(pid);
-                if (!p) {
-                    continue;
-                }
-                const int callout_ret = callout(p, arg);
-
-                switch (callout_ret) {
-                case PROC_RETURNED_DONE:
-                    proc_drop_zombref(p);
-                    OS_FALLTHROUGH;
-                case PROC_CLAIMED_DONE:
-                    goto out;
-
-                case PROC_RETURNED:
-                    proc_drop_zombref(p);
-                    OS_FALLTHROUGH;
-                case PROC_CLAIMED:
-                    break;
-                default:
-                    panic("%s: callout =%d for zombie %d",
-                        __func__, callout_ret, pid);
-                    break;
-                }
-            }
-        }
-    }
-out:
-    pidlist_free(pl);
-}
 
 /*
  * =========== From bsd/kern/proc_info.c ===========

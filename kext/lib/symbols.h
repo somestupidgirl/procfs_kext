@@ -82,15 +82,15 @@ extern int                      (*_tsleep)(void *chan, int pri, const char *wmes
 /*
  * Mutex lock for process.
  */
-extern void                     (*_proc_lock)(void);
-#define                         proc_list_lock() \
-                                _proc_list_lock()
+extern void                     (*_proc_lock)(proc_t p);
+#define                         proc_lock(p) \
+                                _proc_lock(p)
 /*
  * Mutex unlock for process.
  */
-extern void                     (*_proc_unlock)(void);
-#define                         proc_list_unlock() \
-                                _proc_list_unlock()
+extern void                     (*_proc_unlock)(proc_t p);
+#define                         proc_unlock(p) \
+                                _proc_unlock(p)
 /*
  * Mutex lock for process list.
  */
@@ -106,9 +106,9 @@ extern void                     (*_proc_list_unlock)(void);
 /*
  * Process iteration.
  */
-//extern void                     (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
-//#define                         proc_iterate(flags, co, arg, ff, fa) \
-//                                _proc_iterate(flags, co, arg, ff, fa)
+extern void                     (*_proc_iterate)(unsigned int flags, proc_iterate_fn_t callout, void *arg, proc_iterate_fn_t filterfn, void *filterarg);
+#define                         proc_iterate(flags, co, arg, ff, fa) \
+                                _proc_iterate(flags, co, arg, ff, fa)
 
 #pragma mark -
 #pragma mark Process Group

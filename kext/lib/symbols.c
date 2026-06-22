@@ -27,7 +27,7 @@ SYM_INIT(proc_lock);
 SYM_INIT(proc_unlock);
 SYM_INIT(proc_list_lock);
 SYM_INIT(proc_list_unlock);
-//SYM_INIT(proc_iterate);
+SYM_INIT(proc_iterate);
 SYM_INIT(proc_pgrp);
 SYM_INIT(pg_rele);
 SYM_INIT(pgfind);
