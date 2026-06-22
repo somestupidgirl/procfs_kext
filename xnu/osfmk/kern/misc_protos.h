@@ -56,6 +56,12 @@
 #endif  /* MAX */
 
 /* Set a bit in a bit array */
+/*
+ * procfs: bsd <sys/param.h> defines setbit()/clrbit() as bit-array macros,
+ * which mangle these osfmk function prototypes when both are in the same TU.
+ * Suppress the osfmk prototypes; the bsd macros are what procfs uses.
+ */
+#if 0
 extern void setbit(
 	int             which,
 	int             *bitmap);
@@ -64,6 +70,7 @@ extern void setbit(
 extern void clrbit(
 	int             which,
 	int             *bitmap);
+#endif
 
 /* Find the first set bit in a bit array */
 extern int ffsbit(
@@ -144,11 +151,18 @@ extern int copyout_atomic64(
 	user_addr_t         user_addr);
 
 /* Move a NUL-terminated string from a user space to kernel space */
+/*
+ * procfs: the bsd <libkern/libkern.h> declaration of copyinstr (with a
+ * void * kernel buffer) is pulled into the same translation unit by this
+ * kext, so suppress this osfmk duplicate to avoid a conflicting-types error.
+ */
+#if 0
 extern int copyinstr(
 	const user_addr_t   user_addr,
 	char                *kernel_addr,
 	vm_size_t           max,
 	vm_size_t           *actual);
+#endif
 
 /* Move arbitrarily-aligned data from a user space to kernel space */
 extern int copyinmsg(

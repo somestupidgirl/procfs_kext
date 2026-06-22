@@ -13,6 +13,14 @@
 extern struct loadavg averunnable;
 extern fixpt_t cexp[3];
 
+/*
+ * sysctlbyname() is an exported kernel KPI symbol, but the latest
+ * <sys/sysctl.h> only prototypes it in the !KERNEL branch; declare it here for
+ * this kernel-private build (both cpu.c and procfs_linux.c call it).
+ */
+extern int sysctlbyname(const char *name, void *oldp, size_t *oldlenp,
+                        void *newp, size_t newlen);
+
 extern boolean_t    is_amd_cpu(void);
 extern boolean_t    is_intel_cpu(void);
 

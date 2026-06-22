@@ -217,7 +217,16 @@ typedef int wait_timeout_urgency_t;
 #ifdef  MACH_KERNEL_PRIVATE
 
 #include <kern/misc_protos.h>
+/*
+ * procfs: this kext mixes osfmk and bsd headers in a single translation unit,
+ * so the bsd <sys/_types/_clock_t.h> clock_t (__darwin_clock_t) can be pulled
+ * in alongside this one. Guard with the standard _CLOCK_T mechanism so the two
+ * do not collide (whichever is seen first wins; procfs uses neither directly).
+ */
+#ifndef _CLOCK_T
+#define _CLOCK_T
 typedef  struct clock                   *clock_t;
+#endif /* _CLOCK_T */
 
 typedef struct mig_object               *mig_object_t;
 #define MIG_OBJECT_NULL                 ((mig_object_t) 0)

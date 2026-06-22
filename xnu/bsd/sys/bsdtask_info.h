@@ -102,13 +102,22 @@ struct proc_regioninfo_internal {
 #define PROC_REGION_SUBMAP      1
 #define PROC_REGION_SHARED      2
 
+/*
+ * procfs: <sys/vnode.h> declares vnode_vid()/vnode_isonexternalstorage() with
+ * a vnode_t argument and is included in the same TU by this kext. Suppress
+ * these void * duplicates to avoid conflicting-types errors.
+ */
+#if 0
 extern uint32_t vnode_vid(void *vp);
+#endif
 
 #if CONFIG_IOSCHED
 extern struct vnode *vnode_mountdevvp(struct vnode *);
 #endif
 
+#if 0
 extern boolean_t vnode_isonexternalstorage(void *vp);
+#endif
 
 #endif /* MACH_KERNEL_PRIVATE */
 

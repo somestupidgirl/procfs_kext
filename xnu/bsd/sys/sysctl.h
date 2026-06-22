@@ -263,7 +263,7 @@ SLIST_HEAD(sysctl_oid_list, sysctl_oid);
  *		get for your sysctl.
  */
 struct sysctl_oid {
-	struct sysctl_oid_list * oid_parent;
+	struct sysctl_oid_list * OS_PTRAUTH_SIGNED_PTR("sysctl_oid.oid_parent") oid_parent;
 	SLIST_ENTRY(sysctl_oid) oid_link;
 	int             oid_number;
 	int             oid_kind;
@@ -1465,13 +1465,15 @@ struct user64_loadavg {
 
 #ifdef BSD_KERNEL_PRIVATE
 extern char     machine[];
-extern char     osrelease[];
+/* procfs: const-qualified to match the <libkern/version.h> declarations that
+ * are pulled into the same translation unit by this kext. */
+extern const char osrelease[];
 #define OSRELEASETYPE_SIZE 48
 extern char     osreleasetype[OSRELEASETYPE_SIZE];
-extern char     ostype[];
+extern const char ostype[];
 extern char     osversion[];
 extern char     osproductversion[];
-extern char     osbuild_config[];
+extern const char osbuild_config[];
 
 /*
  * Tries to match variants inside osreleasetype such as matching "Darwin" in
