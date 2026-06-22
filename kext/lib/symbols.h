@@ -205,9 +205,10 @@ extern struct filedesc          (*_filedesc0);
 #define                         filedesc0 \
                                 *_filedesc0;
 
-extern int                      (*_fp_getfvp)(struct proc *p, int fd, struct fileproc **resultfp, struct vnode  **resultvp);
-#define                         fp_getfvp(p, fd, resultfp, resultvp) \
-                                _fp_getfvp(p, fd, resultfp, resultvp)
+/*
+ * fp_getfvp() is exported KPI; it is declared in lib/kern.h and linked from the
+ * kernel rather than stubbed here.
+ */
 /*
  * fdcopy
  *
@@ -364,13 +365,12 @@ extern int                      (*_fill_socketinfo)(socket_t so, struct socket_i
 #define                         fill_socketinfo(so, si) \
                                 _fill_socketinfo(so, si)
 /*
+ * proc_fdlist() is exported KPI (declared in <sys/proc_info_private.h>, pulled
+ * in via the vendored <sys/proc_info.h>); linked from the kernel, not stubbed.
  * Caller is responsible for adding margin to *count when calling this in
  * circumstances where file descriptors can appear/disappear between the
  * two calls to this function.
  */
-extern int                      (*_proc_fdlist)(proc_t p, struct proc_fdinfo *buf, size_t *count);
-#define                         proc_fdlist(p, buf, count) \
-                                _proc_fdlist(p, buf, count)
 
 #pragma mark -
 #pragma mark Task/Thread
