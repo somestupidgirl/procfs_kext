@@ -51,10 +51,10 @@ CFLAGS+= -DKERNEL \
 # xnu/bsd is needed on all arches for headers not in the SDK (sys/exec.h etc.)
 # xnu/osfmk is only needed on ARM64 (x86_64 SDK has complete lock definitions)
 ifeq ($(findstring arm64,$(TARGET_TRIPLE)),arm64)
-XNU_INCLUDES := -I../xnu/bsd -I../xnu/libkern -I../xnu/osfmk
+XNU_INCLUDES := -I../xnu/bsd -I../xnu/libkern -I../xnu/osfmk -I../xnu/pexpert
 ARCH_SYS_INCLUDES := -isystem $(KERNEL_HEADERS)/arm64 -isystem $(KERNEL_HEADERS)/arm
 else
-XNU_INCLUDES := -I../xnu/bsd -I../xnu/libkern -I../xnu/osfmk
+XNU_INCLUDES := -I../xnu/bsd -I../xnu/libkern -I../xnu/osfmk -I../xnu/pexpert
 ARCH_SYS_INCLUDES :=
 endif
 
@@ -62,7 +62,7 @@ CFLAGS+= -target $(TARGET_TRIPLE) \
          -isysroot $(SDKROOT) \
          $(ARCHFLAGS) \
          -x c \
-         -std=c99 \
+         -std=gnu99 \
          -nostdinc \
          -fno-builtin \
          -fno-common \
@@ -79,7 +79,9 @@ CFLAGS+= -Werror -Wall -Wextra \
          -Wno-unused-parameter \
          -Wno-unused-variable \
          -Wno-unused-value \
-         -Wno-vla
+         -Wno-vla \
+         -Wno-gnu-folding-constant \
+         -Wno-visibility
 
 LDFLAGS+= -target $(TARGET_TRIPLE) \
           -isysroot $(SDKROOT) \

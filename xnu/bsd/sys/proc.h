@@ -301,7 +301,7 @@ extern proc_t proc_find(int pid);
  *    - PROC_NULL on error
  */
 extern proc_t proc_find_ident(const proc_ident_t i);
-//#ifdef KERNEL_PRIVATE
+#ifdef KERNEL_PRIVATE
 /*
  * Function: proc_find_ident_validated
  *

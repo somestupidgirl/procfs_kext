@@ -109,9 +109,9 @@ struct mount {
 	TAILQ_ENTRY(mount)      mnt_list;                   /* mount list */
 	int32_t                 mnt_count;                  /* reference on the mount */
 	lck_mtx_t               mnt_mlock;                  /* mutex that protects mount point */
-	const struct vfsops     *mnt_op;                    /* operations on fs */
-	struct vfstable         *mnt_vtable;                /* configuration info */
-	struct vnode            *mnt_vnodecovered;          /* vnode we mounted on */
+	const struct vfsops     * XNU_PTRAUTH_SIGNED_PTR("mount.vfsops") mnt_op;        /* operations on fs */
+	struct vfstable         * XNU_PTRAUTH_SIGNED_PTR("mount.mnt_vtable") mnt_vtable;        /* configuration info */
+	struct vnode            * XNU_PTRAUTH_SIGNED_PTR("mount.mnt_vnodecovered") mnt_vnodecovered;    /* vnode we mounted on */
 	struct vnodelst         mnt_vnodelist;              /* list of vnodes this mount */
 	struct vnodelst         mnt_workerqueue;            /* list of vnodes this mount */
 	struct vnodelst         mnt_newvnodes;              /* list of vnodes this mount */

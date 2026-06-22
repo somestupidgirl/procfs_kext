@@ -16,7 +16,7 @@ ARCHFLAGS?=     -arch arm64e
 TARGET_TRIPLE?= arm64e-apple-macos12.0
 
 CFLAGS?=    -target $(TARGET_TRIPLE)            \
-            -std=c99                            \
+            -std=gnu99                            \
             -ffunction-sections                 \
             -fdata-sections                     \
             -Bstatic                            \
@@ -31,13 +31,13 @@ CFLAGS?=    -target $(TARGET_TRIPLE)            \
 ifeq ($(findstring arm64,$(TARGET_TRIPLE)),arm64)
 CFLAGS+=    -I../../xnu/bsd                     \
             -I../../xnu/libkern                 \
-            -I../../xnu/osfmk                   \
+            -I../../xnu/osfmk -I../../xnu/pexpert                   \
             -isystem $(KERNEL_HEADERS)/arm64    \
             -isystem $(KERNEL_HEADERS)/arm
 else
 CFLAGS+=    -I../../xnu/bsd                     \
             -I../../xnu/libkern                 \
-            -I../../xnu/osfmk
+            -I../../xnu/osfmk -I../../xnu/pexpert
 endif
 
 CFLAGS+=    -I../../lib                         \

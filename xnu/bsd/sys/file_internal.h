@@ -181,11 +181,11 @@ struct fileglob {
 	os_ref_atomic_t      fg_count;      /* reference count */
 	uint32_t             fg_msgcount;   /* references from message queue */
 	int32_t              fg_lflags;     /* file global flags */
-	kauth_cred_t         fg_cred;       /* credentials associated with descriptor */
-	const struct fileops *fg_ops;
+	kauth_cred_t         XNU_PTRAUTH_SIGNED_PTR("fileglob.fg_cred") fg_cred;        /* credentials associated with descriptor */
+	const struct fileops *XNU_PTRAUTH_SIGNED_PTR("fileglob.fg_ops") fg_ops;
 	off_t                fg_offset;
-	uintptr_t           *fg_data;		/* vnode or socket or SHM or semaphore */
-	struct fd_vn_data   *fg_vn_data;	/* Per fd vnode data, used for directories */
+	uintptr_t            fg_data;       /* vnode or socket or SHM or semaphore */
+	struct fd_vn_data   *XNU_PTRAUTH_SIGNED_PTR("fileglob.fg_vn_data") fg_vn_data;  /* Per fd vnode data, used for directories */
 	lck_mtx_t            fg_lock;
 #if CONFIG_MACF && CONFIG_VNGUARD
 	struct vng_owner    *fg_vgo;        /* Used by the vnode guard MAC hook */

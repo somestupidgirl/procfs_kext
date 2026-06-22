@@ -167,8 +167,8 @@ union iovecs {
 /* WARNING - use accessor calls for uio_iov and uio_resid since these */
 /* fields vary depending on the originating address space. */
 struct uio {
-	void *          uio_iovs;       /* current iovec */
-	void *          uio_iovbase;    /* iovec base */
+	void * XNU_PTRAUTH_SIGNED_PTR("uio.uio_iovs") uio_iovs;       /* current iovec */
+	void * XNU_PTRAUTH_SIGNED_PTR("uio.uio_iovbase") uio_iovbase; /* iovec base */
 	int             uio_max_iovs;   /* max number of iovecs this uio_t can hold */
 	int             uio_iovcnt;     /* active iovecs */
 	off_t           uio_offset;

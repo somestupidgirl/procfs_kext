@@ -171,17 +171,17 @@ struct vnode {
 	int32_t  v_kusecount;                   /* count of in-kernel refs */
 	int32_t  v_usecount;                    /* reference count of users */
 	int32_t  v_iocount;                     /* iocounters */
-	void    *v_owner;                       /* act that owns the vnode */
+	void *   XNU_PTRAUTH_SIGNED_PTR("vnode.v_owner") v_owner; /* act that owns the vnode */
 	uint8_t  v_ext_flag;                    /* additional vnode flags, (v_flags is not enough) */
 	uint8_t  v_type;                        /* vnode type */
 	uint16_t v_tag;                         /* type of underlying data */
 	uint32_t v_id;                          /* identity of vnode contents */
 	union {
-		struct mount    *vu_mountedhere;  /* ptr to mounted vfs (VDIR) */
-		struct socket   *vu_socket;       /* unix ipc (VSOCK) */
-		struct specinfo *vu_specinfo;     /* device (VCHR, VBLK) */
-		struct fifoinfo *vu_fifoinfo;     /* fifo (VFIFO) */
-		struct ubc_info *vu_ubcinfo;      /* valid for (VREG) */
+		struct mount    * XNU_PTRAUTH_SIGNED_PTR("vnode.v_data") vu_mountedhere;  /* ptr to mounted vfs (VDIR) */
+		struct socket   * XNU_PTRAUTH_SIGNED_PTR("vnode.vu_socket") vu_socket;     /* unix ipc (VSOCK) */
+		struct specinfo * XNU_PTRAUTH_SIGNED_PTR("vnode.vu_specinfo") vu_specinfo;   /* device (VCHR, VBLK) */
+		struct fifoinfo * XNU_PTRAUTH_SIGNED_PTR("vnode.vu_fifoinfo") vu_fifoinfo;   /* fifo (VFIFO) */
+		struct ubc_info * XNU_PTRAUTH_SIGNED_PTR("vnode.vu_ubcinfo") vu_ubcinfo;    /* valid for (VREG) */
 	} v_un;
 	struct  buflists v_cleanblkhd;          /* clean blocklist head */
 	struct  buflists v_dirtyblkhd;          /* dirty blocklist head */
@@ -191,7 +191,7 @@ struct vnode {
 	 * by the name_cache_lock held in
 	 * excluive mode
 	 */
-	kauth_cred_t               v_cred;                /* last authorized credential */
+	kauth_cred_t    XNU_PTRAUTH_SIGNED_PTR("vnode.v_cred") v_cred; /* last authorized credential */
 	kauth_action_t  v_authorized_actions;   /* current authorized actions for v_cred */
 	int             v_cred_timestamp;       /* determine if entry is stale for MNTK_AUTH_OPAQUE */
 	int             v_nc_generation;        /* changes when nodes are removed from the name cache */
@@ -202,10 +202,10 @@ struct vnode {
 	int32_t         v_writecount;           /* reference count of writers */
 	uint32_t        v_holdcount;            /* reference to keep vnode from being freed after reclaim */
 	const char *v_name;                     /* name component of the vnode */
-	vnode_t 	v_parent;		/* pointer to parent vnode */
+	vnode_t XNU_PTRAUTH_SIGNED_PTR("vnode.v_parent") v_parent;                       /* pointer to parent vnode */
 	struct lockf    *v_lockf;               /* advisory lock list head */
 	int(**v_op)(void *);                    /* vnode operations vector */
-	mount_t        	v_mount;		/* ptr to vfs we are in */
+	mount_t XNU_PTRAUTH_SIGNED_PTR("vnode.v_mount") v_mount;                        /* ptr to vfs we are in */
 	void *  v_data;                         /* private data for fs */
 #if CONFIG_MACF
 	struct label *v_label;                  /* MAC security label */

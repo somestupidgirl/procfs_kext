@@ -453,14 +453,14 @@ struct knote {
 
 	/* per filter pointer to the resource being watched */
 	union {
-		struct fileproc    *kn_fp;
-		struct proc        *kn_proc;
-		struct ipc_port    *kn_ipc_port;
-		struct ipc_pset    *kn_ipc_pset;
-		struct thread_call *kn_thcall;
-		struct thread      *kn_thread;
+		struct fileproc    *XNU_PTRAUTH_SIGNED_PTR("knote.fp") kn_fp;
+		struct proc        *XNU_PTRAUTH_SIGNED_PTR("knote.proc") kn_proc;
+		struct ipc_port    *XNU_PTRAUTH_SIGNED_PTR("knote.ipc_port") kn_ipc_port;
+		struct ipc_pset    *XNU_PTRAUTH_SIGNED_PTR("knote.ipc_pset") kn_ipc_pset;
+		struct thread_call *XNU_PTRAUTH_SIGNED_PTR("knote.thcall") kn_thcall;
+		struct thread      *XNU_PTRAUTH_SIGNED_PTR("knote.thread") kn_thread;
 #if CONFIG_EXCLAVES
-		struct exclaves_resource *kn_exclaves_resource;
+		struct exclaves_resource *XNU_PTRAUTH_SIGNED_PTR("knote.exclaves_resource") kn_exclaves_resource;
 #endif /* CONFIG_EXCLAVES*/
 	};
 

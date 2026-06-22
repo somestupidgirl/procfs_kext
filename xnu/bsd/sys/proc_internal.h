@@ -273,7 +273,7 @@ struct proc {
 		LIST_ENTRY(proc) p_list;                /* List of all processes. */
 		struct smr_node  p_smr_node;
 	};
-	struct proc 	*p_pptr;		/* Pointer to parent process.(LL) */
+	struct  proc *  XNU_PTRAUTH_SIGNED_PTR("proc.p_pptr") p_pptr;   /* Pointer to parent process.(LL) */
 	proc_ro_t       p_proc_ro;
 	pid_t           p_ppid;                 /* process's parent pid number */
 	pid_t           p_pgrpid;               /* process group id of the process (LL)*/
@@ -313,8 +313,8 @@ struct proc {
 	/* substructures: */
 	struct  filedesc p_fd;                  /* open files structure */
 	struct  pstats *p_stats;                /* Accounting/statistics (PL) */
-	struct plimit *p_limit;			/* Process limits.(PL) */
-	struct pgrp *	p_pgrp; 		/* Pointer to process group. (LL) */
+	SMR_POINTER(struct plimit *) p_limit;/* Process limits (PL) */
+	SMR_POINTER(struct pgrp *XNU_PTRAUTH_SIGNED_PTR("proc.p_pgrp")) p_pgrp; /* Pointer to process group. (LL) */
 
 	struct sigacts  p_sigacts;
 	lck_spin_t      p_slock;                /* spin lock for itimer/profil protection */
@@ -377,7 +377,7 @@ struct proc {
 		u_int   p_argslen;       /* Length of process arguments. */
 		int     p_argc;                 /* saved argc for sysctl_procargs() */
 		user_addr_t user_stack;         /* where user stack was allocated */
-		struct  vnode * p_textvp;       /* Vnode of executable. */
+		struct  vnode * XNU_PTRAUTH_SIGNED_PTR("proc.p_textvp") p_textvp;       /* Vnode of executable. */
 		off_t   p_textoff;              /* offset in executable vnode */
 
 		sigset_t p_sigmask;             /* DEPRECATED */
@@ -620,7 +620,7 @@ struct proc {
  * but use native alignment of 64-bit process.
  */
 
-//#ifdef KERNEL
+#ifdef KERNEL
 #include <sys/time.h>   /* user_timeval, user_itimerval */
 
 /*
@@ -735,7 +735,7 @@ struct user64_extern_proc {
 	u_short p_acflag;       /* Accounting flags. */
 	user_addr_t     p_ru __attribute((aligned(8))); /* Exit information. XXX */
 };
-//#endif  /* KERNEL */
+#endif  /* KERNEL */
 
 __exported_push_hidden
 
@@ -754,7 +754,7 @@ extern unsigned int proc_shutdown_exitcount;
 #define NO_PID          100000
 extern lck_mtx_t proc_list_mlock;
 
-//#ifdef XNU_KERNEL_PRIVATE
+#ifdef XNU_KERNEL_PRIVATE
 /*
  * Identify a process uniquely.
  * proc_ident's fields match 1-1 with those in struct proc.
@@ -772,7 +772,7 @@ struct proc_ident {
 _Static_assert(sizeof(pid_t) == 4, "proc_ident assumes a 32-bit pid_t");
 _Static_assert(PID_MAX < (1 << PROC_IDENT_PID_BIT_COUNT), "proc_ident assumes PID_MAX requires less than 28bits");
 _Static_assert(NO_PID < (1 << PROC_IDENT_PID_BIT_COUNT), "proc_ident assumes NO_PID requires less than 28bits");
-//#endif
+#endif
 
 #define BSD_SIMUL_EXECS         33 /* 32 , allow for rounding */
 #define BSD_PAGEABLE_SIZE_PER_EXEC      (NCARGS + PAGE_SIZE + PAGE_SIZE) /* page for apple vars, page for executable header */
@@ -820,7 +820,7 @@ __options_decl(cloneproc_flags_t, uint32_t, {
 });
 
 extern thread_t cloneproc(task_t, coalition_t *, proc_t, cloneproc_flags_t);
-extern struct proc * initproc;
+extern struct proc * XNU_PTRAUTH_SIGNED_PTR("initproc") initproc;
 extern void proc_lock(struct proc *);
 extern void proc_unlock(struct proc *);
 extern void proc_spinlock(struct proc *);

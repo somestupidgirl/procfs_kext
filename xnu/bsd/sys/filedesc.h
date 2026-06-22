@@ -139,8 +139,8 @@ struct filedesc {
 #endif /* CONFIG_PROC_RESOURCE_LIMITS */
 
 	int                 fd_knlistsize;  /* (L) size of knlist */
-	int                 unused_padding; /* Due to alignment */
-	struct fileproc   **fd_ofiles;      /* (L) file structures for open files */
+	int                 unused_padding;/* Due to alignment */
+	struct fileproc   **XNU_PTRAUTH_SIGNED_PTR("filedesc.fd_ofiles") fd_ofiles; /* (L) file structures for open files */
 	char               *fd_ofileflags;  /* (L) per-process open file flags */
 
 	struct  klist      *fd_knlist;      /* (L) list of attached knotes */
