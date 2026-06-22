@@ -24,6 +24,30 @@
 #include "symbols.h"
 
 /*
+ * From bsd/conf/param.c
+ */
+#if !defined(__x86_64__)
+#define NPROC 1000          /* Account for DEFAULT_TOTAL_CORPSES_ALLOWED by making this slightly lower than we can. */
+#define NPROC_PER_UID 950
+#else
+#define NPROC (20 + 32 * 32)
+#define NPROC_PER_UID (NPROC/2)
+#endif
+
+/* NOTE: maxproc and hard_maxproc values are subject to device specific scaling in bsd_scale_setup */
+#define HNPROC 2500     /* based on thread_max */
+int     maxproc = NPROC;
+int     maxprocperuid = NPROC_PER_UID;
+
+#if !defined(__x86_64__)
+int hard_maxproc = NPROC;       /* hardcoded limit -- for ARM the number of processes is limited by the ASID space */
+#else
+int hard_maxproc = HNPROC;      /* hardcoded limit */
+#endif
+
+int nprocs = 0; /* XXX */
+
+/*
  * From bsd/kern/kern_synch.c
  */
 extern void compute_averunnable(void *);        /* XXX */
@@ -53,7 +77,6 @@ compute_averunnable(void *arg)
             nrun * FSCALE * (FSCALE - cexp[i])) >> FSHIFT;
     }
 }
-
 
 /*
  * From bsd/kern/proc_info.c
