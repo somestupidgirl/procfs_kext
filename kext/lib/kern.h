@@ -12,17 +12,13 @@ extern int fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fil
 extern int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_fsgetpath);
 
 /*
- * fp_getfvp() is exported KPI but the SDK's <sys/file.h> omits its declaration
- * (it lives in xnu's bsd/sys/file.h). Declare it here so callers link the real
- * kernel symbol.
+ * Validates a vnode-backed descriptor of a target process and returns its
+ * vnode, vnode id, and proc_fileinfo, all captured under proc_fdlock. The
+ * caller takes a vnode iocount via vnode_getwithvid(*vid). Replaces the private
+ * fp_getfvp() without needing a fileproc iocount (whose os_ref retain/release
+ * path is unlinkable from a third-party kext). Returns EBADF for an invalid or
+ * non-vnode descriptor.
  */
-extern int fp_getfvp(struct proc *p, int fd, struct fileproc **resultfp, struct vnode **resultvp);
-
-/*
- * Releases the fileproc iocount taken by fp_getfvp() on a target process. Must
- * be used instead of the public file_drop(), which only operates on
- * current_proc() and panics for another process's descriptor.
- */
-extern void procfs_fp_drop(proc_t p, struct fileproc *fp);
+extern int procfs_fd_vnode_info(proc_t p, int fd, struct vnode **vpp, uint32_t *vidp, struct proc_fileinfo *fi);
 
 #endif

@@ -397,24 +397,15 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
         }
 
         if (p != PROC_NULL) {
-            volatile struct filedesc *fdp = NULL;
-
-            proc_fdlock(p);
-            fdp = proc_fdp(p);
-            if (fdp != NULL) {
-                if (fp->fp_flags & FP_CLOEXEC) {
-                    status |= PROC_FP_CLEXEC;
-                }
-                if (fp->fp_flags & FP_CLOFORK) {
-                    status |= PROC_FP_CLFORK;
-                }
-#if DEBUG
-            } else {
-                proc_fdunlock(p);
-                return (EBADF);
-#endif
+            // The caller must hold proc_fdlock(p) (which keeps fp alive); read
+            // the per-fd flags directly. This routine no longer takes the lock
+            // itself so it can be called from a section that already holds it.
+            if (fp->fp_flags & FP_CLOEXEC) {
+                status |= PROC_FP_CLEXEC;
             }
-            proc_fdunlock(p);
+            if (fp->fp_flags & FP_CLOFORK) {
+                status |= PROC_FP_CLFORK;
+            }
         }
 
         if (fp->fp_guard_attrs != 0) {
@@ -513,67 +504,43 @@ proc_fdlist(proc_t p, struct proc_fdinfo *buf, size_t *count)
 }
 
 /*
- * fp_getfvp() - re-implementation of the com.apple.kpi.private KPI. Looks up a
- * vnode-backed descriptor in process p, takes the fileproc iocount reference,
- * and returns the fileproc and its vnode. Mirrors fp_get_ftype() in XNU with
- * ftype == DTYPE_VNODE. The reference must be released with procfs_fp_drop()
- * (NOT the public file_drop(), which operates on current_proc()).
+ * procfs_fd_vnode_info() - replaces the private fp_getfvp() for procfs's needs
+ * without taking a fileproc iocount (the os_ref retain/release path bottoms out
+ * in os_ref_*_internal, which a third-party kext cannot link). Under
+ * proc_fdlock() - which keeps the fileproc alive - it validates that fd is a
+ * vnode-backed descriptor of process p, captures the vnode and its vnode id,
+ * and fills the proc_fileinfo. The caller then takes a vnode iocount with
+ * vnode_getwithvid(*vidp); the id guards against the vnode being reclaimed
+ * after the lock is dropped, so no fileproc reference is required. Returns
+ * EBADF for an invalid or non-vnode descriptor.
  */
 int
-fp_getfvp(struct proc *p, int fd, struct fileproc **resultfp, struct vnode **resultvp)
+procfs_fd_vnode_info(proc_t p, int fd, struct vnode **vpp, uint32_t *vidp, struct proc_fileinfo *fi)
 {
     struct filedesc *fdp = &p->p_fd;
     struct fileproc *fp;
+    vnode_t vp;
 
     proc_fdlock(p);
     if (fd < 0 || fd >= fdp->fd_nfiles ||
-        (fp = fdp->fd_ofiles[fd]) == NULL ||
+        (fp = fdp->fd_ofiles[fd]) == NULL || fp->fp_glob == NULL ||
         (fdp->fd_ofileflags[fd] & UF_RESERVED)) {
         proc_fdunlock(p);
         return EBADF;
     }
-    if (fp->fp_glob == NULL || FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_VNODE) {
+    if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_VNODE) {
         proc_fdunlock(p);
-        return ENOTSUP;
+        return EBADF;
     }
-    os_ref_retain_locked(&fp->fp_iocount);
+    vp = (vnode_t)fp->fp_glob->fg_data;
+    if (vp == NULLVP) {
+        proc_fdunlock(p);
+        return EBADF;
+    }
+    *vpp = vp;
+    *vidp = vnode_vid(vp);
+    fill_fileinfo(fp, p, fd, fi);   /* we hold proc_fdlock */
     proc_fdunlock(p);
-
-    if (resultfp) {
-        *resultfp = fp;
-    }
-    if (resultvp) {
-        *resultvp = (struct vnode *)fp_get_data(fp);
-    }
     return 0;
-}
-
-/*
- * procfs_fp_drop() - releases the fileproc iocount taken by fp_getfvp() on the
- * target process p. The public file_drop() cannot be used here because it
- * always operates on current_proc()'s descriptor table and panics if the
- * caller has no iocount on that fd. Mirrors the release portion of file_drop().
- */
-void
-procfs_fp_drop(proc_t p, struct fileproc *fp)
-{
-    struct filedesc *fdp = &p->p_fd;
-    int needwakeup = 0;
-
-    proc_fdlock(p);
-    if (os_ref_release_locked(&fp->fp_iocount) == 1) {
-        if (fp->fp_flags & FP_SELCONFLICT) {
-            fp->fp_flags &= ~FP_SELCONFLICT;
-        }
-        if (fdp->fd_fpdrainwait) {
-            fdp->fd_fpdrainwait = 0;
-            needwakeup = 1;
-        }
-    }
-    proc_fdunlock(p);
-
-    if (needwakeup) {
-        wakeup(&fdp->fd_fpdrainwait);
-    }
 }
 

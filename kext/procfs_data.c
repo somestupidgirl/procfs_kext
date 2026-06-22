@@ -227,47 +227,38 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
     int fd = pnp->node_id.nodeid_objectid;
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
 
-    if (p != PROC_NULL) {
-        struct vnode *vp;
-        struct fileproc *fp;
-
-        error = fp_getfvp(p, fd, &fp, &vp);
-        if (error == 0 && fp != FILEPROC_NULL) {
-            // Get a hold on the vnode and check that it did not
-            // change id.
-            uint32_t vid = vnode_vid(vp);
-            error = vnode_getwithvid(vp, vid);
-            if (error == 0) {
-                // Got the vnode. Pack vnode and file info into
-                // a vnode_fdinfowithpath structure.
-                struct vnode_fdinfowithpath info;
-
-                bzero(&info, sizeof(info));
-                error = fill_fileinfo(fp, p, fd, &info.pfi);
-                if (error == 0) {
-                    error = fill_vnodeinfo(vp, &info.pvip.vip_vi, FALSE);
-                    if (error == 0) {
-                        // If all is well, add in the file path and copy the data
-                        // out to user space.
-                        if (error == 0) {
-                            int count = MAXPATHLEN;
-                            vn_getpath(vp, info.pvip.vip_path, &count);
-                            info.pvip.vip_path[MAXPATHLEN-1] = 0;
-                            error = procfs_copy_data((const char *)&info, sizeof(info), uio);
-                        }
-                    }
-                }
-            }
-            vnode_put(vp);
-            procfs_fp_drop(p, fp);
-        } else {
-            error = EBADF;
-        }
-        proc_rele(p);
-    } else {
-        error = ESRCH;
+    if (p == PROC_NULL) {
+        return ESRCH;
     }
 
+    struct vnode_fdinfowithpath info;
+    bzero(&info, sizeof(info));
+
+    // Validate the descriptor and capture the vnode + vnode id + file info
+    // under proc_fdlock (which keeps the fileproc alive). No fileproc iocount
+    // is taken: the os_ref retain/release path is unavailable to a third-party
+    // kext, so instead we re-acquire the vnode by id once the lock is dropped.
+    vnode_t vp = NULLVP;
+    uint32_t vid = 0;
+    error = procfs_fd_vnode_info(p, fd, &vp, &vid, &info.pfi);
+    if (error == 0) {
+        // vnode_getwithvid() takes an iocount and fails cleanly if the vnode
+        // was reclaimed between dropping proc_fdlock and here.
+        error = vnode_getwithvid(vp, vid);
+        if (error == 0) {
+            error = fill_vnodeinfo(vp, &info.pvip.vip_vi, FALSE);
+            if (error == 0) {
+                // Add the file path and copy the data out to user space.
+                int count = MAXPATHLEN;
+                vn_getpath(vp, info.pvip.vip_path, &count);
+                info.pvip.vip_path[MAXPATHLEN-1] = 0;
+                error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+            }
+            vnode_put(vp);
+        }
+    }
+
+    proc_rele(p);
     return error;
 }
 
