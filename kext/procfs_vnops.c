@@ -277,15 +277,21 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                 int id = procfs_atoi(name, &endp);
                 boolean_t valid = FALSE;
                 if (id != -1) {
-                    // Check whether it is a valid file descriptor.
+                    // Check whether it is a valid file descriptor by looking it
+                    // up in the process's fd list (proc_fdlist locks internally).
                     target_proc = proc_find(dir_pnp->node_id.nodeid_pid);
-                    if (_proc_fdlock_spin != NULL && _proc_fdunlock != NULL && _fdt_next != NULL) {
                     if (target_proc != PROC_NULL) { // target_proc is released at loop end.
-                        proc_fdlock_spin(target_proc);
-                        struct fdt_iterator iter = fdt_next(target_proc, id - 1, true);
-                        valid = iter.fdti_fd == id;
-                        proc_fdunlock(target_proc);
-                    }
+                        struct proc_fdinfo *fdlist = NULL;
+                        size_t fd_count = 0;
+                        if (procfs_get_fd_list(target_proc, &fdlist, &fd_count) == 0) {
+                            for (size_t k = 0; k < fd_count; k++) {
+                                if (fdlist[k].proc_fd == id) {
+                                    valid = TRUE;
+                                    break;
+                                }
+                            }
+                        }
+                        procfs_release_fd_list(fdlist);
                     }
                 }
 
@@ -653,28 +659,23 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 }
             } else if (fddir) {
                 // Iterate over the open file descriptors for the current process
-                // and write entries for those that should appear after the start position,
-                // until we fill up the space or run out of threads.
+                // and write entries for those that should appear after the start
+                // position, until we fill up the space or run out of descriptors.
                 proc_t p = proc_find(pid);
                 if (p != PROC_NULL) {
-                    int i = 0;
-                    struct fileproc *iter;
-                    char fd_buffer[PROCESS_NAME_SIZE];
-                    if (_proc_fdlock_spin == NULL || _proc_fdunlock == NULL) {
-                        proc_rele(p);
-                        break;
-                    }
+                    struct proc_fdinfo *fdlist = NULL;
+                    size_t fd_count = 0;
+                    procfs_get_fd_list(p, &fdlist, &fd_count);
 
-                    proc_fdlock_spin(p);
-                    fdt_foreach(iter, p) {
-                        // Need to unlock before copy out in case of fault and because it's a "long" operation.
-                        proc_fdunlock(p);
-                        snprintf(fd_buffer, sizeof(fd_buffer), "%d", i);
+                    char fd_buffer[PROCESS_NAME_SIZE];
+                    for (size_t k = 0; k < fd_count; k++) {
+                        int fd = fdlist[k].proc_fd;
+                        snprintf(fd_buffer, sizeof(fd_buffer), "%d", fd);
                         int size = procfs_calc_dirent_size(fd_buffer);
 
                         // Copy out only if we are past the start offset.
                         if (nextpos >= startpos) {
-                            error = procfs_copyout_dirent(VDIR, procfs_get_fileid(pid, i, base_node_id), fd_buffer, uio, &size, nextpos + size);
+                            error = procfs_copyout_dirent(VDIR, procfs_get_fileid(pid, fd, base_node_id), fd_buffer, uio, &size, nextpos + size);
 
                             if (error != 0 || size == 0) {
                                 break;
@@ -682,10 +683,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                             numentries++;
                         }
                         nextpos += size;
-                        i++;
-                        proc_fdlock_spin(p);
                     }
-                    proc_fdunlock(p);
+
+                    procfs_release_fd_list(fdlist);
                     proc_rele(p);
                     break;   // Exit from the outer loop.
                 } else {

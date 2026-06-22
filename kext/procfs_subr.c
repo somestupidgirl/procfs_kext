@@ -12,6 +12,7 @@
 #include <mach/message.h>
 #include <mach/task.h>
 #include <sys/kauth.h>
+#include <sys/malloc.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/ucred.h>
@@ -19,6 +20,7 @@
 
 #include <miscfs/procfs/procfs.h>
 
+#include "lib/malloc.h"
 #include "lib/symbols.h"
 
 /* 
@@ -359,6 +361,60 @@ procfs_get_task_thread_count(task_t task)
     }
 
     return thread_count;
+}
+
+/*
+ * Returns the open file descriptors of a process using proc_fdlist(), the
+ * exported KPI that locks the fd table internally (the proc_fdlock primitives
+ * are not available to kexts on this kernel). On success *fdlist points to a
+ * malloc'd array of *count proc_fdinfo entries that the caller must release
+ * with procfs_release_fd_list(); otherwise *fdlist is NULL, *count is 0 and a
+ * non-zero errno is returned.
+ */
+int
+procfs_get_fd_list(proc_t p, struct proc_fdinfo **fdlist, size_t *count)
+{
+    *fdlist = NULL;
+    *count = 0;
+
+    if (p == PROC_NULL) {
+        return EINVAL;
+    }
+
+    // The first call (NULL buffer) returns an upper bound on the fd count.
+    size_t capacity = 0;
+    int error = proc_fdlist(p, NULL, &capacity);
+    if (error != 0 || capacity == 0) {
+        return error;
+    }
+
+    struct proc_fdinfo *buf = malloc(capacity * sizeof(struct proc_fdinfo), M_TEMP, M_WAITOK);
+    if (buf == NULL) {
+        return ENOMEM;
+    }
+
+    // The second call fills the buffer and reports the actual number written.
+    size_t actual = capacity;
+    error = proc_fdlist(p, buf, &actual);
+    if (error != 0) {
+        free(buf, M_TEMP);
+        return error;
+    }
+
+    *fdlist = buf;
+    *count = actual;
+    return 0;
+}
+
+/*
+ * Releases the file-descriptor list allocated by procfs_get_fd_list().
+ */
+void
+procfs_release_fd_list(struct proc_fdinfo *fdlist)
+{
+    if (fdlist != NULL) {
+        free(fdlist, M_TEMP);
+    }
 }
 
 /*

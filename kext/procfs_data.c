@@ -443,23 +443,17 @@ size_t
 procfs_fd_node_size(pfsnode_t *pnp, __unused kauth_cred_t creds)
 {
     size_t count = 0;
-    struct fileproc *fp;
 
     int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
 
-    if (p == PROC_NULL) {
-        count = 0;
-    } else {
-        if (_proc_fdlock_spin == NULL || _proc_fdunlock == NULL) {
-            count = 0;
-        } else if (_proc_fdlock_spin != NULL && _proc_fdunlock != NULL) {
-            proc_fdlock_spin(p);
-            fdt_foreach(fp, p) {
-                count++;
-            }
-            proc_fdunlock(p);
+    if (p != PROC_NULL) {
+        struct proc_fdinfo *fdlist = NULL;
+        size_t fd_count = 0;
+        if (procfs_get_fd_list(p, &fdlist, &fd_count) == 0) {
+            count = fd_count;
         }
+        procfs_release_fd_list(fdlist);
         proc_rele(p);
     }
 
