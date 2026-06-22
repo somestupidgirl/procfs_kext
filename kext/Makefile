@@ -53,6 +53,12 @@ CFLAGS+= -DKERNEL \
 ifeq ($(findstring arm64,$(TARGET_TRIPLE)),arm64)
 XNU_INCLUDES := -I../xnu/bsd -I../xnu/libkern -I../xnu/osfmk -I../xnu/pexpert
 ARCH_SYS_INCLUDES := -isystem $(KERNEL_HEADERS)/arm64 -isystem $(KERNEL_HEADERS)/arm
+# arm64/proc_reg.h picks its cache-line / MMU constants from a CPU-family macro
+# and #errors ("processor not supported") if none is set. The XNU build supplies
+# this via board config; for this Apple Silicon target we define APPLEFIRESTORM
+# (M1). Every Apple ARM64 family selects identical constants here and procfs uses
+# none of them directly, so this only satisfies the header's #if chain.
+CFLAGS += -DAPPLEFIRESTORM
 else
 XNU_INCLUDES := -I../xnu/bsd -I../xnu/libkern -I../xnu/osfmk -I../xnu/pexpert
 ARCH_SYS_INCLUDES :=
