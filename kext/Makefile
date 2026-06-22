@@ -81,7 +81,8 @@ CFLAGS+= -Werror -Wall -Wextra \
          -Wno-unused-value \
          -Wno-vla \
          -Wno-gnu-folding-constant \
-         -Wno-visibility
+         -Wno-visibility \
+         -Wno-unused-function
 
 LDFLAGS+= -target $(TARGET_TRIPLE) \
           -isysroot $(SDKROOT) \

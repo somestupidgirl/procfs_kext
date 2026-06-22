@@ -447,12 +447,16 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 
     char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 
-    // The load-average values are unavailable on Apple Silicon: the kernel's
-    // `averunnable` global is not exported to kexts, is absent from the kernel
-    // symbol table (so it cannot be resolved dynamically either), and the
-    // vm.loadavg sysctl returns EPERM from kernel context. We therefore report
-    // 0.00 for the three averages. The process count below is real.
-    int load1 = 0, load5 = 0, load15 = 0;
+    // Report the load averages from our local averunnable (lib/kern.c). The
+    // kernel's own averunnable is not reachable from a kext, and there is
+    // currently no driver populating ours: every CPU-load / run-queue source is
+    // either unexported (host_statistics, processor_set_statistics) or in the
+    // Apple-only com.apple.kpi.private KPI (cpu_to_processor + processor_info).
+    // So these values read 0.00 until a usable nrun source is found.
+    long fscale = averunnable.fscale > 0 ? averunnable.fscale : FSCALE;
+    int load1  = (int)((uint64_t)averunnable.ldavg[0] * 100 / fscale);
+    int load5  = (int)((uint64_t)averunnable.ldavg[1] * 100 / fscale);
+    int load15 = (int)((uint64_t)averunnable.ldavg[2] * 100 / fscale);
 
     int total_procs = procfs_get_process_count(vfs_context_ucred(ctx));
     int running = 1;
