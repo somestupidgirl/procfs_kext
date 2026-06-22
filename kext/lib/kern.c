@@ -13,13 +13,47 @@
 #include <sys/queue.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
 #include <sys/syslimits.h>
 #include <sys/types.h>
 #include <sys/user.h>
 #include <sys/vnode.h>
 #include <sys/vnode_internal.h>
+#include <mach/mach_types.h>
 
 #include "symbols.h"
+
+/*
+ * From bsd/kern/kern_synch.c
+ */
+extern void compute_averunnable(void *);        /* XXX */
+
+struct loadavg averunnable =
+{ {0, 0, 0}, FSCALE };                  /* load average, of runnable procs */
+
+/*
+ * Constants for averages over 1, 5, and 15 minutes
+ * when sampling at 5 second intervals.
+ */
+static fixpt_t cexp[3] = {
+    (fixpt_t)(0.9200444146293232 * FSCALE), /* exp(-1/12) */
+    (fixpt_t)(0.9834714538216174 * FSCALE), /* exp(-1/60) */
+    (fixpt_t)(0.9944598480048967 * FSCALE), /* exp(-1/180) */
+};
+
+void
+compute_averunnable(void *arg)
+{
+    unsigned int            nrun = *(unsigned int *)arg;
+    struct loadavg          *avg = &averunnable;
+    int             i;
+
+    for (i = 0; i < 3; i++) {
+        avg->ldavg[i] = (cexp[i] * avg->ldavg[i] +
+            nrun * FSCALE * (FSCALE - cexp[i])) >> FSHIFT;
+    }
+}
+
 
 /*
  * From bsd/kern/proc_info.c

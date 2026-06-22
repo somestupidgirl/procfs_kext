@@ -38,25 +38,6 @@
 #include "cpu.h"
 #include "symbols.h"
 
-/*
- * Load average of runnable processes.
- * Shared across all architectures.
- */
-struct loadavg averunnable = {
-    { 0, 0, 0 }, FSCALE
-};
-
-/*
- * Constants for averages over 1, 5, and 15 minutes
- * when sampling at 5 second intervals.
- */
-fixpt_t
-cexp[3] = {
-    (fixpt_t)(0.9200444146293232 * FSCALE), /* exp(-1/12) */
-    (fixpt_t)(0.9834714538216174 * FSCALE), /* exp(-1/60) */
-    (fixpt_t)(0.9944598480048967 * FSCALE), /* exp(-1/180) */
-};
-
 /* ============================================================
  * x86_64 implementation
  * ============================================================ */
