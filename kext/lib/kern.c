@@ -9,6 +9,7 @@
 #include <sys/mount_internal.h>
 #include <sys/param.h>
 #include <sys/proc.h>
+#include <sys/proc_info.h>
 #include <sys/proc_internal.h>
 #include <sys/queue.h>
 #include <sys/resource.h>
@@ -441,5 +442,138 @@ fill_fileinfo(struct fileproc * fp, proc_t p, int fd, struct proc_fileinfo * fi)
     fi->fi_guardflags = guardflags;
 
     return (0);
+}
+
+#pragma mark -
+#pragma mark Forward-ported fd-table KPIs
+
+/*
+ * proc_fdlock()/proc_fdunlock() are private (in no third-party-linkable KPI),
+ * so they are re-implemented here as the thin file-descriptor table mutex
+ * wrappers they are in XNU. fill_fileinfo() above and the routines below rely
+ * on them.
+ */
+void
+proc_fdlock(struct proc *p)
+{
+    lck_mtx_lock(&p->p_fd.fd_lock);
+}
+
+void
+proc_fdunlock(struct proc *p)
+{
+    lck_mtx_unlock(&p->p_fd.fd_lock);
+}
+
+/*
+ * proc_fdlist() - re-implementation of the com.apple.kpi.private KPI (which a
+ * third-party kext cannot link). With buf == NULL it returns an upper bound on
+ * the descriptor count (the table high-water mark); otherwise it fills up to
+ * *count entries with the open descriptors and their types and updates *count
+ * to the number written. Mirrors proc_fdlist_internal() in XNU; locking is
+ * taken internally.
+ */
+int
+proc_fdlist(proc_t p, struct proc_fdinfo *buf, size_t *count)
+{
+    if (p == NULL || count == NULL) {
+        return EINVAL;
+    }
+
+    struct filedesc *fdp = &p->p_fd;
+
+    if (buf == NULL) {
+        proc_fdlock(p);
+        *count = (size_t)fdp->fd_afterlast;
+        proc_fdunlock(p);
+        return 0;
+    }
+
+    size_t numfds = *count;
+    size_t n = 0;
+
+    proc_fdlock(p);
+    for (int fd = 0; fd < fdp->fd_afterlast && n < numfds; fd++) {
+        struct fileproc *fp = fdp->fd_ofiles[fd];
+        if (fp == NULL || fp->fp_glob == NULL) {
+            continue;
+        }
+        if (fdp->fd_ofileflags[fd] & UF_RESERVED) {
+            continue;
+        }
+        file_type_t fdtype = FILEGLOB_DTYPE(fp->fp_glob);
+        buf[n].proc_fd = fd;
+        buf[n].proc_fdtype = (fdtype != DTYPE_ATALK) ? fdtype : PROX_FDTYPE_ATALK;
+        n++;
+    }
+    proc_fdunlock(p);
+
+    *count = n;
+    return 0;
+}
+
+/*
+ * fp_getfvp() - re-implementation of the com.apple.kpi.private KPI. Looks up a
+ * vnode-backed descriptor in process p, takes the fileproc iocount reference,
+ * and returns the fileproc and its vnode. Mirrors fp_get_ftype() in XNU with
+ * ftype == DTYPE_VNODE. The reference must be released with procfs_fp_drop()
+ * (NOT the public file_drop(), which operates on current_proc()).
+ */
+int
+fp_getfvp(struct proc *p, int fd, struct fileproc **resultfp, struct vnode **resultvp)
+{
+    struct filedesc *fdp = &p->p_fd;
+    struct fileproc *fp;
+
+    proc_fdlock(p);
+    if (fd < 0 || fd >= fdp->fd_nfiles ||
+        (fp = fdp->fd_ofiles[fd]) == NULL ||
+        (fdp->fd_ofileflags[fd] & UF_RESERVED)) {
+        proc_fdunlock(p);
+        return EBADF;
+    }
+    if (fp->fp_glob == NULL || FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_VNODE) {
+        proc_fdunlock(p);
+        return ENOTSUP;
+    }
+    os_ref_retain_locked(&fp->fp_iocount);
+    proc_fdunlock(p);
+
+    if (resultfp) {
+        *resultfp = fp;
+    }
+    if (resultvp) {
+        *resultvp = (struct vnode *)fp_get_data(fp);
+    }
+    return 0;
+}
+
+/*
+ * procfs_fp_drop() - releases the fileproc iocount taken by fp_getfvp() on the
+ * target process p. The public file_drop() cannot be used here because it
+ * always operates on current_proc()'s descriptor table and panics if the
+ * caller has no iocount on that fd. Mirrors the release portion of file_drop().
+ */
+void
+procfs_fp_drop(proc_t p, struct fileproc *fp)
+{
+    struct filedesc *fdp = &p->p_fd;
+    int needwakeup = 0;
+
+    proc_fdlock(p);
+    if (os_ref_release_locked(&fp->fp_iocount) == 1) {
+        if (fp->fp_flags & FP_SELCONFLICT) {
+            fp->fp_flags &= ~FP_SELCONFLICT;
+        }
+        if (fdp->fd_fpdrainwait) {
+            fdp->fd_fpdrainwait = 0;
+            needwakeup = 1;
+        }
+    }
+    proc_fdunlock(p);
+
+    if (needwakeup) {
+        wakeup(&fdp->fd_fpdrainwait);
+    }
 }
 

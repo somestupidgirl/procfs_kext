@@ -110,33 +110,17 @@ procfs_read_sid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
  * name of the owning process's controlling terminal.
  */
 int
-procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+procfs_read_tty_data(__unused pfsnode_t *pnp, __unused uio_t uio, __unused vfs_context_t ctx)
 {
-    int error = 0;
-
-    proc_t p = proc_find(pnp->node_id.nodeid_pid);
-    if (p == PROC_NULL) {
-        return ESRCH;
-    }
-
-    // proc_gettty() returns the controlling terminal's vnode (with an iocount
-    // that we must release) or ENOENT if the process has no controlling tty.
-    vnode_t cttyvp = NULLVP;
-    error = proc_gettty(p, &cttyvp);
-    if (error == 0 && cttyvp != NULLVP) {
-        // Convert the vnode to a full path.
-        int name_len = MAXPATHLEN;
-        char name_buf[MAXPATHLEN + 1];
-        if (vn_getpath(cttyvp, name_buf, &name_len) == 0) {
-            error = procfs_copy_data((const char *)&name_buf, name_len, uio);
-        }
-        vnode_put(cttyvp);
-    } else if (error == ENOENT) {
-        error = ENOTTY;
-    }
-
-    proc_rele(p);
-    return error;
+    // The controlling terminal lives at p->p_pgrp->pg_session->s_ttyvp, but
+    // p_pgrp is an SMR-protected pointer and every safe way to dereference it
+    // bottoms out in symbols a third-party kext cannot link: the SMR read
+    // section (smr_enter/smr_leave + the smr_system global) and the slow path
+    // (proc_list_lock) are private/unexported, as are proc_gettty(), proc_pgrp()
+    // and vnode_hold()/vnode_drop(). Unlike the fd table (a direct struct member
+    // we forward-ported), there is no safe forward-port for this. So the tty
+    // node reports "unavailable" rather than risking a use-after-free.
+    return ENOTSUP;
 }
 
 /*
@@ -275,7 +259,7 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                 }
             }
             vnode_put(vp);
-            file_drop(fd);
+            procfs_fp_drop(p, fp);
         } else {
             error = EBADF;
         }
@@ -291,51 +275,17 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
  * Reads the data associated with a file descriptor that refers to a socket.
  */
 int
-procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
+procfs_read_socket_data(__unused pfsnode_t *pnp, __unused uio_t uio, __unused vfs_context_t ctx)
 {
-    int error = 0;
-
-    // We need the file descriptor and the process id. We get
-    // both of them from the node id.
-    int fd = pnp->node_id.nodeid_objectid;
-    proc_t p = proc_find(pnp->node_id.nodeid_pid);
-
-    if (p != PROC_NULL) {
-        struct fileproc *fp;
-        socket_t so;
-        vnode_t vp;
-
-        error = fp_getfvp(p, fd, &fp, &vp);
-        if (error == 0 && fp != FILEPROC_NULL) {
-            // Get the socket and fileproc structures for the file. If the
-            // file is not a socket, this fails and we will return an error.
-            // Otherwise, the fileproc has an additional iocount, which we
-            // must remember to release.
-            error = file_socket(fd, &so);
-            if (error == 0) {
-                uint32_t vid = vnode_vid(vp);
-                struct socket_fdinfo info;
-
-                bzero(&info, sizeof(info));
-                error = fill_fileinfo(fp, p, fd, &info.pfi);
-                if (error == 0) {
-                    error = fill_socketinfo(so, &info.psi);
-                    if (error == 0) {
-                        error = procfs_copy_data((const char *)&info, sizeof(info), uio);
-                    }
-                }
-            }
-            vnode_put(vp);
-            file_drop(fd);
-        } else {
-            error = EBADF;
-        }
-        proc_rele(p);
-    } else {
-        error = ESRCH;
-    }
-
-    return error;
+    // Populating socket info requires fill_socketinfo(), a private kernel
+    // symbol that is neither third-party linkable nor (yet) forward-ported.
+    // The previous body was also unsafe here: fp_getfvp() is vnode-only so it
+    // rejects socket descriptors, and file_socket()/file_drop() operate on
+    // current_proc() rather than the target process. Until fill_socketinfo()
+    // is forward-ported with a target-process socket lookup, report that this
+    // node is unavailable. The per-fd "details" node still works for
+    // vnode-backed descriptors.
+    return ENOTSUP;
 }
 
 #pragma mark -

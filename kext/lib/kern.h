@@ -18,4 +18,11 @@ extern int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_
  */
 extern int fp_getfvp(struct proc *p, int fd, struct fileproc **resultfp, struct vnode **resultvp);
 
+/*
+ * Releases the fileproc iocount taken by fp_getfvp() on a target process. Must
+ * be used instead of the public file_drop(), which only operates on
+ * current_proc() and panics for another process's descriptor.
+ */
+extern void procfs_fp_drop(proc_t p, struct fileproc *fp);
+
 #endif
