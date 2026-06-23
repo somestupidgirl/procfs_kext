@@ -154,9 +154,6 @@ procfs_atoi(const char *p, const char **end_ptr)
  * credentials, the process id id added only if it should
  * be accessible to an entity with those credentials.
  */
-//#if !defined(__arm64__) && !defined(__aarch64__)
-/*
-// Unused
 STATIC int
 procfs_get_pid(proc_t p, void *udata)
 {
@@ -176,8 +173,6 @@ procfs_get_pid(proc_t p, void *udata)
 
     return PROC_RETURNED;
 }
-*/
-//#endif /* !__arm64__ */
 
 /*
  * Gets a list of all of the running processes in the system that
