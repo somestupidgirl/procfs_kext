@@ -114,8 +114,9 @@ LDFLAGS+= -target $(TARGET_TRIPLE) \
           -Xlinker -object_path_lto lib/symbols.o \
           -Xlinker -object_path_lto procfs.o \
           -Xlinker -object_path_lto procfs_cmdline.o \
-          -Xlinker -object_path_lto procfs_data.o \
+          -Xlinker -object_path_lto procfs_fd.o \
           -Xlinker -object_path_lto procfs_linux.o \
+          -Xlinker -object_path_lto procfs_status.o \
           -Xlinker -object_path_lto procfs_node.o \
           -Xlinker -object_path_lto procfs_note.o \
           -Xlinker -object_path_lto procfs_structure.o \

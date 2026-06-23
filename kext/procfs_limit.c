@@ -1,0 +1,11 @@
+/*
+ * Copyright (c) 2022-2026 Sunneva N. Mariu
+ *
+ * procfs_limit.c
+ *
+ * Process resource-limit node (/proc/<pid>/limit).
+ *
+ * Placeholder for the NetBSD-style procfs layout; not yet implemented.
+ * The node's data function will live here when the feature is added.
+ */
+#include <miscfs/procfs/procfs.h>

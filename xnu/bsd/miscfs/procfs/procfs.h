@@ -410,7 +410,7 @@ extern int procfs_read_ppid_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_pgid_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_sid_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-extern int procfs_read_proc_info(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_dostatus(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_task_info(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);

@@ -141,7 +141,7 @@ procfs_structure_init(void)
         add_file(one_proc_dir, "pgid", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_pgid_data);
         add_file(one_proc_dir, "sid", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_sid_data);
         add_file(one_proc_dir, "tty", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_read_tty_data);
-        add_file(one_proc_dir, "info", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_bsdshortinfo), NULL, procfs_read_proc_info);
+        add_file(one_proc_dir, "status", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_bsdshortinfo), NULL, procfs_dostatus);
         add_file(one_proc_dir, "taskinfo", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_taskinfo), NULL, procfs_read_task_info);
 
         add_file(one_proc_dir, "note", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_donote);

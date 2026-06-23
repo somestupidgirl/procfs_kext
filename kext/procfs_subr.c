@@ -14,6 +14,7 @@
 #include <sys/kauth.h>
 #include <sys/malloc.h>
 #include <sys/proc.h>
+#include <sys/uio.h>
 #include <sys/proc_info.h>
 #include <sys/ucred.h>
 #include <sys/vnode.h>
@@ -461,6 +462,34 @@ procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid)
         proc_rele(p);
     } else {
         error = ESRCH;
+    }
+
+    return error;
+}
+
+/*
+ * Copies data from the local buffer "data" into the area described
+ * by a uio structure. The first byte of "data" is assumed to 
+ * correspond to a zero offset, so if the uio structure has its
+ * uio_offset set to N, the first byte of data that will be copied
+ * is at data[N].
+ */
+int
+procfs_copy_data(const char *data, int data_len, uio_t uio)
+{
+    int error = 0;
+
+    off_t start_offset = uio_offset(uio);
+    data_len -= start_offset;
+
+    if ((data_len >= 0) && (data != NULL)) {
+        error = uiomove(data + start_offset, data_len, uio);
+    } else if ((data_len >= 0) && (data == NULL)) {
+        error = EFAULT;
+    } else if ((data_len <= 0) && (data != NULL)) {
+        error = EIO;
+    } else {
+        error = ENOTSUP;
     }
 
     return error;
