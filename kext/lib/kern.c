@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2022-2026 Sunneva N. Mariu
+ */
 #include <os/log.h>
 #include <os/refcnt.h>
 #include <sys/fcntl.h>

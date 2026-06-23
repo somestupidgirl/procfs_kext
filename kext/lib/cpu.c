@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2014 squiffypwn. All rights reserved.
- * Copyright (c) 2022 Sunneva Jonsdottir
+ * Copyright (c) 2022-2026 Sunneva N. Mariu
  *
  * cpuinfo.c
  *

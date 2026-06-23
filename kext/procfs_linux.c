@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Sunneva Jonsdottir
+ * Copyright (c) 2022-2026 Sunneva N. Mariu
  *
  * procfs_linux.c
  *

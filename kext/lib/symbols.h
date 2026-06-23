@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2022 Sunneva Jonsdottir
- *
- * symdecls.h
+ * symbols.h
  *
  * Declarations for the symbol resolver and related stuff.
+ *
+ * Copyright (c) 2022-2026 Sunneva N. Mariu
  */
 #ifndef _symbols_h
 #define _symbols_h
@@ -21,33 +21,6 @@
 
 struct tty;
 #define TTY_NULL (struct tty *)NULL
-
-#pragma mark -
-#pragma mark Global variables for process.
-
-//extern struct proc *            (*_initproc);
-//#define                         initproc \
-//                                *_initproc;
-
-//extern struct proclist          (*_allproc);
-//#define                         allproc \
-//                                *_allproc
-
-//extern int                      (*_nprocs);
-//#define                         nprocs \
-//                                *_nprocs
-
-//extern int                      (*_maxproc);
-//#define                         maxproc \
-//                                *_maxproc
-
-//extern int                      (*_maxprocperuid);
-//#define                         maxprocperuid \
-//                                *_maxprocperuid
-
-//extern int                      (*_hard_maxproc);
-//#define                         hard_maxproc \
-//                                *_hard_maxproc
 
 #pragma mark -
 #pragma mark Process misc functions.

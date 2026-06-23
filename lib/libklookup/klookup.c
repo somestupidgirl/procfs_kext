@@ -1,11 +1,13 @@
-//
-// klookup.c
-//
-// Kernel symbol lookup - ARM64/x86_64 compatible
-//
-// SPDX-License-Identifier: 0BSD
-// Copyright (C) 2021 Syncretic, 2024 Sunneva Jonsdottir
-//
+/*
+ * klookup.c
+ *
+ * Kernel symbol lookup - ARM64/x86_64 compatible
+ *
+ * SPDX-License-Identifier: 0BSD
+ *
+ * Copyright (c) 2021 Syncretic
+ * Copyright (c) 2024-2026 Sunneva N. Mariu
+ */
 
 #include <mach-o/nlist.h>
 #include <libkern/version.h>

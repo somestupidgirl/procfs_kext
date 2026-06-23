@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2022-2026 Sunneva N. Mariu
+ */
 #ifndef _procfs_kern_h
 #define _procfs_kern_h
 

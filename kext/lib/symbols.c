@@ -4,6 +4,8 @@
  * On ARM64 macOS, kernel memory scanning is not possible due to PAC
  * (Pointer Authentication Code) enforcement. All private symbols are
  * stubbed as NULL. Public KPI alternatives are used where available.
+ *
+ * Copyright (c) 2022-2026 Sunneva N. Mariu
  */
 #include <mach/kern_return.h>
 #include "symbols.h"

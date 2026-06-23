@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015 Kim Topley
- * Copyright (c) 2022 Sunneva Jonsdottir
+ * Copyright (c) 2022-2026 Sunneva N. Mariu
  *
  * procfs_vnops.c
  *
