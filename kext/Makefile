@@ -48,6 +48,18 @@ CFLAGS+= -DKERNEL \
          -DXNU_TARGET_OS_OSX \
          -DXNU_PLATFORM_MacOSX
 
+# Match the struct layout of the RELEASE macOS kernel. Several structs the kext
+# dereferences (notably struct proc, whose p_fd lives after these fields) have
+# members guarded by CONFIG_PERSONAS and CONFIG_AUDIT, both of which are enabled
+# in the macOS configuration (config/MASTER.arm64.MacOSX: BSD_BASE has
+# config_personas, SECURITY_BASE has config_audit). Without these the kext's
+# struct proc is short by those fields, p_fd lands at the wrong offset, and
+# &p->p_fd.fd_lock points at garbage -> "Invalid/destroyed mutex" panic.
+# CONFIG_PROC_RESOURCE_LIMITS is intentionally NOT defined: it is DEV/DEBUG-only
+# and off in the release kernel, so leaving it off matches.
+CFLAGS+= -DCONFIG_PERSONAS \
+         -DCONFIG_AUDIT
+
 # xnu/bsd is needed on all arches for headers not in the SDK (sys/exec.h etc.)
 # xnu/osfmk is only needed on ARM64 (x86_64 SDK has complete lock definitions)
 ifeq ($(findstring arm64,$(TARGET_TRIPLE)),arm64)

@@ -21,6 +21,7 @@
 #include <sys/vnode.h>
 #include <sys/vnode_internal.h>
 #include <mach/mach_types.h>
+#include <ptrauth.h>
 
 #include "symbols.h"
 
@@ -457,6 +458,26 @@ proc_fdunlock(struct proc *p)
 }
 
 /*
+ * Cheap sanity check on the filedesc layout before any lock is taken. fd_nfiles
+ * and fd_afterlast precede every config-guarded field in struct filedesc, so
+ * they sit at a fixed offset; if struct proc's CONFIG_* does not match the
+ * running kernel and p_fd lands at the wrong offset, they read as implausible
+ * values. Returning false makes a layout mismatch degrade to "no descriptors"
+ * instead of panicking on an invalid mutex (fd_lock). Reading these ints is
+ * safe even when the offset is off, because the address still lies within the
+ * struct proc allocation; only locking a bogus mutex would panic.
+ */
+#define PROCFS_FD_NFILES_MAX  (1 << 20)
+static boolean_t
+procfs_fd_layout_ok(struct filedesc *fdp)
+{
+    int nfiles = fdp->fd_nfiles;
+    int afterlast = fdp->fd_afterlast;
+    return nfiles > 0 && nfiles <= PROCFS_FD_NFILES_MAX &&
+           afterlast >= 0 && afterlast <= nfiles;
+}
+
+/*
  * proc_fdlist() - re-implementation of the com.apple.kpi.private KPI (which a
  * third-party kext cannot link). With buf == NULL it returns an upper bound on
  * the descriptor count (the table high-water mark); otherwise it fills up to
@@ -472,6 +493,11 @@ proc_fdlist(proc_t p, struct proc_fdinfo *buf, size_t *count)
     }
 
     struct filedesc *fdp = &p->p_fd;
+
+    if (!procfs_fd_layout_ok(fdp)) {
+        *count = 0;
+        return EINVAL;
+    }
 
     if (buf == NULL) {
         proc_fdlock(p);
@@ -504,6 +530,30 @@ proc_fdlist(proc_t p, struct proc_fdinfo *buf, size_t *count)
 }
 
 /*
+ * procfs_fg_get_data() - re-implementation of the private fg_get_data_volatile().
+ * fg_data is a manually PAC-signed pointer (the struct field is a bare uintptr_t,
+ * so the compiler does not auto-authenticate it like XNU_PTRAUTH_SIGNED_PTR
+ * fields). Reading it raw yields a signed pointer that faults when dereferenced,
+ * so authenticate it exactly as XNU does before use.
+ */
+static void *
+procfs_fg_get_data(struct fileglob *fg)
+{
+    uintptr_t *store = &fg->fg_data;
+    void *data = (void *)*store;
+#if __has_feature(ptrauth_calls)
+    if (data) {
+        int type = FILEGLOB_DTYPE(fg);
+        type ^= OS_PTRAUTH_DISCRIMINATOR("fileglob.fg_data");
+        data = ptrauth_auth_data(data,
+            ptrauth_key_process_independent_data,
+            ptrauth_blend_discriminator(store, type));
+    }
+#endif
+    return data;
+}
+
+/*
  * procfs_fd_vnode_info() - replaces the private fp_getfvp() for procfs's needs
  * without taking a fileproc iocount (the os_ref retain/release path bottoms out
  * in os_ref_*_internal, which a third-party kext cannot link). Under
@@ -521,6 +571,10 @@ procfs_fd_vnode_info(proc_t p, int fd, struct vnode **vpp, uint32_t *vidp, struc
     struct fileproc *fp;
     vnode_t vp;
 
+    if (!procfs_fd_layout_ok(fdp)) {
+        return EBADF;
+    }
+
     proc_fdlock(p);
     if (fd < 0 || fd >= fdp->fd_nfiles ||
         (fp = fdp->fd_ofiles[fd]) == NULL || fp->fp_glob == NULL ||
@@ -532,7 +586,7 @@ procfs_fd_vnode_info(proc_t p, int fd, struct vnode **vpp, uint32_t *vidp, struc
         proc_fdunlock(p);
         return EBADF;
     }
-    vp = (vnode_t)fp->fp_glob->fg_data;
+    vp = (vnode_t)procfs_fg_get_data(fp->fp_glob);
     if (vp == NULLVP) {
         proc_fdunlock(p);
         return EBADF;
