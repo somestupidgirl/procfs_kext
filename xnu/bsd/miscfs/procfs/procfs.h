@@ -28,6 +28,9 @@
 #define PROCFS_MOPT_NOPROCPERMS (1 << 0) // Do not apply process permissions to the pid entries in /proc.
 #define MOPT_PROCFS             { "procperms", 1, PROCFS_MOPT_NOPROCPERMS, 0 }
 
+#define PROCFS_NOTELEN      64  /* max length of a note (/proc/$pid/note) */
+#define PROCFS_MAXNAMLEN    255
+
 /*
  * The procfs mount structure, created by mount_procfs
  * and passed to the kernel by the mount(2) system call.
@@ -414,11 +417,12 @@ extern int procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_docmdline(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
-/* Linux-compatible features */
+/* BSD/Linux-compatible features */
 extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doloadavg(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dopartitions(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doversion(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_donote(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* Functions that return the data size for a node. */
 extern size_t procfs_get_node_size_attr(pfsnode_t *pnp, kauth_cred_t creds);

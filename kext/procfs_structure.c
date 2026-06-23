@@ -144,6 +144,8 @@ procfs_structure_init(void)
         add_file(one_proc_dir, "info", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_bsdshortinfo), NULL, procfs_read_proc_info);
         add_file(one_proc_dir, "taskinfo", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_taskinfo), NULL, procfs_read_task_info);
 
+        add_file(one_proc_dir, "note", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_donote);
+
         // --- Per thread files.
         add_file(one_thread_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_taskinfo), NULL, procfs_read_thread_info);
 
