@@ -15,13 +15,16 @@
 #include <sys/file.h>
 #include <sys/filedesc.h>
 #include <sys/kauth.h>
+#include <sys/kpi_socket.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/un.h>
 #include <sys/vnode.h>
+#include <netinet/in.h>
 
 #include <miscfs/procfs/procfs.h>
 
@@ -252,6 +255,12 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
                 int count = MAXPATHLEN;
                 vn_getpath(vp, info.pvip.vip_path, &count);
                 info.pvip.vip_path[MAXPATHLEN-1] = 0;
+                // vn_getpath()/build_path() constructs the path backwards from
+                // the end of the buffer and leaves a stale copy in the tail;
+                // zero everything past the returned string so the node holds
+                // the path exactly once.
+                size_t plen = strlen(info.pvip.vip_path);
+                bzero(info.pvip.vip_path + plen, MAXPATHLEN - plen);
                 error = procfs_copy_data((const char *)&info, sizeof(info), uio);
             }
             vnode_put(vp);
@@ -263,20 +272,100 @@ procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 }
 
 /*
+ * Fills a socket_info from a socket using only the public, layout-independent
+ * sock_* KPIs (the private fill_socketinfo() can neither be linked nor safely
+ * forward-ported through the deep socket/inpcb/tcpcb structs). This covers the
+ * common fields plus the addresses for IP and UNIX sockets; the per-protocol
+ * deep state (e.g. TCP window/state) is left zeroed.
+ */
+static void
+procfs_fill_socketinfo(socket_t so, struct socket_info *si)
+{
+    int dom = 0, type = 0, proto = 0;
+
+    sock_gettype(so, &dom, &type, &proto);
+    si->soi_so = (uint64_t)so;
+    si->soi_type = type;
+    si->soi_protocol = proto;
+    si->soi_family = dom;
+
+    if (dom == AF_INET || dom == AF_INET6) {
+        struct in_sockinfo *ini;
+        if (proto == IPPROTO_TCP) {
+            si->soi_kind = SOCKINFO_TCP;
+            ini = &si->soi_proto.pri_tcp.tcpsi_ini;
+        } else {
+            si->soi_kind = SOCKINFO_IN;
+            ini = &si->soi_proto.pri_in;
+        }
+
+        struct sockaddr_storage ss;
+        if (sock_getsockname(so, (struct sockaddr *)&ss, sizeof(ss)) == 0) {
+            if (dom == AF_INET) {
+                struct sockaddr_in *s = (struct sockaddr_in *)&ss;
+                ini->insi_vflag = INI_IPV4;
+                ini->insi_lport = s->sin_port;
+                ini->insi_laddr.ina_46.i46a_addr4 = s->sin_addr;
+            } else {
+                struct sockaddr_in6 *s = (struct sockaddr_in6 *)&ss;
+                ini->insi_vflag = INI_IPV6;
+                ini->insi_lport = s->sin6_port;
+                ini->insi_laddr.ina_6 = s->sin6_addr;
+            }
+        }
+        if (sock_getpeername(so, (struct sockaddr *)&ss, sizeof(ss)) == 0) {
+            if (dom == AF_INET) {
+                struct sockaddr_in *s = (struct sockaddr_in *)&ss;
+                ini->insi_fport = s->sin_port;
+                ini->insi_faddr.ina_46.i46a_addr4 = s->sin_addr;
+            } else {
+                struct sockaddr_in6 *s = (struct sockaddr_in6 *)&ss;
+                ini->insi_fport = s->sin6_port;
+                ini->insi_faddr.ina_6 = s->sin6_addr;
+            }
+        }
+    } else if (dom == AF_UNIX) {
+        struct un_sockinfo *un = &si->soi_proto.pri_un;
+        si->soi_kind = SOCKINFO_UN;
+        sock_getsockname(so, (struct sockaddr *)&un->unsi_addr.ua_sun,
+            sizeof(un->unsi_addr.ua_sun));
+        sock_getpeername(so, (struct sockaddr *)&un->unsi_caddr.ua_sun,
+            sizeof(un->unsi_caddr.ua_sun));
+    } else {
+        si->soi_kind = SOCKINFO_GENERIC;
+    }
+}
+
+/*
  * Reads the data associated with a file descriptor that refers to a socket.
  */
 int
-procfs_read_socket_data(__unused pfsnode_t *pnp, __unused uio_t uio, __unused vfs_context_t ctx)
+procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    // Populating socket info requires fill_socketinfo(), a private kernel
-    // symbol that is neither third-party linkable nor (yet) forward-ported.
-    // The previous body was also unsafe here: fp_getfvp() is vnode-only so it
-    // rejects socket descriptors, and file_socket()/file_drop() operate on
-    // current_proc() rather than the target process. Until fill_socketinfo()
-    // is forward-ported with a target-process socket lookup, report that this
-    // node is unavailable. The per-fd "details" node still works for
-    // vnode-backed descriptors.
-    return ENOTSUP;
+    int error = 0;
+    int fd = pnp->node_id.nodeid_objectid;
+    proc_t p = proc_find(pnp->node_id.nodeid_pid);
+
+    if (p == PROC_NULL) {
+        return ESRCH;
+    }
+
+    struct socket_fdinfo info;
+    bzero(&info, sizeof(info));
+    socket_t so = NULL;
+
+    // Validate the socket descriptor and take a sock_retain() reference under
+    // proc_fdlock so the socket survives once the lock is dropped (sockets have
+    // no vnode-id reclaim guard). info.pfi is filled while the lock is held.
+    error = procfs_fd_socket(p, fd, &so, &info.pfi);
+    if (error == 0) {
+        procfs_fill_socketinfo(so, &info.psi);
+        sock_release(so);
+        error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+    }
+
+    proc_rele(p);
+    return error;
 }
 
 #pragma mark -

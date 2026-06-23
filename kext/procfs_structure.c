@@ -148,7 +148,7 @@ procfs_structure_init(void)
         add_file(one_thread_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_taskinfo), NULL, procfs_read_thread_info);
 
         // --- Per file descriptor files.
-        add_file(one_fd_dir, "details", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct proc_threadinfo), NULL, procfs_read_fd_data);
+        add_file(one_fd_dir, "details", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct vnode_fdinfowithpath), NULL, procfs_read_fd_data);
         add_file(one_fd_dir, "socket", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct socket_fdinfo), NULL, procfs_read_socket_data);
     }
 }

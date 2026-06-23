@@ -21,4 +21,12 @@ extern int fill_vnodeinfo(vnode_t vp, struct vnode_info *vinfo, boolean_t check_
  */
 extern int procfs_fd_vnode_info(proc_t p, int fd, struct vnode **vpp, uint32_t *vidp, struct proc_fileinfo *fi);
 
+/*
+ * Socket counterpart of procfs_fd_vnode_info(): validates a socket descriptor
+ * of a target process and returns the socket with a sock_retain() reference the
+ * caller must release with sock_release(), plus the proc_fileinfo. Returns
+ * EBADF for an invalid or non-socket descriptor.
+ */
+extern int procfs_fd_socket(proc_t p, int fd, socket_t *sop, struct proc_fileinfo *fi);
+
 #endif

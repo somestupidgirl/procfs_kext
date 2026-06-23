@@ -8,6 +8,7 @@
 #include <sys/kauth.h>
 #include <sys/mount_internal.h>
 #include <sys/param.h>
+#include <sys/kpi_socket.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 #include <sys/proc_internal.h>
@@ -595,6 +596,53 @@ procfs_fd_vnode_info(proc_t p, int fd, struct vnode **vpp, uint32_t *vidp, struc
     *vidp = vnode_vid(vp);
     fill_fileinfo(fp, p, fd, fi);   /* we hold proc_fdlock */
     proc_fdunlock(p);
+    return 0;
+}
+
+/*
+ * procfs_fd_socket() - socket counterpart of procfs_fd_vnode_info(). Sockets
+ * have no vnode-id equivalent to guard against reuse, so under proc_fdlock
+ * (which keeps the fileproc, hence the socket, alive) it takes a socket
+ * reference with sock_retain() that the caller must drop with sock_release().
+ * It also fills the proc_fileinfo. Returns EBADF for an invalid or non-socket
+ * descriptor.
+ *
+ * sock_retain() acquires the socket lock while proc_fdlock is held; this nests
+ * in the natural order (descriptor layer above socket layer) and cannot
+ * deadlock, since the socket layer never reaches back up to proc_fdlock.
+ */
+int
+procfs_fd_socket(proc_t p, int fd, socket_t *sop, struct proc_fileinfo *fi)
+{
+    struct filedesc *fdp = &p->p_fd;
+    struct fileproc *fp;
+    socket_t so;
+
+    if (!procfs_fd_layout_ok(fdp)) {
+        return EBADF;
+    }
+
+    proc_fdlock(p);
+    if (fd < 0 || fd >= fdp->fd_nfiles ||
+        (fp = fdp->fd_ofiles[fd]) == NULL || fp->fp_glob == NULL ||
+        (fdp->fd_ofileflags[fd] & UF_RESERVED)) {
+        proc_fdunlock(p);
+        return EBADF;
+    }
+    if (FILEGLOB_DTYPE(fp->fp_glob) != DTYPE_SOCKET) {
+        proc_fdunlock(p);
+        return EBADF;
+    }
+    so = (socket_t)procfs_fg_get_data(fp->fp_glob);
+    if (so == NULL) {
+        proc_fdunlock(p);
+        return EBADF;
+    }
+    sock_retain(so);
+    fill_fileinfo(fp, p, fd, fi);   /* we hold proc_fdlock */
+    proc_fdunlock(p);
+
+    *sop = so;
     return 0;
 }
 
