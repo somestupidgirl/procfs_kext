@@ -74,6 +74,34 @@
 #define TVTOJ(x) \
         ((x)->tv_sec * 100UL + (x)->tv_usec / 10000)
 
+/*
+ * Various conversion macros
+ */
+#define T2J(x) ((long)(((x) * 100ULL) / (stathz ? stathz : hz)))    /* ticks to jiffies */
+#define T2CS(x) ((unsigned long)(((x) * 100ULL) / (stathz ? stathz : hz)))  /* ticks to centiseconds */
+#define T2S(x) ((x) / (stathz ? stathz : hz))       /* ticks to seconds */
+#define B2K(x) ((x) >> 10)              /* bytes to kbytes */
+#define B2P(x) ((x) >> PAGE_SHIFT)          /* bytes to pages */
+#define P2B(x) ((x) << PAGE_SHIFT)          /* pages to bytes */
+#define P2K(x) ((x) << (PAGE_SHIFT - 10))       /* pages to kbytes */
+#define TV2J(x) ((x)->tv_sec * 100UL + (x)->tv_usec / 10000)
+
+/**
+ * @brief Mapping of ki_stat in struct kinfo_proc to the linux state
+ *
+ * The linux procfs state field displays one of the characters RSDZTW to
+ * denote running, sleeping in an interruptible wait, waiting in an
+ * uninterruptible disk sleep, a zombie process, process is being traced
+ * or stopped, or process is paging respectively.
+ *
+ * Our struct kinfo_proc contains the variable ki_stat which contains a
+ * value out of SIDL, SRUN, SSLEEP, SSTOP, SZOMB, SWAIT and SLOCK.
+ *
+ * This character array is used with ki_stati-1 as an index and tries to
+ * map our states to suitable linux states.
+ */
+static char linux_state[] = "RRSTZDD";
+
 #pragma mark -
 #pragma mark Linux-emulation functions
 
