@@ -106,13 +106,24 @@ release: debug
 
 install: debug install-only
 
-install-only:
+install-only: stage-symbols
 	cp -r $(OUT)/procfs.kext /Library/Extensions
 	cp -r $(OUT)/procfs.fs /Library/Filesystems
 	chmod -R 755 /Library/Extensions/procfs.kext
 	chown -R root:wheel /Library/Extensions/procfs.kext
 	chmod -R 755 /Library/Filesystems/procfs.fs
 	chown -R root:wheel /Library/Filesystems/procfs.fs
+
+# Build and run the userspace symbol-staging helper. It decompresses the booted
+# kernelcache and writes /var/db/procfs.ksyms, from which the kext resolves the
+# private symbols it cannot link or scan for directly. Re-run after a kernel
+# update; the kext safely ignores a stale file. Non-fatal if it fails (the
+# klookup-gated features just stay disabled).
+stage-symbols:
+	@echo "Staging kernel symbols (libklookup)..."
+	@mkdir -p $(OUT)
+	cc -O2 -Wall -o $(OUT)/procfs_ksyms tools/procfs_ksyms.c -lcompression
+	$(OUT)/procfs_ksyms || echo "procfs: symbol staging failed; klookup features disabled"
 
 tests:
 	$(MAKE) -C test
@@ -126,4 +137,4 @@ clean:
 clean-tests:
 	$(MAKE) -C test clean
 
-.PHONY: all debug release install install-only clean tests clean-tests
+.PHONY: all debug release install install-only stage-symbols clean tests clean-tests

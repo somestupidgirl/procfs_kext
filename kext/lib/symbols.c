@@ -84,44 +84,48 @@ SYM_INIT(tscFreq);
 SYM_INIT(cpuid_info);
 #endif
 
+/*
+ * Raw runtime addresses of private kernel functions resolved via libklookup
+ * (NULL if unavailable). These are unsigned; sign with KL_SIGN_FN at the call
+ * site, using the function-pointer type the call expects.
+ *
+ * On arm64 the fill_taskinfo/fill_taskthreadinfo symbols are stripped from the
+ * kernel entirely (see reference memory), so taskinfo/threadinfo cannot use
+ * them. proc_gettty (tty) and cpu_to_processor (loadavg) survive in the symtab.
+ */
+void *procfs_kl_proc_gettty      = NULL;
+void *procfs_kl_cpu_to_processor = NULL;
+
 kern_return_t
 resolve_symbols(void)
 {
     /*
-     * Batch-resolve the private symbols we need from the on-disk kernelcache.
-     * Include "_version" as a self-test: it must resolve to &version, proving
-     * the kernelcache and KASLR slide are right for this running kernel.
+     * Resolve the private symbols we use from the staged kernel-symbol file.
+     * "_version" is the slide anchor and validates by construction; klookup
+     * additionally validates against "_kernel_pmap", so a non-matching staged
+     * file yields NULLs and we leave the features disabled.
      */
-    enum { I_VERSION, I_FILL_TASKPROCINFO, I_FILL_TASKTHREADINFO, N_SYMS };
+    enum { I_VERSION, I_PROC_GETTTY, I_CPU_TO_PROCESSOR, N_SYMS };
     static const char *const names[N_SYMS] = {
-        [I_VERSION]              = "_version",
-        [I_FILL_TASKPROCINFO]    = "_fill_taskprocinfo",
-        [I_FILL_TASKTHREADINFO]  = "_fill_taskthreadinfo",
+        [I_VERSION]           = "_version",
+        [I_PROC_GETTTY]       = "_proc_gettty",
+        [I_CPU_TO_PROCESSOR]  = "_cpu_to_processor",
     };
     void *addr[N_SYMS] = { NULL };
 
     klookup_resolve(names, addr, N_SYMS);
 
     if (addr[I_VERSION] != (void *)(uintptr_t)version) {
-        printf("procfs: libklookup validation FAILED (_version=%p &version=%p)\n",
-               addr[I_VERSION], (void *)(uintptr_t)version);
+        printf("procfs: libklookup unavailable (staged symbols missing/stale)\n");
         return KERN_SUCCESS;
     }
 
     procfs_klookup_ok = TRUE;
+    procfs_kl_proc_gettty      = addr[I_PROC_GETTTY];
+    procfs_kl_cpu_to_processor = addr[I_CPU_TO_PROCESSOR];
 
-    /* Sign the resolved function addresses so they are callable under PAC. */
-    if (addr[I_FILL_TASKPROCINFO] != NULL) {
-        _fill_taskprocinfo = KL_SIGN_FN(addr[I_FILL_TASKPROCINFO],
-                                        __typeof(_fill_taskprocinfo));
-    }
-    if (addr[I_FILL_TASKTHREADINFO] != NULL) {
-        _fill_taskthreadinfo = KL_SIGN_FN(addr[I_FILL_TASKTHREADINFO],
-                                          __typeof(_fill_taskthreadinfo));
-    }
-
-    printf("procfs: libklookup OK (taskprocinfo=%d taskthreadinfo=%d)\n",
-           _fill_taskprocinfo != NULL, _fill_taskthreadinfo != NULL);
+    printf("procfs: libklookup OK (proc_gettty=%d cpu_to_processor=%d)\n",
+           procfs_kl_proc_gettty != NULL, procfs_kl_cpu_to_processor != NULL);
 
     return KERN_SUCCESS;
 }
