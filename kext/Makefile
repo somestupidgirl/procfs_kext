@@ -57,8 +57,15 @@ CFLAGS+= -DKERNEL \
 # &p->p_fd.fd_lock points at garbage -> "Invalid/destroyed mutex" panic.
 # CONFIG_PROC_RESOURCE_LIMITS is intentionally NOT defined: it is DEV/DEBUG-only
 # and off in the release kernel, so leaving it off matches.
+#
+# CONFIG_DTRACE is ON in the shipping macOS kernel (confirmed at runtime via
+# /dev/dtrace, /dev/dtracehelper and the kern.dtrace.* sysctls), so struct proc
+# includes the p_dtrace_* block. The fields after it - p_argslen, p_argc,
+# user_stack (read by the cmdline node) - land at the wrong offset without it.
+# It sits after p_fd/p_uthlist, so enabling it does not disturb fd/ or threads/.
 CFLAGS+= -DCONFIG_PERSONAS \
-         -DCONFIG_AUDIT
+         -DCONFIG_AUDIT \
+         -DCONFIG_DTRACE
 
 # xnu/bsd is needed on all arches for headers not in the SDK (sys/exec.h etc.)
 # xnu/osfmk is only needed on ARM64 (x86_64 SDK has complete lock definitions)
