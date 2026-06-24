@@ -218,9 +218,11 @@ This project builds on the work of others, with thanks to:
   <https://github.com/leiless/libkext>
 - **Syncretic** — the `klookup` kernel symbol-resolution code, from the `latebloom` project (0BSD).
   <https://github.com/reenigneorcim/latebloom>
+- **Acidanthera** - the `MacKernelSDK` macOS kernel SDK targeting various XNU versions.
+  <https://github.com/acidanthera/MacKernelSDK>
 - **Apple** — the XNU kernel source, headers and reference implementation.
   <https://github.com/apple-oss-distributions/xnu>
-- **Apple** — the `libutil` source and headers, needed by the mount_procfs tool.
+- **Apple** — the `libutil source and headers, needed by the mount_procfs tool.
   <https://github.com/apple-oss-distributions/libutil>
 - **The NetBSD project** — `procfs` design and reference implementation.
   <https://github.com/NetBSD/src>
