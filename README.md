@@ -9,10 +9,11 @@ Tested on:
     - Builds as a universal binary (arm64e + x86_64)
 
 > **Note on Apple Silicon:** under Pointer Authentication (PAC) the kernel's
-> private symbols cannot be resolved from a kext, so a few features that depend
-> on them are unavailable on ARM64 and degrade gracefully (they return
-> `ENOTSUP` or an empty listing rather than failing the mount). See
-> [Feature status](#feature-status) below.
+> private symbols cannot be resolved from a kext. Where possible the affected
+> features are forward-ported to work without those symbols (e.g. `fd/` and
+> `threads/`); the few that cannot be (e.g. `tty`) degrade gracefully, returning
+> `ENOTSUP` rather than failing the mount. See [Feature status](#feature-status)
+> below.
 
 ## What is procfs?
 *procfs* lets you view the processes running on a UNIX system as nodes in the file system, where each process is represented by a single directory named from its process id. Typically, the file system is mounted at `/proc`, so the directory for process 1 would be called `/proc/1`. Beneath a process’ directory are further directories and files that give more information about the process, such as its process id, its active threads, the files that it has open, and so on. *procfs* first appeared in an early version of AT&T’s UNIX and was later implemented in various forms in System V, BSD, Solaris and Linux. You can find a history of the implementation of *procfs* at https://en.wikipedia.org/wiki/Procfs.
@@ -50,7 +51,7 @@ Each directory named for a process id represents one process on the system. By d
 
 The `fd` directory contains one entry for each file that the process has open. Each entry is a directory that’s numbered for the corresponding file descriptor. Within each subdirectory you’ll find two files called `details` and `socket`. The `details` file contains a `vnode_fdinfowithpath` structure, which contains information about the file including its path name if it is a file system file. If the file is a socket endpoint, you can read a `socket_fdinfo` structure from the `socket` file.
 
-The `threads` directory contains a subdirectory for each of the process’ threads. Each thread directory contains a single file called `info` that contains thread-specific information in the form of a `proc_threadinfo` structure.
+The `threads` directory contains a subdirectory for each of the process’ threads, named by thread id. Each thread directory contains a single file called `info` that is meant to hold a `proc_threadinfo` structure. Thread *enumeration* works on Apple Silicon (the directory lists the real thread ids); the per-thread `info` *contents* are currently zeroed, pending a forward-port of the private `fill_taskthreadinfo`.
 
 ## Feature status
 
@@ -62,14 +63,21 @@ Verified with `test/test_features.sh`.
   - Root files: `cpuinfo`, `loadavg`, `partitions`, `version`
   - `curproc` symlink and the `byname/` directory of per-process symlinks
   - Per-process `pid`, `ppid`, `pgid`, `sid`, `info`, `taskinfo`
+  - `fd/` — enumerates the process's open file descriptors; per-fd `details`
+    (`vnode_fdinfowithpath`) and `socket` (`socket_fdinfo`) nodes
+  - `threads/` — enumerates the process's threads (one directory per thread id)
+
+These last two required forward-porting work to function under PAC on Apple
+Silicon rather than relying on the unavailable private KPIs — `fd/` walks the
+process's file-descriptor table directly, and `threads/` enumerates threads via
+the BSD `proc->p_uthlist` instead of the inaccessible Mach `task->threads` queue.
 
 **Unavailable on Apple Silicon (graceful degradation, not crashes):**
 
-  - `tty` — returns `ENOTSUP` (needs the private `proc_gettty` symbol)
-  - `fd/` enumeration — lists only `.`/`..` (no public KPI to enumerate another process's file descriptors)
-  - `threads/` enumeration — lists only `.`/`..` (no public KPI to enumerate a task's threads)
-
-These all depend on private kernel symbols that cannot be resolved under PAC; the relevant code paths guard the NULL symbols and degrade gracefully. On the rare configuration where those symbols are available (e.g. a kernel built with the matching private KPIs), they would populate normally.
+  - `tty` — returns `ENOTSUP`. The controlling terminal is reached through the
+    SMR-protected `p->p_pgrp`, and every safe dereference bottoms out in symbols
+    a kext cannot link (the `smr_*` read section, `proc_list_lock`, `proc_gettty`,
+    `vnode_hold`/`vnode_drop`), so unlike `fd/` it cannot be forward-ported.
 
 **Partially available:**
 
@@ -153,7 +161,7 @@ through `hexdump` to read the raw contents:
 
 ## TODO:
  - Implement `cmdline` (reachable from a kext via `sysctl(KERN_PROCARGS2)`).
- - Revisit `fd/`, `threads/` and `tty` for Apple Silicon — they currently require private kernel symbols that are unavailable under PAC.
+ - Populate per-thread `info` content (needs a forward-port of `fill_taskthreadinfo`); enumeration already works.
  - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
  - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
  - Implement more linux-compatible files a la NetBSD and FreeBSD.
@@ -161,8 +169,9 @@ through `hexdump` to read the raw contents:
 ## Issues
 Currently known issues:
 
-- On Apple Silicon, `fd/`, `threads/` and `tty` are unavailable because they depend on private kernel symbols that cannot be resolved under PAC (see [Feature status](#feature-status)).
+- On Apple Silicon, `tty` is unavailable because it depends on private kernel symbols that cannot be resolved under PAC (see [Feature status](#feature-status)). `fd/` and `threads/` previously had this limitation but have since been forward-ported and now work.
 - `cmdline` is not yet implemented and returns a placeholder string.
+- Per-thread `info` content under `threads/<tid>/` is currently zeroed; thread enumeration itself works.
 - The `procfs_dopartitions` function in kext/procfs_linux.c is still in early stages of development so it will only return dummy values at the moment.
 - Certain fields in `procfs_docpuinfo`, in kext/procfs_linux.c, such as `bugs` and `pm` have yet to be incorporated. Support for CPU flags for AMD CPUs is also still limited.
 
