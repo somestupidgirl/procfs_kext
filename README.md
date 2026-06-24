@@ -40,14 +40,15 @@ Each directory named for a process id represents one process on the system. By d
 
 | File    | Summary                          | Structure                       |
 |---------|----------------------------------|---------------------------------|
-|`pid`    | Process id                       | `pid_t` (binary `int32`)         |
+|`pid`      | Process id                       | `pid_t` (binary `int32`)         |
 |`ppid`     | Parent process id                | `pid_t` (binary `int32`)         |
 |`pgid`     | Process group id                 | `pid_t` (binary `int32`)         |
 |`sid`      | Session id                       | `pid_t` (binary `int32`)         |
+|`status`   | Basic process info               | `struct proc_bsdshortinfo`        |
+|`taskinfo` | Info for the process’s Mach task | `struct proc_taskinfo` — **currently zeroed** (see Feature status) |
 |`cmdline`  | Process command line             | text — **not yet implemented** (stub) |
 |`tty`      | Controlling tty                  | string — **unavailable on ARM64** |
-|`info`     | Basic process info               | `struct proc_bsdshortinfo`        |
-|`taskinfo` | Info for the process’s Mach task | `struct proc_taskinfo`            |
+|`note`     | Write a note to the process (NetBSD-style) | write-only; read returns `EINVAL`. **Delivery not yet implemented** |
 
 The `fd` directory contains one entry for each file that the process has open. Each entry is a directory that’s numbered for the corresponding file descriptor. Within each subdirectory you’ll find two files called `details` and `socket`. The `details` file contains a `vnode_fdinfowithpath` structure, which contains information about the file including its path name if it is a file system file. If the file is a socket endpoint, you can read a `socket_fdinfo` structure from the `socket` file.
 
@@ -57,20 +58,45 @@ The `threads` directory contains a subdirectory for each of the process’ threa
 
 Verified with `test/test_features.sh`.
 
-**Working:**
+**Working (real data):**
 
   - Directory listing of the root and per-process directories via `ls`, `find`, `readdir(3)` and `getdirentries64(2)`
-  - Root files: `cpuinfo`, `loadavg`, `partitions`, `version`
+  - `version` — kernel version string
+  - `cpuinfo` — Linux-style CPU information (some flag fields incomplete; see Issues)
   - `curproc` symlink and the `byname/` directory of per-process symlinks
-  - Per-process `pid`, `ppid`, `pgid`, `sid`, `info`, `taskinfo`
+  - Per-process `pid`, `ppid`, `pgid`, `sid` (binary `int32`)
+  - Per-process `status` — `proc_bsdshortinfo` (pid/ppid/pgid, status, command
+    name, real/effective/saved uids and gids, process flags)
   - `fd/` — enumerates the process's open file descriptors; per-fd `details`
-    (`vnode_fdinfowithpath`) and `socket` (`socket_fdinfo`) nodes
+    (`vnode_fdinfowithpath`) and `socket` (`socket_fdinfo`, common fields plus
+    UNIX/IPv4 addresses)
   - `threads/` — enumerates the process's threads (one directory per thread id)
 
-These last two required forward-porting work to function under PAC on Apple
+`fd/` and `threads/` required forward-porting work to function under PAC on Apple
 Silicon rather than relying on the unavailable private KPIs — `fd/` walks the
 process's file-descriptor table directly, and `threads/` enumerates threads via
 the BSD `proc->p_uthlist` instead of the inaccessible Mach `task->threads` queue.
+
+**Partially available (placeholder / incomplete data):**
+
+  - `loadavg` — the process-count field is real, but the three load-average
+    values read 0.00 on Apple Silicon. The kernel's `averunnable` global is not
+    exported to kexts, is absent from the (stripped) kernel symbol table, and
+    the `vm.loadavg` sysctl returns `EPERM` from kernel context, so there is no
+    safe way to obtain the values.
+  - `partitions` — emits a well-formed Linux-style table, but the values are
+    dummy placeholders.
+  - `taskinfo` and per-thread `threads/<tid>/info` — return correctly-sized but
+    **all-zero** structures: they depend on the private `fill_taskprocinfo` /
+    `fill_taskthreadinfo` symbols, which cannot be resolved under PAC and are not
+    yet forward-ported.
+
+**Present but not yet functional:**
+
+  - `cmdline` — stub that returns the literal string `Feature not yet implemented.`
+  - `note` — NetBSD-style node; reads return `EINVAL` as on NetBSD, but the node
+    model is currently read-only (no `vnop_write`) and note delivery is
+    unimplemented, so writing one is not yet possible.
 
 **Unavailable on Apple Silicon (graceful degradation, not crashes):**
 
@@ -79,17 +105,13 @@ the BSD `proc->p_uthlist` instead of the inaccessible Mach `task->threads` queue
     a kext cannot link (the `smr_*` read section, `proc_list_lock`, `proc_gettty`,
     `vnode_hold`/`vnode_drop`), so unlike `fd/` it cannot be forward-ported.
 
-**Partially available:**
+**Not yet present (planned — see TODO):**
 
-  - `loadavg` — the process-count field is real, but the three load-average
-    values read 0.00 on Apple Silicon. The kernel's `averunnable` global is not
-    exported to kexts, is absent from the (stripped) kernel symbol table, and
-    the `vm.loadavg` sysctl returns `EPERM` from kernel context, so there is no
-    safe way to obtain the values.
-
-**Incomplete:**
-
-  - `cmdline` is a stub that returns the literal string `Feature not yet implemented.`
+  - Per-thread register/state files, process memory (`mem`) and address-space
+    map (`map`), `auxv`, resource limits, and the broader set of Linux-style
+    `/proc` files (`stat`, `meminfo`, `mounts`, `/proc/sys/`, …). Scaffolding for
+    several of these exists in the source tree but is not yet wired into the
+    node structure.
 
 ## How to build procfs
 Build a universal (arm64e + x86_64) binary with:
@@ -161,17 +183,20 @@ through `hexdump` to read the raw contents:
 
 ## TODO:
  - Implement `cmdline` (reachable from a kext via `sysctl(KERN_PROCARGS2)`).
- - Populate per-thread `info` content (needs a forward-port of `fill_taskthreadinfo`); enumeration already works.
+ - Populate `taskinfo` and per-thread `info` content (needs forward-ports of `fill_taskprocinfo` / `fill_taskthreadinfo`); enumeration already works.
+ - Wire up the scaffolded but not-yet-exposed nodes: process memory (`mem`), address-space map (`map`), `auxv`, register state (`fpregs`/regs) and resource limits.
+ - Implement `note` delivery (and a `vnop_write` path so the node is writable).
  - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
  - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
- - Implement more linux-compatible files a la NetBSD and FreeBSD.
+ - Implement more linux-compatible files a la NetBSD and FreeBSD (`stat`, `meminfo`, `mounts`, `/proc/sys/`, …).
 
 ## Issues
 Currently known issues:
 
 - On Apple Silicon, `tty` is unavailable because it depends on private kernel symbols that cannot be resolved under PAC (see [Feature status](#feature-status)). `fd/` and `threads/` previously had this limitation but have since been forward-ported and now work.
 - `cmdline` is not yet implemented and returns a placeholder string.
-- Per-thread `info` content under `threads/<tid>/` is currently zeroed; thread enumeration itself works.
+- `taskinfo` and per-thread `threads/<tid>/info` are currently zeroed (they need the private `fill_taskprocinfo` / `fill_taskthreadinfo`); the surrounding `fd/` and `threads/` enumeration works.
+- `note` is a NetBSD-style scaffold: reads return `EINVAL` and writing a note is not yet possible (no write path / no delivery).
 - The `procfs_dopartitions` function in kext/procfs_linux.c is still in early stages of development so it will only return dummy values at the moment.
 - Certain fields in `procfs_docpuinfo`, in kext/procfs_linux.c, such as `bugs` and `pm` have yet to be incorporated. Support for CPU flags for AMD CPUs is also still limited.
 
