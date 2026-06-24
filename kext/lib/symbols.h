@@ -127,10 +127,6 @@ extern void                     (*_pgrp_iterate)(struct pgrp *pgrp, unsigned int
 #pragma mark TTY
 
 /*
- * proc_gettty() and proc_gettty_dev() are exported KPI on this kernel, so they
- * are linked directly from <sys/proc.h> rather than stubbed here.
- */
-/*
  * Mutex lock for TTY.
  */
 extern void                     (*_tty_lock)(struct tty *tp);
@@ -150,10 +146,6 @@ extern struct filedesc          (*_filedesc0);
 #define                         filedesc0 \
                                 *_filedesc0;
 
-/*
- * fp_getfvp() is exported KPI; it is declared in lib/kern.h and linked from the
- * kernel rather than stubbed here.
- */
 /*
  * fdcopy
  *
@@ -273,21 +265,10 @@ extern int                      (*_fill_taskthreadinfo)(task_t task, uint64_t th
 extern int                      (*_fill_socketinfo)(socket_t so, struct socket_info *si);
 #define                         fill_socketinfo(so, si) \
                                 _fill_socketinfo(so, si)
-/*
- * proc_fdlist() is exported KPI (declared in <sys/proc_info_private.h>, pulled
- * in via the vendored <sys/proc_info.h>); linked from the kernel, not stubbed.
- * Caller is responsible for adding margin to *count when calling this in
- * circumstances where file descriptors can appear/disappear between the
- * two calls to this function.
- */
 
 #pragma mark -
 #pragma mark Task/Thread
 
-/*
- * proc_task() is forward-ported in lib/kern.c (via p->p_proc_ro->pr_task) and
- * declared in <sys/proc.h>; it is no longer stubbed here.
- */
 /*
  * Returns the thread for the specified process.
  */
@@ -372,7 +353,6 @@ extern void                     (*_vnode_unlock)(struct vnode *);
 /*
  * Fills the i386_cpu_info structure and returns its pointer.
  */
-#if defined(__x86_64__)
 extern i386_cpu_info_t *        (*_cpuid_info)(void);
 #define                         cpuid_info() \
                                 _cpuid_info()
@@ -380,7 +360,6 @@ extern i386_cpu_info_t *        (*_cpuid_info)(void);
  * Global variable that stores the TSC frequency of the current CPU.
  */
 extern uint64_t                 (*_tscFreq);
-#endif /* __x86_64__ */
 #define                         tscFreq \
                                 *_tscFreq
 #endif /* __x86_64__ */

@@ -13,12 +13,6 @@
 #define SYM_INIT(sym) \
 	__typeof(_##sym) _##sym = NULL
 
-//SYM_INIT(initproc);
-//SYM_INIT(allproc);
-//SYM_INIT(nprocs);
-//SYM_INIT(maxproc);
-//SYM_INIT(maxprocperuid);
-//SYM_INIT(hard_maxproc);
 SYM_INIT(proc_best_name);
 SYM_INIT(proc_starttime);
 SYM_INIT(proc_issetugid);
