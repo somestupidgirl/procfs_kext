@@ -49,7 +49,7 @@ Each directory named for a process id represents one process on the system. By d
 |`sid`      | Session id                       | `pid_t` (binary `int32`)         |
 |`status`   | Basic process info               | `struct proc_bsdshortinfo`        |
 |`taskinfo` | Info for the process’s Mach task | `struct proc_taskinfo` — **currently zeroed** (see Feature status) |
-|`cmdline`  | Process command line             | text — **not yet implemented** (stub) |
+|`cmdline`  | Process argument vector (NUL-separated, Linux format) | text |
 |`tty`      | Controlling tty                  | string — **unavailable on ARM64** |
 |`note`     | Write a note to the process (NetBSD-style) | write-only; read returns `EINVAL`. **Delivery not yet implemented** |
 
@@ -70,15 +70,19 @@ Verified with `test/test_features.sh`.
   - Per-process `pid`, `ppid`, `pgid`, `sid` (binary `int32`)
   - Per-process `status` — `proc_bsdshortinfo` (pid/ppid/pgid, status, command
     name, real/effective/saved uids and gids, process flags)
+  - `cmdline` — the process's argument vector, NUL-separated (the Linux
+    `/proc/<pid>/cmdline` format); zombies and system processes report `(comm)`
   - `fd/` — enumerates the process's open file descriptors; per-fd `details`
     (`vnode_fdinfowithpath`) and `socket` (`socket_fdinfo`, common fields plus
     UNIX/IPv4 addresses)
   - `threads/` — enumerates the process's threads (one directory per thread id)
 
-`fd/` and `threads/` required forward-porting work to function under PAC on Apple
-Silicon rather than relying on the unavailable private KPIs — `fd/` walks the
-process's file-descriptor table directly, and `threads/` enumerates threads via
-the BSD `proc->p_uthlist` instead of the inaccessible Mach `task->threads` queue.
+`cmdline`, `fd/` and `threads/` required forward-porting work to function under
+PAC on Apple Silicon rather than relying on the unavailable private KPIs: `fd/`
+walks the process's file-descriptor table directly, `threads/` enumerates threads
+via the BSD `proc->p_uthlist` instead of the inaccessible Mach `task->threads`
+queue, and `cmdline` reads the target's user-stack arguments through its pmap
+(the `KERN_PROCARGS2` `vm_map_copyin` path is `com.apple.kpi.private`).
 
 **Partially available (placeholder / incomplete data):**
 
@@ -96,7 +100,6 @@ the BSD `proc->p_uthlist` instead of the inaccessible Mach `task->threads` queue
 
 **Present but not yet functional:**
 
-  - `cmdline` — stub that returns the literal string `Feature not yet implemented.`
   - `note` — NetBSD-style node; reads return `EINVAL` as on NetBSD, but the node
     model is currently read-only (no `vnop_write`) and note delivery is
     unimplemented, so writing one is not yet possible.
@@ -185,7 +188,6 @@ through `hexdump` to read the raw contents:
     cat ~/proc/curproc/taskinfo | hexdump -C
 
 ## TODO:
- - Implement `cmdline` (reachable from a kext via `sysctl(KERN_PROCARGS2)`).
  - Populate `taskinfo` and per-thread `info` content (needs forward-ports of `fill_taskprocinfo` / `fill_taskthreadinfo`); enumeration already works.
  - Wire up the scaffolded but not-yet-exposed nodes: process memory (`mem`), address-space map (`map`), `auxv`, register state (`fpregs`/regs) and resource limits.
  - Implement `note` delivery (and a `vnop_write` path so the node is writable).
@@ -196,8 +198,7 @@ through `hexdump` to read the raw contents:
 ## Issues
 Currently known issues:
 
-- On Apple Silicon, `tty` is unavailable because it depends on private kernel symbols that cannot be resolved under PAC (see [Feature status](#feature-status)). `fd/` and `threads/` previously had this limitation but have since been forward-ported and now work.
-- `cmdline` is not yet implemented and returns a placeholder string.
+- On Apple Silicon, `tty` is unavailable because it depends on private kernel symbols that cannot be resolved under PAC (see [Feature status](#feature-status)). `cmdline`, `fd/` and `threads/` previously had this limitation but have since been forward-ported and now work.
 - `taskinfo` and per-thread `threads/<tid>/info` are currently zeroed (they need the private `fill_taskprocinfo` / `fill_taskthreadinfo`); the surrounding `fd/` and `threads/` enumeration works.
 - `note` is a NetBSD-style scaffold: reads return `EINVAL` and writing a note is not yet possible (no write path / no delivery).
 - The `procfs_dopartitions` function in kext/procfs_linux.c is still in early stages of development so it will only return dummy values at the moment.
