@@ -89,6 +89,7 @@ CFLAGS+= -target $(TARGET_TRIPLE) \
          -fno-stack-protector \
          -I../kext/lib \
          -I../lib \
+         -I../include \
          $(XNU_INCLUDES) \
          -isystem $(KERNEL_HEADERS) \
          $(ARCH_SYS_INCLUDES)

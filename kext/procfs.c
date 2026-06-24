@@ -17,7 +17,7 @@
 #include <os/log.h>
 #include <sys/mount.h>
 
-#include <miscfs/procfs/procfs.h>
+#include <fs/procfs/procfs.h>
 
 #pragma mark -
 #pragma mark External References

@@ -25,7 +25,7 @@
 #include <sys/proc_info.h>
 #include <sys/vnode.h>
 
-#include <miscfs/procfs/procfs.h>
+#include <fs/procfs/procfs.h>
 
 #pragma mark -
 #pragma mark Function Prototypes

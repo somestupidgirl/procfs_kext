@@ -16,7 +16,7 @@
 #include <sys/systm.h>
 #include <sys/vnode.h>
 
-#include <miscfs/procfs/procfs.h>
+#include <fs/procfs/procfs.h>
 
 #pragma mark Local Definitions
 

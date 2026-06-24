@@ -30,7 +30,7 @@
 #include <sys/vm.h>
 #include <sys/vnode.h>
 
-#include <miscfs/procfs/procfs.h>
+#include <fs/procfs/procfs.h>
 
 #include "lib/malloc.h"
 #include "lib/symbols.h"

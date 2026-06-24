@@ -19,7 +19,7 @@
 #include <sys/stat.h>
 #include <sys/vnode.h>
 
-#include <miscfs/procfs/procfs.h>
+#include <fs/procfs/procfs.h>
 
 #include "lib/symbols.h"
 

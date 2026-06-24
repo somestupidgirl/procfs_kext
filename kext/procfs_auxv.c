@@ -8,4 +8,4 @@
  * Placeholder for the NetBSD-style procfs layout; not yet implemented.
  * The node's data function will live here when the feature is added.
  */
-#include <miscfs/procfs/procfs.h>
+#include <fs/procfs/procfs.h>

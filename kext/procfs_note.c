@@ -77,7 +77,7 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 
-#include <miscfs/procfs/procfs.h>
+#include <fs/procfs/procfs.h>
 
 /*
  * Reads a user-supplied note from a write uio into buf (NUL-terminated, with

@@ -28,7 +28,7 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#include <miscfs/procfs/procfs.h>
+#include <fs/procfs/procfs.h>
 
 #include <libutil/mntopts.h>
 

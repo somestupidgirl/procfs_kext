@@ -20,6 +20,7 @@ CFLAGS+= -target $(TARGET_TRIPLE) \
          -x c \
          -std=c99 \
          -I../lib \
+         -I../include \
          -idirafter ../xnu/bsd
 
 CFLAGS+= -Wall -Wextra -Wno-vla -Wno-nullability-completeness

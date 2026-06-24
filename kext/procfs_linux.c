@@ -34,7 +34,7 @@
 #include <sys/queue.h>
 #include <sys/sysctl.h>
 
-#include <miscfs/procfs/procfs.h>
+#include <fs/procfs/procfs.h>
 
 #include "lib/cpu.h"
 #include "lib/malloc.h"
