@@ -8,7 +8,32 @@
  * Copyright (c) 2022-2026 Sunneva N. Mariu
  */
 #include <mach/kern_return.h>
+#include <libkern/libkern.h>
+#include <ptrauth.h>
 #include "symbols.h"
+
+/* libklookup: resolves private kernel functions from the on-disk kernelcache
+ * symbol table (applying the KASLR slide), reaching symbols absent from every
+ * .exports and jettisoned from the running kernel's __LINKEDIT. */
+extern int klookup_resolve(const char *const *names, void **out, int count);
+extern const char version[];
+
+/* Set once at load if libklookup validates (in resolve_symbols). Code that uses
+ * a klookup-resolved private symbol should gate on this. */
+boolean_t procfs_klookup_ok = FALSE;
+
+/*
+ * Sign a klookup-resolved raw function address as a C function pointer so it can
+ * be called under the arm64e kernel ABI (key IA + type discriminator). On
+ * non-ptrauth targets this is a plain cast.
+ */
+#if __has_feature(ptrauth_calls)
+#define KL_SIGN_FN(addr, fptype) \
+    ptrauth_sign_unauthenticated((void *)(addr), ptrauth_key_function_pointer, \
+        ptrauth_function_pointer_type_discriminator(fptype))
+#else
+#define KL_SIGN_FN(addr, fptype) ((void *)(addr))
+#endif
 
 #define SYM_INIT(sym) \
 	__typeof(_##sym) _##sym = NULL
@@ -62,7 +87,41 @@ SYM_INIT(cpuid_info);
 kern_return_t
 resolve_symbols(void)
 {
-    /* Stubbed: ARM64 PAC prevents kernel memory scanning.
-     * Private symbols remain NULL; public KPI alternatives used instead. */
+    /*
+     * Batch-resolve the private symbols we need from the on-disk kernelcache.
+     * Include "_version" as a self-test: it must resolve to &version, proving
+     * the kernelcache and KASLR slide are right for this running kernel.
+     */
+    enum { I_VERSION, I_FILL_TASKPROCINFO, I_FILL_TASKTHREADINFO, N_SYMS };
+    static const char *const names[N_SYMS] = {
+        [I_VERSION]              = "_version",
+        [I_FILL_TASKPROCINFO]    = "_fill_taskprocinfo",
+        [I_FILL_TASKTHREADINFO]  = "_fill_taskthreadinfo",
+    };
+    void *addr[N_SYMS] = { NULL };
+
+    klookup_resolve(names, addr, N_SYMS);
+
+    if (addr[I_VERSION] != (void *)(uintptr_t)version) {
+        printf("procfs: libklookup validation FAILED (_version=%p &version=%p)\n",
+               addr[I_VERSION], (void *)(uintptr_t)version);
+        return KERN_SUCCESS;
+    }
+
+    procfs_klookup_ok = TRUE;
+
+    /* Sign the resolved function addresses so they are callable under PAC. */
+    if (addr[I_FILL_TASKPROCINFO] != NULL) {
+        _fill_taskprocinfo = KL_SIGN_FN(addr[I_FILL_TASKPROCINFO],
+                                        __typeof(_fill_taskprocinfo));
+    }
+    if (addr[I_FILL_TASKTHREADINFO] != NULL) {
+        _fill_taskthreadinfo = KL_SIGN_FN(addr[I_FILL_TASKTHREADINFO],
+                                          __typeof(_fill_taskthreadinfo));
+    }
+
+    printf("procfs: libklookup OK (taskprocinfo=%d taskthreadinfo=%d)\n",
+           _fill_taskprocinfo != NULL, _fill_taskthreadinfo != NULL);
+
     return KERN_SUCCESS;
 }

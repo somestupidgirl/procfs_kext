@@ -2,6 +2,7 @@
 // License: 0BSD                                                              //
 //                                                                            //
 // Copyright (C) 2021 by Syncretic                                            //
+// Copyright (C) 2026 by Sunneva N. Mariu                                     //
 //                                                                            //
 // Permission to use, copy, modify, and/or distribute this software for any   //
 // purpose with or without fee is hereby granted.                             //
@@ -40,6 +41,14 @@
 extern "C" {
 #endif
 
+    /*
+     * Resolve `count` symbol names to runtime addresses (out[i] = address or
+     * NULL). Returns the number resolved. Reads the on-disk kernelcache once,
+     * so batch everything you need in a single call.
+     */
+    int klookup_resolve(const char *const *names, void **out, int count);
+
+    /* Single-symbol convenience wrapper around klookup_resolve(). */
     void *SymbolLookup(const char *symbol);
 
 #ifdef __cplusplus
