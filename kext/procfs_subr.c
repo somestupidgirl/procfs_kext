@@ -6,6 +6,7 @@
  *
  * Utility functions for the ProcFS file system.
  */
+#include <kern/task.h>
 #include <kern/thread.h>
 #include <libkern/OSMalloc.h>
 #include <mach/mach_types.h>
@@ -14,6 +15,8 @@
 #include <sys/kauth.h>
 #include <sys/malloc.h>
 #include <sys/proc.h>
+#include <sys/proc_internal.h>
+#include <sys/user.h>
 #include <sys/uio.h>
 #include <sys/proc_info.h>
 #include <sys/ucred.h>
@@ -265,72 +268,145 @@ procfs_get_process_count(kauth_cred_t creds)
 }
 
 /*
- * Gets a list of the thread ids for the threads belonging
- * to a given Mach task. The memory in which the thread list
- * is return is allocated by this function and must be freed
- * by calling procfs_release_thread_ids().
+ * Thread enumeration.
+ *
+ * The Mach thread KPIs (task_threads / thread_info / convert_port_to_thread)
+ * are neither linkable (com.apple.kpi.private) nor present in the stripped
+ * kernel symbol table, and struct task / struct thread are opaque, so we cannot
+ * walk task->threads. Instead we enumerate threads through the BSD side, whose
+ * layout *is* known at compile time: a proc owns p_uthlist, a TAILQ of struct
+ * uthread linked by uu_list (both fields sit before any CONFIG_* conditional,
+ * so their offsets are config-independent).
+ *
+ * A uthread is allocated immediately after its thread, so XNU's get_machthread()
+ * is simply (thread_t)((uintptr_t)uth - sizeof(struct thread)). sizeof(struct
+ * thread) is opaque, but constant, so we recover it once at runtime: the current
+ * thread's uthread is the unique uthread in current_proc()'s list lying just
+ * above current_thread(). From there each thread's id is thread_tid(uth - size).
+ */
+extern ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
+extern pmap_t  kernel_pmap;
+
+static uintptr_t g_thread_struct_size  = 0;     /* sizeof(struct thread)        */
+static boolean_t g_thread_size_known   = FALSE;
+
+#define PROCFS_THREAD_SIZE_MAX 262144 /* sane upper bound on sizeof(struct thread) */
+#define PROCFS_MAX_THREADS     100000
+#define PROCFS_KPTR_MIN        ((uintptr_t)0xfffffe0000000000ULL)
+
+/*
+ * True iff va is a plausible, currently-mapped ARM64 kernel address. Used to
+ * gate every dereference of a list pointer so a torn-down uthread can never
+ * fault the walk.
+ */
+static boolean_t
+procfs_kptr_ok(uintptr_t va)
+{
+    if (va < PROCFS_KPTR_MIN) {
+        return FALSE;
+    }
+    return pmap_find_phys(kernel_pmap, (addr64_t)va) != 0;
+}
+
+/*
+ * Recover sizeof(struct thread) once. The current thread's uthread sits exactly
+ * sizeof(struct thread) bytes above current_thread() and is a member of
+ * current_proc()'s p_uthlist. Other threads' uthreads live in unrelated
+ * allocations, so the current thread's uthread is the lowest-addressed uthread
+ * in the list above current_thread(); its distance is the struct size.
+ */
+static void
+procfs_thread_size_init(void)
+{
+    if (g_thread_size_known) {
+        return;
+    }
+
+    proc_t    cp = current_proc();
+    uintptr_t th = (uintptr_t)current_thread();
+    if (cp == PROC_NULL || th == 0) {
+        return;
+    }
+
+    uintptr_t best = 0;
+    boolean_t have_best = FALSE;
+    uthread_t uth = TAILQ_FIRST(&cp->p_uthlist);
+    for (int i = 0; uth != NULL && i < PROCFS_MAX_THREADS; i++) {
+        uintptr_t u = (uintptr_t)uth;
+        if (!procfs_kptr_ok(u)) {
+            break;
+        }
+        if (u > th && (u - th) < PROCFS_THREAD_SIZE_MAX) {
+            if (!have_best || u < best) {
+                best = u;
+                have_best = TRUE;
+            }
+        }
+        uth = TAILQ_NEXT(uth, uu_list);
+    }
+
+    if (have_best) {
+        g_thread_struct_size = best - th;
+        g_thread_size_known  = TRUE;
+    }
+}
+
+/*
+ * Gets a list of the thread ids for the threads belonging to a process. The
+ * array is allocated here and must be freed with procfs_release_thread_ids().
+ *
+ * p_uthlist is walked without proc_lock (not linkable here); every uthread is
+ * pmap-validated before dereference and the walk is iteration-capped, so a
+ * thread torn down mid-walk yields a possibly-stale id rather than a fault.
  */
 int
-procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_count)
+procfs_get_thread_ids_for_task(proc_t p, uint64_t **thread_ids, int *thread_count)
 {
-    /* Guard against NULL private symbols */
-    if (_task_threads == NULL || _convert_port_to_thread == NULL) {
-        *thread_ids = NULL;
-        *thread_count = 0;
+    *thread_ids = NULL;
+    *thread_count = 0;
+
+    procfs_thread_size_init();
+    if (!g_thread_size_known || p == PROC_NULL) {
         return KERN_NOT_SUPPORTED;
     }
-    int result = KERN_SUCCESS;
-    thread_act_array_t threads;
-    mach_msg_type_number_t count;
 
-    // Get all of the threads in the task.
-    if (task_threads(task, &threads, &count) == KERN_SUCCESS && count > 0) {
-        uint64_t thread_id_info[THREAD_IDENTIFIER_INFO_COUNT];
-        uint64_t *threadid_ptr = (uint64_t *)OSMalloc(count * sizeof(uint64_t), procfs_osmalloc_tag);
-        *thread_ids = threadid_ptr;
-
-        // For each thread, get identifier info and extract the thread id.
-        for (unsigned int i = 0; i < count && result == KERN_SUCCESS; i++) {
-            unsigned int thread_info_count = THREAD_IDENTIFIER_INFO_COUNT;
-            ipc_port_t thread_port = (ipc_port_t)threads[i];
-            thread_t thread = convert_port_to_thread(thread_port);
-            if (thread != NULL) {
-                result = thread_info(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&thread_id_info, &thread_info_count);
-                if (result == KERN_SUCCESS) {
-                    struct thread_identifier_info *idinfo = (struct thread_identifier_info *)thread_id_info;
-                    *threadid_ptr++ = idinfo->thread_id;
-                }
-                thread_deallocate(thread);
-            }
+    /* First pass: count the uthreads. */
+    int count = 0;
+    uthread_t uth = TAILQ_FIRST(&p->p_uthlist);
+    while (uth != NULL && count < PROCFS_MAX_THREADS) {
+        if (!procfs_kptr_ok((uintptr_t)uth)) {
+            break;
         }
-        
-        if (result == KERN_SUCCESS) {
-            // We may have copied fewer threads than we expected, because some
-            // may have terminated while we were looping over them. If so,
-            // allocate a smaller memory region and copy everything over to it.
-            unsigned int actual_count = (int)(threadid_ptr - *thread_ids);
-            if (actual_count < count) {
-                if (actual_count > 0) {
-                    int size = actual_count * sizeof(uint64_t);
-                    threadid_ptr = (uint64_t *)OSMalloc(size, procfs_osmalloc_tag);
-                    bcopy(*thread_ids, threadid_ptr, size);
-                }
-                OSFree(*thread_ids, count * sizeof(uint64_t), procfs_osmalloc_tag);
-                count = actual_count;
-                *thread_ids = count > 0 ? threadid_ptr : NULL;
-            }
-        }
-        
-        // On failure, release the memory we allocated.
-        if (result != KERN_SUCCESS) {
-            procfs_release_thread_ids(*thread_ids, count);
-            *thread_ids = NULL;
-        }
+        count++;
+        uth = TAILQ_NEXT(uth, uu_list);
     }
-    
-    *thread_count = result == KERN_SUCCESS ? count : 0;
+    if (count == 0) {
+        return KERN_SUCCESS;
+    }
 
-    return result;
+    uint64_t *ids = (uint64_t *)OSMalloc((uint32_t)(count * sizeof(uint64_t)), procfs_osmalloc_tag);
+    if (ids == NULL) {
+        return KERN_RESOURCE_SHORTAGE;
+    }
+
+    /* Second pass: collect the thread ids (uthread -> thread -> thread_id). */
+    int n = 0;
+    uth = TAILQ_FIRST(&p->p_uthlist);
+    while (uth != NULL && n < count) {
+        uintptr_t u = (uintptr_t)uth;
+        if (!procfs_kptr_ok(u)) {
+            break;
+        }
+        thread_t thread = (thread_t)(u - g_thread_struct_size);
+        if (procfs_kptr_ok((uintptr_t)thread)) {
+            ids[n++] = thread_tid(thread);
+        }
+        uth = TAILQ_NEXT(uth, uu_list);
+    }
+
+    *thread_ids = ids;
+    *thread_count = n;
+    return KERN_SUCCESS;
 }
 
 /*
@@ -344,15 +420,15 @@ procfs_release_thread_ids(uint64_t *thread_ids, int thread_count)
 }
 
 /*
- * Get the number of threads for a given task.
+ * Get the number of threads for a given process.
  */
 int
-procfs_get_task_thread_count(task_t task)
+procfs_get_task_thread_count(proc_t p)
 {
     int thread_count = 0;
     uint64_t *thread_ids;
 
-    if (procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count) == 0) {
+    if (procfs_get_thread_ids_for_task(p, &thread_ids, &thread_count) == 0) {
         procfs_release_thread_ids(thread_ids, thread_count);
     }
 

@@ -438,7 +438,7 @@ extern uint64_t procfs_get_fileid(pid_t pid, uint64_t objectid, pfsbaseid_t base
 extern int procfs_atoi(const char *p, const char **end_ptr);
 extern void procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kauth_cred_t creds);
 extern void procfs_release_pids(pid_t *pidp, uint32_t size);
-extern int procfs_get_thread_ids_for_task(task_t task, uint64_t **thread_ids, int *thread_count);
+extern int procfs_get_thread_ids_for_task(proc_t p, uint64_t **thread_ids, int *thread_count);
 extern void procfs_release_thread_ids(uint64_t *thread_ids, int thread_count);
 struct proc_fdinfo;
 extern int procfs_get_fd_list(proc_t p, struct proc_fdinfo **fdlist, size_t *count);
@@ -447,7 +447,7 @@ extern int procfs_check_can_access_process(kauth_cred_t creds, proc_t p);
 extern int procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid);
 extern int procfs_issuser(kauth_cred_t creds);
 extern int procfs_get_process_count(kauth_cred_t creds);
-extern int procfs_get_task_thread_count(task_t task);
+extern int procfs_get_task_thread_count(proc_t p);
 
 #endif /* __FSBUNDLE__ */
 

@@ -365,9 +365,7 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                             uint64_t *thread_ids;
                             int thread_count;
                             
-                            task_t task = (_proc_task != NULL) ? proc_task(target_proc) : TASK_NULL;
-                            if (task == TASK_NULL) { error = ENOENT; break; }
-                            int result =  procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
+                            int result =  procfs_get_thread_ids_for_task(target_proc, &thread_ids, &thread_count);
                             if (result == KERN_SUCCESS) {
                                 boolean_t found = FALSE;
                                 for (int i = 0; i < thread_count; i++) {
@@ -622,11 +620,9 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 // until we fill up the space or run out of threads.
                 proc_t p = proc_find(pid);
                 if (p != PROC_NULL) {
-                    task_t task = (_proc_task != NULL) ? proc_task(p) : TASK_NULL;
-                    if (task == TASK_NULL) { proc_rele(p); break; }
                     int thread_count;
                     uint64_t *thread_ids;
-                    error = procfs_get_thread_ids_for_task(task, &thread_ids, &thread_count);
+                    error = procfs_get_thread_ids_for_task(p, &thread_ids, &thread_count);
                     if (error == 0) {
                         char thread_buffer[PROCESS_NAME_SIZE];
                         for (int i = 0; i < thread_count; i++) {

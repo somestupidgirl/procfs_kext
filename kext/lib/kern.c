@@ -273,7 +273,7 @@ proc_pidshortbsdinfo(proc_t p, struct proc_bsdshortinfo * pbsd_shortp, int zombi
     };
 
     /* if process is a zombie skip bg state */
-    if (_proc_task != NULL && _proc_get_darwinbgstate != NULL &&
+    if (_proc_get_darwinbgstate != NULL &&
         (zombie == 0) && (proc_status != SZOMB) && (proc_task(p) != TASK_NULL)) {
         proc_get_darwinbgstate(proc_task(p), &pbsd_shortp->pbsi_flags);
     }
@@ -285,7 +285,7 @@ int
 proc_pidtaskinfo(proc_t p, struct proc_taskinfo * ptinfo)
 {
     bzero(ptinfo, sizeof(struct proc_taskinfo));
-    if (_proc_task != NULL && _fill_taskprocinfo != NULL) {
+    if (_fill_taskprocinfo != NULL) {
         fill_taskprocinfo(proc_task(p), (struct proc_taskinfo_internal *)ptinfo);
     }
 
@@ -296,7 +296,7 @@ int
 proc_pidthreadinfo(proc_t p, uint64_t arg, bool thuniqueid, struct proc_threadinfo *pthinfo)
 {
     bzero(pthinfo, sizeof(struct proc_threadinfo));
-    if (_proc_task != NULL && _fill_taskthreadinfo != NULL) {
+    if (_fill_taskthreadinfo != NULL) {
         fill_taskthreadinfo(proc_task(p), (uint64_t)arg, thuniqueid, (struct proc_threadinfo_internal *)pthinfo, NULL, NULL);
     }
 
@@ -647,5 +647,18 @@ procfs_fd_socket(proc_t p, int fd, socket_t *sop, struct proc_fileinfo *fi)
 
     *sop = so;
     return 0;
+}
+
+/*
+ * proc_task() - re-implementation of the com.apple.kpi.private KPI. Returns the
+ * Mach task for a process via p->p_proc_ro->pr_task. Both p_proc_ro (struct
+ * proc) and pr_task (struct proc_ro) sit at config-stable offsets, so this is a
+ * straightforward forward-port (mirrors proc_task()/proc_get_task_raw() in XNU).
+ */
+task_t
+proc_task(proc_t p)
+{
+    task_t task = p->p_proc_ro->pr_task;
+    return (p->p_lflag & P_LHASTASK) ? task : TASK_NULL;
 }
 

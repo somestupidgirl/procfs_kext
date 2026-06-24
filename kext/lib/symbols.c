@@ -46,7 +46,6 @@ SYM_INIT(fdfree);
 SYM_INIT(fill_taskprocinfo);
 SYM_INIT(fill_taskthreadinfo);
 SYM_INIT(fill_socketinfo);
-SYM_INIT(proc_task);
 SYM_INIT(proc_thread);
 SYM_INIT(thread_info);
 SYM_INIT(get_bsdthread_info);

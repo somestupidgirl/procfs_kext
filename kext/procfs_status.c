@@ -286,14 +286,8 @@ procfs_thread_node_size(pfsnode_t *pnp, __unused kauth_cred_t creds)
     int pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(pid);
     if (p != PROC_NULL) {
-        if (_proc_task != NULL) {
-            task_t task = proc_task(p);
-            if (task != NULL) {
-                size += sizeof(procfs_get_task_thread_count(task));
-            }
-        } else {
-            size += 1;
-        }
+        int tcount = procfs_get_task_thread_count(p);
+        size += (tcount > 0) ? tcount : 1;
         proc_rele(p);
     }
     return size;

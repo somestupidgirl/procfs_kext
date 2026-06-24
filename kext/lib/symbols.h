@@ -285,11 +285,9 @@ extern int                      (*_fill_socketinfo)(socket_t so, struct socket_i
 #pragma mark Task/Thread
 
 /*
- * Returns the task for the specified process.
+ * proc_task() is forward-ported in lib/kern.c (via p->p_proc_ro->pr_task) and
+ * declared in <sys/proc.h>; it is no longer stubbed here.
  */
-extern task_t                   (*_proc_task)(proc_t proc);
-#define                         proc_task(p) \
-                                _proc_task(p)
 /*
  * Returns the thread for the specified process.
  */
