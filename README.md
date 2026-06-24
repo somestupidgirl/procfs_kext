@@ -1,5 +1,8 @@
 # ProcFS
-A kext implementation of the /proc file system for macOS, based on the XNU kernel patch by Kim Topley: https://github.com/kimtopley/ProcFS
+A kernel-extension implementation of the `/proc` file system for macOS, exposing
+running processes and threads as a filesystem with BSD- and Linux-compatible
+per-process information. It began as a port of Kim Topley's proof-of-concept XNU
+patch (see [Credits](#credits)) but has since diverged substantially.
 
 Certain features and improvements are still planned and/or in development, but directory listing and the core per-process files work.
 
@@ -204,3 +207,22 @@ Currently known issues:
 If you wish to contribute to this project then feel free to make a pull request. If you encounter any undocumented bugs then you may also file an issue under the "Issues" tab.
 
 Contact me: sunnevanattsol@gmail.com
+
+## Credits
+
+This project builds on the work of others, with thanks to:
+
+- **Kim Topley** — the original proof-of-concept `procfs` for XNU that this project started from.
+  <https://github.com/kimtopley/ProcFS>
+- **leiless** — the `libkext` kernel-extension helper library.
+  <https://github.com/leiless/libkext>
+- **Syncretic** — the `klookup` kernel symbol-resolution code, from the `latebloom` project (0BSD).
+  <https://github.com/reenigneorcim/latebloom>
+- **Apple** — the XNU kernel source, headers and reference implementation.
+  <https://github.com/apple-oss-distributions/xnu>
+- **The NetBSD project** — `procfs` design and reference implementation.
+  <https://github.com/NetBSD/src>
+- **The NextBSD project** — additional `procfs` reference.
+  <https://github.com/NextBSD/NextBSD/tree/NextBSD-CURRENT>
+- **The FreeBSD project** — `procfs`/`pseudofs` reference implementation.
+  <https://github.com/freebsd/freebsd-src>
