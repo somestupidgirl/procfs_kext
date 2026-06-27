@@ -9,6 +9,7 @@
 #include <libkern/libkern.h>
 #include <sys/bsdtask_info.h>
 #include <sys/file.h>
+#include <sys/param.h>
 #include <sys/filedesc.h>
 #include <sys/kauth.h>
 #include <sys/kpi_socket.h>
@@ -106,17 +107,44 @@ procfs_read_sid_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx) {
  * name of the owning process's controlling terminal.
  */
 int
-procfs_read_tty_data(__unused pfsnode_t *pnp, __unused uio_t uio, __unused vfs_context_t ctx)
+procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    // The controlling terminal lives at p->p_pgrp->pg_session->s_ttyvp, but
-    // p_pgrp is an SMR-protected pointer and every safe way to dereference it
-    // bottoms out in symbols a third-party kext cannot link: the SMR read
-    // section (smr_enter/smr_leave + the smr_system global) and the slow path
-    // (proc_list_lock) are private/unexported, as are proc_gettty(), proc_pgrp()
-    // and vnode_hold()/vnode_drop(). Unlike the fd table (a direct struct member
-    // we forward-ported), there is no safe forward-port for this. So the tty
-    // node reports "unavailable" rather than risking a use-after-free.
-    return ENOTSUP;
+    // The controlling terminal lives at p->p_pgrp->pg_session->s_ttyvp, reached
+    // through the SMR-protected p_pgrp. The safe accessor is proc_gettty(), which
+    // is com.apple.kpi.private and cannot be linked by a third-party kext - and
+    // its SMR read section / proc_list_lock slow path are unlinkable too. We
+    // resolve proc_gettty() at load via libklookup and call it: its SMR and
+    // session locking run inside the kernel's own code, so a resolved call is
+    // safe (no need to touch p_pgrp ourselves). When libklookup is unavailable
+    // (e.g. the staged symbol file is missing), report ENOTSUP as before.
+    if (procfs_proc_gettty == NULL) {
+        return ENOTSUP;
+    }
+
+    proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    if (p == PROC_NULL) {
+        return ESRCH;
+    }
+
+    int error = 0;
+    vnode_t ttyvp = NULLVP;
+    if (procfs_proc_gettty(p, &ttyvp) == 0 && ttyvp != NULLVP) {
+        // proc_gettty() returns the tty vnode with an iocount; get its path.
+        char path[MAXPATHLEN];
+        int len = (int)sizeof(path);
+        if (vn_getpath(ttyvp, path, &len) == 0) {
+            error = procfs_copy_data(path, (int)strlen(path), uio);
+        } else {
+            error = EIO;
+        }
+        vnode_put(ttyvp);
+    } else {
+        // No controlling terminal.
+        error = procfs_copy_data("", 0, uio);
+    }
+
+    proc_rele(p);
+    return error;
 }
 
 /*

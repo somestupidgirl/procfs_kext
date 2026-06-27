@@ -12,11 +12,12 @@ Tested on:
     - Builds as a universal binary (arm64e + x86_64)
 
 > **Note on Apple Silicon:** under Pointer Authentication (PAC) the kernel's
-> private symbols cannot be resolved from a kext. Where possible the affected
-> features are forward-ported to work without those symbols (e.g. `fd/` and
-> `threads/`); the few that cannot be (e.g. `tty`) degrade gracefully, returning
-> `ENOTSUP` rather than failing the mount. See [Feature status](#feature-status)
-> below.
+> private symbols cannot be linked from a kext, and the in-memory symbol table is
+> jettisoned after boot. Affected features are recovered either by forward-porting
+> (e.g. `fd/`, `threads/`, `cmdline`) or by resolving the needed private symbols
+> from the on-disk kernel collection via libklookup (e.g. `tty`). Anything still
+> out of reach degrades gracefully (returns `ENOTSUP`/empty) rather than failing
+> the mount. See [Feature status](#feature-status) below.
 
 ## What is procfs?
 *procfs* lets you view the processes running on a UNIX system as nodes in the file system, where each process is represented by a single directory named from its process id. Typically, the file system is mounted at `/proc`, so the directory for process 1 would be called `/proc/1`. Beneath a process’ directory are further directories and files that give more information about the process, such as its process id, its active threads, the files that it has open, and so on. *procfs* first appeared in an early version of AT&T’s UNIX and was later implemented in various forms in System V, BSD, Solaris and Linux. You can find a history of the implementation of *procfs* at https://en.wikipedia.org/wiki/Procfs.
@@ -50,7 +51,7 @@ Each directory named for a process id represents one process on the system. By d
 |`status`   | Basic process info               | `struct proc_bsdshortinfo`        |
 |`taskinfo` | Info for the process’s Mach task | `struct proc_taskinfo` — **currently zeroed** (see Feature status) |
 |`cmdline`  | Process argument vector (NUL-separated, Linux format) | text |
-|`tty`      | Controlling tty                  | string — **unavailable on ARM64** |
+|`tty`      | Controlling terminal device path (e.g. `/dev/ttys001`) | text |
 |`note`     | Write a note to the process (NetBSD-style) | write-only; read returns `EINVAL`. **Delivery not yet implemented** |
 
 The `fd` directory contains one entry for each file that the process has open. Each entry is a directory that’s numbered for the corresponding file descriptor. Within each subdirectory you’ll find two files called `details` and `socket`. The `details` file contains a `vnode_fdinfowithpath` structure, which contains information about the file including its path name if it is a file system file. If the file is a socket endpoint, you can read a `socket_fdinfo` structure from the `socket` file.
@@ -76,6 +77,8 @@ Verified with `test/test_features.sh`.
     (`vnode_fdinfowithpath`) and `socket` (`socket_fdinfo`, common fields plus
     UNIX/IPv4 addresses)
   - `threads/` — enumerates the process's threads (one directory per thread id)
+  - `tty` — the process's controlling terminal device path (e.g. `/dev/ttys001`),
+    empty when it has none
 
 `cmdline`, `fd/` and `threads/` required forward-porting work to function under
 PAC on Apple Silicon rather than relying on the unavailable private KPIs: `fd/`
@@ -83,6 +86,13 @@ walks the process's file-descriptor table directly, `threads/` enumerates thread
 via the BSD `proc->p_uthlist` instead of the inaccessible Mach `task->threads`
 queue, and `cmdline` reads the target's user-stack arguments through its pmap
 (the `KERN_PROCARGS2` `vm_map_copyin` path is `com.apple.kpi.private`).
+
+`tty` takes a different route. Its accessor `proc_gettty` is
+`com.apple.kpi.private` and reaches the terminal through the SMR-protected
+`p->p_pgrp`, so it cannot be linked or safely forward-ported. Instead it is
+resolved at load time from the on-disk kernel collection (libklookup, fed by the
+`procfs_ksyms` staging helper run at install) and called directly — its SMR and
+session locking run inside the kernel's own code, so the resolved call is safe.
 
 **Partially available (placeholder / incomplete data):**
 
@@ -103,13 +113,6 @@ queue, and `cmdline` reads the target's user-stack arguments through its pmap
   - `note` — NetBSD-style node; reads return `EINVAL` as on NetBSD, but the node
     model is currently read-only (no `vnop_write`) and note delivery is
     unimplemented, so writing one is not yet possible.
-
-**Unavailable on Apple Silicon (graceful degradation, not crashes):**
-
-  - `tty` — returns `ENOTSUP`. The controlling terminal is reached through the
-    SMR-protected `p->p_pgrp`, and every safe dereference bottoms out in symbols
-    a kext cannot link (the `smr_*` read section, `proc_list_lock`, `proc_gettty`,
-    `vnode_hold`/`vnode_drop`), so unlike `fd/` it cannot be forward-ported.
 
 **Not yet present (planned — see TODO):**
 
@@ -198,7 +201,7 @@ through `hexdump` to read the raw contents:
 ## Issues
 Currently known issues:
 
-- On Apple Silicon, `tty` is unavailable because it depends on private kernel symbols that cannot be resolved under PAC (see [Feature status](#feature-status)). `cmdline`, `fd/` and `threads/` previously had this limitation but have since been forward-ported and now work.
+- On Apple Silicon, `cmdline`, `fd/`, `threads/` and `tty` previously required private kernel symbols unavailable under PAC; they now work (the first three forward-ported, `tty` via libklookup-resolved `proc_gettty`). `tty` depends on the `procfs_ksyms` staging helper having run (it does during `make install`); if the staged symbol file is missing or stale for the running kernel, `tty` falls back to `ENOTSUP`.
 - `taskinfo` and per-thread `threads/<tid>/info` are currently zeroed (they need the private `fill_taskprocinfo` / `fill_taskthreadinfo`); the surrounding `fd/` and `threads/` enumeration works.
 - `note` is a NetBSD-style scaffold: reads return `EINVAL` and writing a note is not yet possible (no write path / no delivery).
 - The `procfs_dopartitions` function in kext/procfs_linux.c is still in early stages of development so it will only return dummy values at the moment.

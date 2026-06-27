@@ -375,4 +375,14 @@ extern uint32_t                 (*_avenrun)[3];
 #define                         avenrun \
                                 *_avenrun
 
+/*
+ * Private kernel symbols resolved at load via libklookup from the staged
+ * kernel-symbol file (see kext/lib/symbols.c, tools/procfs_ksyms.c). NULL when
+ * unavailable - callers must check. procfs_proc_gettty is PAC-signed and
+ * directly callable.
+ */
+extern boolean_t                procfs_klookup_ok;
+extern int                      (*procfs_proc_gettty)(proc_t p, vnode_t *vpp);
+extern void *                   procfs_kl_cpu_to_processor;
+
 #endif /* _symbols_h */

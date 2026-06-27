@@ -23,16 +23,19 @@ extern const char version[];
 boolean_t procfs_klookup_ok = FALSE;
 
 /*
- * Sign a klookup-resolved raw function address as a C function pointer so it can
- * be called under the arm64e kernel ABI (key IA + type discriminator). On
+ * Make a klookup-resolved raw function address callable under the arm64e kernel
+ * ABI. Sign it with key IA and discriminator 0; the subsequent assignment to a
+ * typed function pointer triggers clang's void*->fnptr conversion, which auths
+ * with disc 0 and re-signs with that pointer type's discriminator - i.e. the
+ * scheme the call site expects. (Signing with the type discriminator directly is
+ * wrong: the conversion's auth uses disc 0 and would corrupt the pointer.) On
  * non-ptrauth targets this is a plain cast.
  */
 #if __has_feature(ptrauth_calls)
-#define KL_SIGN_FN(addr, fptype) \
-    ptrauth_sign_unauthenticated((void *)(addr), ptrauth_key_function_pointer, \
-        ptrauth_function_pointer_type_discriminator(fptype))
+#define KL_SIGN_FN(addr) \
+    ptrauth_sign_unauthenticated((void *)(addr), ptrauth_key_function_pointer, 0)
 #else
-#define KL_SIGN_FN(addr, fptype) ((void *)(addr))
+#define KL_SIGN_FN(addr) ((void *)(addr))
 #endif
 
 #define SYM_INIT(sym) \
@@ -93,7 +96,7 @@ SYM_INIT(cpuid_info);
  * kernel entirely (see reference memory), so taskinfo/threadinfo cannot use
  * them. proc_gettty (tty) and cpu_to_processor (loadavg) survive in the symtab.
  */
-void *procfs_kl_proc_gettty      = NULL;
+int  (*procfs_proc_gettty)(proc_t p, vnode_t *vpp) = NULL;  /* PAC-signed */
 void *procfs_kl_cpu_to_processor = NULL;
 
 kern_return_t
@@ -121,11 +124,15 @@ resolve_symbols(void)
     }
 
     procfs_klookup_ok = TRUE;
-    procfs_kl_proc_gettty      = addr[I_PROC_GETTTY];
+
+    /* proc_gettty is called directly, so PAC-sign it for the arm64e ABI. */
+    if (addr[I_PROC_GETTTY] != NULL) {
+        procfs_proc_gettty = KL_SIGN_FN(addr[I_PROC_GETTTY]);
+    }
     procfs_kl_cpu_to_processor = addr[I_CPU_TO_PROCESSOR];
 
     printf("procfs: libklookup OK (proc_gettty=%d cpu_to_processor=%d)\n",
-           procfs_kl_proc_gettty != NULL, procfs_kl_cpu_to_processor != NULL);
+           procfs_proc_gettty != NULL, procfs_kl_cpu_to_processor != NULL);
 
     return KERN_SUCCESS;
 }
