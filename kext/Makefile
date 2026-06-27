@@ -135,7 +135,8 @@ LDFLAGS+= -target $(TARGET_TRIPLE) \
 
 LIBS+= -L$(KERNEL_LIBDIR) \
        -L../lib/libkext \
-       -L../lib/libklookup
+       -L../lib/libklookup \
+       -L../lib/libreadfile
 
 LIBS+= -lkmod -lkext -lklookup
 
