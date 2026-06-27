@@ -10,14 +10,6 @@
 #ifndef procfs_h
 #define procfs_h
 
-/*
- * The XNU kernel-private build macros (KERNEL, XNU_KERNEL_PRIVATE, ...) are
- * defined on the command line for the kernel components only (see kext/Makefile
- * and lib/libklookup/Makefile). They are intentionally NOT defined here so that
- * the user-level mount_procfs (fs/) build, which also includes this header, does
- * not inherit a kernel configuration.
- */
-
 #pragma mark -
 #pragma mark Definitions for both user-level and kernel components
 
