@@ -34,10 +34,11 @@
 #include <sys/queue.h>
 #include <sys/sysctl.h>
 
+#include <bsdcompat/sys/malloc.h>
+
 #include <fs/procfs/procfs.h>
 
 #include "lib/cpu.h"
-#include "lib/malloc.h"
 #include "lib/symbols.h"
 
 #pragma mark -
