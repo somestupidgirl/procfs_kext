@@ -219,6 +219,8 @@ This project builds on the work of others, with thanks to:
   <https://github.com/leiless/libkext>
 - **Syncretic** — the `klookup` kernel symbol-resolution code, from the `latebloom` project (0BSD).
   <https://github.com/reenigneorcim/latebloom>
+- **Linus Henze** - for filesystem code pulled from his `Unrootless-Kext`
+  <https://github.com/LinusHenze/Unrootless-Kext>
 - **Acidanthera** - the `MacKernelSDK` macOS kernel SDK targeting various XNU versions.
   <https://github.com/acidanthera/MacKernelSDK>
 - **Apple** — the XNU kernel source, headers and reference implementation.
