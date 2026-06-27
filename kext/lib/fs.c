@@ -1,10 +1,9 @@
-//
-//  Filesystem.c
-//  Unrootless
-//
-//  Created by Linus Henze on 11/10/2016.
-//  Copyright © 2016 Linus Henze. All rights reserved.
-//
+/*
+ *  fs.c
+ *
+ *  Created by Linus Henze on 11/10/2016.
+ *  Copyright © 2016 Linus Henze. All rights reserved.
+ */
 #include <stdint.h>
 #if defined(__x86_64__)
 #include <i386/types.h>
