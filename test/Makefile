@@ -18,5 +18,6 @@ test_getdents: test_getdents.c
 
 clean:
 	rm -f $(PROGS)
+	rm -rf *.dSYM
 
 .PHONY: all clean

@@ -56,7 +56,7 @@ KEXT_FLAGS := ARCHFLAGS="$(KEXT_ARCHFLAGS)" TARGET_TRIPLE="$(KEXT_TRIPLE)"
 FS_FLAGS   := ARCHFLAGS="$(FS_ARCHFLAGS)"   TARGET_TRIPLE="$(FS_TRIPLE)"
 LIB_FLAGS  := ARCHFLAGS="$(LIB_ARCHFLAGS)"  TARGET_TRIPLE="$(LIB_TRIPLE)"
 
-all: debug
+all: debug stage-symbols tests
 
 ifeq ($(ARCH),universal)
 
@@ -71,7 +71,7 @@ debug:
 	mv $(OUT)/procfs.fs   $(OUT)/procfs.fs.arm64
 	$(MAKE) -C kext clean
 	$(MAKE) -C fs clean
-	$(MAKE) -C lib clean
+	$(MAKE) -C lib all clean
 	$(MAKE) -C lib  ARCHFLAGS="-arch x86_64" TARGET_TRIPLE="x86_64-apple-macos10.15"
 	$(MAKE) debug -C kext ARCHFLAGS="-arch x86_64" TARGET_TRIPLE="x86_64-apple-macos10.15"
 	$(MAKE) debug -C fs   ARCHFLAGS="-arch x86_64" TARGET_TRIPLE="x86_64-apple-macos10.15"
@@ -133,6 +133,7 @@ clean:
 	$(MAKE) -C kext clean
 	$(MAKE) -C fs clean
 	$(MAKE) -C lib clean
+	$(MAKE) -C test clean
 
 clean-tests:
 	$(MAKE) -C test clean
