@@ -50,10 +50,7 @@
  *
  */
 
-#ifdef _RLIMIT_IDENT
-
 #include <sys/param.h>
-#include <sys/lock.h>
 #include <sys/systm.h>
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
@@ -61,114 +58,95 @@
 #include <sys/resource.h>
 #include <sys/sbuf.h>
 #include <sys/types.h>
-#include <sys/malloc.h>
+#include <sys/vnode.h>
+#include <mach/vm_types.h>
 
 #include <fs/procfs/procfs.h>
 
 /*
- * Resource limit string identifiers
+ * p_limit is an SMR-protected pointer; validate the raw pointer before deref.
+ * pmap_find_phys + kernel_pmap are com.apple.kpi.unsupported (linkable).
  */
-static const char *rlimit_ident[] = {
-	"cpu",
-	"fsize",
-	"data",
-	"stack",
-	"core",
-	"rss",
-	"memlock",
-	"nproc",
-	"nofile",
-	"sbsize",
-	"vmem",
-	"npts",
-	"swap",
-	"kqueues",
-	"umtx",
-	"pipebuf",
-	"vms",
+extern ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
+extern pmap_t  kernel_pmap;
+
+#define PROCFS_KPTR_MIN ((uintptr_t)0xfffffe0000000000ULL)
+
+/*
+ * Resource-limit string identifiers, indexed by RLIMIT_*. macOS defines nine
+ * limits (RLIM_NLIMITS), which are the first nine of FreeBSD's list; the extra
+ * FreeBSD limits (sbsize, vmem, npts, ...) do not exist here.
+ */
+static const char *const rlimit_ident[RLIM_NLIMITS] = {
+	"cpu",      /* RLIMIT_CPU     */
+	"fsize",    /* RLIMIT_FSIZE   */
+	"data",     /* RLIMIT_DATA    */
+	"stack",    /* RLIMIT_STACK   */
+	"core",     /* RLIMIT_CORE    */
+	"rss",      /* RLIMIT_AS (a.k.a. RLIMIT_RSS) */
+	"memlock",  /* RLIMIT_MEMLOCK */
+	"nproc",    /* RLIMIT_NPROC   */
+	"nofile",   /* RLIMIT_NOFILE  */
 };
 
 /*
- * proc_limitblock/unblock are used to serialize access to plimit
- * from concurrent threads within the same process.
- * Callers must be holding the proc lock to enter, return with
- * the proc lock locked
+ * Reads the data for the "limit" node: one "<name> <cur> <max>" line per
+ * resource limit, with -1 for RLIM_INFINITY (FreeBSD's procfs_rlimit format).
  */
-static void proc_limitblock(proc_t p) {
-	lck_mtx_assert(&p->p_mlock, LCK_MTX_ASSERT_OWNED);
-
-	while (p->p_lflag & P_LLIMCHANGE) {
-		p->p_lflag |= P_LLIMWAIT;
-		msleep(&p->p_limit, &p->p_mlock, 0, "proc_limitblock", NULL);
-	}
-	p->p_lflag |= P_LLIMCHANGE;
-}
-
-/*
- * Callers must be holding the proc lock to enter, return with
- * the proc lock locked
- */
-static void
-proc_limitunblock(proc_t p)
-{
-	lck_mtx_assert(&p->p_mlock, LCK_MTX_ASSERT_OWNED);
-
-	p->p_lflag &= ~P_LLIMCHANGE;
-	if (p->p_lflag & P_LLIMWAIT) {
-		p->p_lflag &= ~P_LLIMWAIT;
-		wakeup(&p->p_limit);
-	}
-}
-
 int
-procfs_dolimit(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
+procfs_dolimit(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-	struct sbuf *sb; // Figure this out
-    int pid = pnp->node_id.nodeid_pid;
-    proc_t p = proc_find(pid);
-	struct plimit *limp;
-	int i;
+	int error = 0;
+
+	proc_t p = proc_find(pnp->node_id.nodeid_pid);
+	if (p == PROC_NULL) {
+		return ESRCH;
+	}
 
 	/*
-	 * Obtain a private reference to resource limits
+	 * p_limit is SMR-protected and the safe accessor proc_limitget() is stripped
+	 * from the arm64 kernel, so read the pointer raw (smr_unsafe_load is a plain
+	 * macro) and pmap-validate it before dereferencing. Resource limits change
+	 * very rarely, so this racy snapshot is acceptable; a torn-down/garbage
+	 * pointer is rejected rather than faulted.
 	 */
-	proc_lock(p);
-	limp = proc_limitblock(p->p_limit);
+	struct plimit *limp = (struct plimit *)smr_unsafe_load(&p->p_limit);
+	if ((uintptr_t)limp < PROCFS_KPTR_MIN ||
+	    pmap_find_phys(kernel_pmap, (addr64_t)(uintptr_t)limp) == 0) {
+		proc_rele(p);
+		return EIO;
+	}
+
+	/* Snapshot the limits, then drop the proc reference. */
+	struct rlimit rl[RLIM_NLIMITS];
+	for (int i = 0; i < RLIM_NLIMITS; i++) {
+		rl[i] = limp->pl_rlimit[i];
+	}
 	proc_rele(p);
 
-	for (i = 0; i < RLIM_NLIMITS; i++) {
-		/*
-		 * Add the rlimit ident
-		 */
-		sbuf_printf(sb, "%s ", rlimit_ident[i]);
+	char buf[1024];
+	struct sbuf sb;
+	if (sbuf_new(&sb, buf, sizeof(buf), SBUF_FIXEDLEN) == NULL) {
+		return ENOMEM;
+	}
 
-		/*
-		 * Replace RLIM_INFINITY with -1 in the string
-		 */
-
-		/*
-		 * current limit
-		 */
-		if (limp->pl_rlimit[i].rlim_cur == RLIM_INFINITY) {
-			sbuf_printf(sb, "-1 ");
+	for (int i = 0; i < RLIM_NLIMITS; i++) {
+		sbuf_printf(&sb, "%s ", rlimit_ident[i]);
+		if (rl[i].rlim_cur == RLIM_INFINITY) {
+			sbuf_printf(&sb, "-1 ");
 		} else {
-			sbuf_printf(sb, "%llu ",
-			    (unsigned long long)limp->pl_rlimit[i].rlim_cur);
+			sbuf_printf(&sb, "%llu ", (unsigned long long)rl[i].rlim_cur);
 		}
-
-		/*
-		 * maximum limit
-		 */
-		if (limp->pl_rlimit[i].rlim_max == RLIM_INFINITY) {
-			sbuf_printf(sb, "-1\n");
+		if (rl[i].rlim_max == RLIM_INFINITY) {
+			sbuf_printf(&sb, "-1\n");
 		} else {
-			sbuf_printf(sb, "%llu\n",
-			    (unsigned long long)limp->pl_rlimit[i].rlim_max);
+			sbuf_printf(&sb, "%llu\n", (unsigned long long)rl[i].rlim_max);
 		}
 	}
-	proc_limitunblock(limp);
+	sbuf_finish(&sb);
 
-	return (0);
+	error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+	sbuf_delete(&sb);
+
+	return error;
 }
-
-#endif /* _RLIMIT_IDENT */
