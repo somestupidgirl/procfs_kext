@@ -135,6 +135,18 @@ procfs_structure_init(void)
         pfssnode_t *one_thread_dir = add_directory(threads_dir, "__Thread__",
                       PFSthread, next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, 0, procfs_thread_node_size, NULL);
 
+        // The Linux name for the same per-thread view: /proc/<pid>/task/<tid>.
+        // It mirrors "threads" (a separate structure node, so thread fileids do
+        // not collide between the two).
+        pfssnode_t *task_dir = add_directory(one_proc_dir, "task",
+                       PFSdir, next_node_id++, PSN_FLAG_PROCESS, 0, NULL, NULL);
+
+        // A pseudo-entry below "task" that is replaced by nodes for all the
+        // threads of the current process.
+        // NOTE: this must be the last child entry for the task node.
+        pfssnode_t *one_task_dir = add_directory(task_dir, "__Thread__",
+                      PFSthread, next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, 0, procfs_thread_node_size, NULL);
+
         // --- Per-proccess sub-directories and files.
 
         // Files that returns the process's pid, parent pid, process group id,
@@ -156,6 +168,7 @@ procfs_structure_init(void)
 
         // --- Per thread files.
         add_file(one_thread_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_taskinfo), NULL, procfs_read_thread_info);
+        add_file(one_task_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_taskinfo), NULL, procfs_read_thread_info);
 
         // --- Per file descriptor files.
         add_file(one_fd_dir, "details", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct vnode_fdinfowithpath), NULL, procfs_read_fd_data);
