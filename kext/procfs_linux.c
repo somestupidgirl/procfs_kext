@@ -37,7 +37,13 @@
 #include <arm/proc_reg.h>
 #endif
 #include <sys/queue.h>
+#include <sys/sbuf.h>
 #include <sys/sysctl.h>
+#if defined(__x86_64__)
+#include <mach/i386/vm_param.h>
+#else
+#include <mach/vm_param.h>
+#endif
 
 #include <bsdcompat/sys/malloc.h>
 
@@ -654,6 +660,67 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
     error = uiomove((const char *)buf, xlen, uio);
 
     free(buf, M_TEMP);
+
+    return error;
+}
+
+/*
+ * Linux-compatible /proc/meminfo, modelled on FreeBSD's linprocfs_domeminfo()
+ * (sys/compat/linux/linprocfs/linprocfs.c) - same field set and "%9lu kB"
+ * layout. The data sources necessarily differ: FreeBSD reads physmem,
+ * vm_wire_count() etc. directly, whereas none of XNU's vm_page_*_count globals
+ * are exported (and most are stripped from the arm64 symbol table), so we pull
+ * the figures from the kernel's own sysctls, which expose them safely:
+ *   hw.memsize                        -> MemTotal
+ *   vm.page_free_count                -> MemFree
+ *   vm.page_pageable_external_count   -> Cached (file-backed pages)
+ *   vm.swapusage                      -> SwapTotal / SwapFree
+ * Buffers is reported as 0, exactly as FreeBSD does (its bufspace is private).
+ * Any sysctl that cannot be read leaves its field 0 rather than failing.
+ */
+int
+procfs_domeminfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    uint64_t          memtotal = 0;             /* total memory in bytes  */
+    uint32_t          pagesize = (uint32_t)PAGE_SIZE;
+    uint32_t          freecnt  = 0;             /* free pages             */
+    uint32_t          extcnt   = 0;             /* file-backed pages      */
+    struct xsw_usage  swap     = { 0 };         /* swap totals in bytes   */
+    size_t            sz;
+
+    sz = sizeof(memtotal); (void)sysctlbyname("hw.memsize", &memtotal, &sz, NULL, 0);
+    sz = sizeof(pagesize); (void)sysctlbyname("vm.pagesize", &pagesize, &sz, NULL, 0);
+    sz = sizeof(freecnt);  (void)sysctlbyname("vm.page_free_count", &freecnt, &sz, NULL, 0);
+    sz = sizeof(extcnt);   (void)sysctlbyname("vm.page_pageable_external_count", &extcnt, &sz, NULL, 0);
+    sz = sizeof(swap);     (void)sysctlbyname("vm.swapusage", &swap, &sz, NULL, 0);
+
+    unsigned long      memfree   = (unsigned long)freecnt * pagesize;
+    unsigned long      cached    = (unsigned long)extcnt * pagesize;
+    unsigned long      buffers   = 0;
+    unsigned long long swaptotal = (unsigned long long)swap.xsu_total;
+    unsigned long long swapfree  = (unsigned long long)swap.xsu_avail;
+
+    char buf[512];
+    struct sbuf sb;
+    if (sbuf_new(&sb, buf, sizeof(buf), SBUF_FIXEDLEN) == NULL) {
+        return ENOMEM;
+    }
+
+    sbuf_printf(&sb,
+        "MemTotal: %9lu kB\n"
+        "MemFree:  %9lu kB\n"
+        "MemShared:%9lu kB\n"
+        "Buffers:  %9lu kB\n"
+        "Cached:   %9lu kB\n"
+        "SwapTotal:%9llu kB\n"
+        "SwapFree: %9llu kB\n",
+        (unsigned long)B2K(memtotal), (unsigned long)B2K(memfree), 0UL,
+        (unsigned long)B2K(buffers), (unsigned long)B2K(cached),
+        (unsigned long long)B2K(swaptotal), (unsigned long long)B2K(swapfree));
+    sbuf_finish(&sb);
+
+    int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+    sbuf_delete(&sb);
 
     return error;
 }

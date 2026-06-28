@@ -94,6 +94,10 @@ procfs_structure_init(void)
         pfssnode_t *loadavg = add_node(root_node, "loadavg",
                         PFSloadavg, next_node_id++, 0, 0, NULL, procfs_doloadavg);
 
+        // Linux-compatible /proc/meminfo
+        pfssnode_t *meminfo = add_node(root_node, "meminfo",
+                        PFSmeminfo, next_node_id++, 0, 0, NULL, procfs_domeminfo);
+
         pfssnode_t *partitions = add_node(root_node, "partitions",
                         PFSpartitions, next_node_id++, 0, 0, NULL, procfs_dopartitions);
 
