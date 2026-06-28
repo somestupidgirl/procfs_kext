@@ -33,6 +33,7 @@ Linux-compatible files and helpers:
 |--------------|---------------------------------------------------------------------|
 |`cpuinfo`     | Linux-style CPU information (text)                                   |
 |`loadavg`     | Linux-style load averages (text; load values are a CPU-utilisation approximation on Apple Silicon — see below) |
+|`meminfo`     | Linux-style memory summary (text; `MemFree` is the FreeBSD non-wired estimate on Apple Silicon — see below) |
 |`partitions`  | Linux-style partition table (text; currently dummy values)          |
 |`version`     | Kernel version string (text)                                        |
 |`curproc`     | Symbolic link to the calling process's directory                    |
@@ -70,6 +71,8 @@ Verified with `test/test_features.sh`.
   - `cpuinfo` — Linux-style CPU information (some flag fields incomplete; see Issues)
   - `loadavg` — process count plus 1/5/15-minute load averages. On Apple Silicon
     the load values are a CPU-utilisation approximation (see Apple Silicon note)
+  - `meminfo` — Linux-style memory summary; `MemTotal` and `MemFree` are
+    populated (`MemFree` via the FreeBSD non-wired estimate — see Apple Silicon note)
   - `curproc` symlink and the `byname/` directory of per-process symlinks
   - Per-process `pid`, `ppid`, `pgid`, `sid` (binary `int32`)
   - Per-process `status` — `proc_bsdshortinfo` (pid/ppid/pgid, status, command
@@ -84,6 +87,9 @@ Verified with `test/test_features.sh`.
     empty when it has none
   - `limit` — the process's resource limits (FreeBSD `procfs_rlimit` format: one
     `<name> <cur> <max>` line per limit, `-1` for unlimited)
+  - `mem` — the process's memory; the read offset is the virtual address (the
+    NetBSD/Linux `mem` semantics). Only resident pages are returned (see Apple
+    Silicon note)
 
 `cmdline`, `fd/` and `threads/` required forward-porting work to function under
 PAC on Apple Silicon rather than relying on the unavailable private KPIs: `fd/`
@@ -110,6 +116,22 @@ load-average EWMA. Because this tracks CPU utilisation rather than run-queue
 depth, it saturates near the CPU count and under-reports a genuinely overloaded
 machine; the values stay `0.00` if libklookup cannot resolve `cpu_to_processor`.
 
+`meminfo` reports `MemTotal` from the `hw.memsize` sysctl and `MemFree` using
+FreeBSD's `linprocfs_domeminfo` estimate (`MemFree = MemTotal − wired`). The
+wired-page count comes from the kernel's `vm_page_wire_count` global resolved
+via libklookup, because the `vm.*` page-count sysctls are not readable from
+kernel context and most `vm_page_*_count` globals are stripped on arm64.
+`Cached`, `Buffers` and swap have no kernel-reachable source there and read 0
+(`MemFree` reads 0 if libklookup cannot resolve the wired count).
+
+`mem` reads the target's memory through its pmap (`get_task_pmap`,
+`pmap_find_phys`, `ml_phys_read`) — the same physical-aperture path `cmdline`
+uses — since the BSD faulting path (`vm_map_copyin`) is `com.apple.kpi.private`.
+A consequence of not faulting is that only resident pages are returned: reading
+an unmapped or paged-out address (including offset 0, the NULL page) returns
+`EIO`, and a read stops cleanly at the first hole. Access is gated by the same
+credential check as the rest of the filesystem.
+
 **Partially available (placeholder / incomplete data):**
 
   - `partitions` — emits a well-formed Linux-style table, but the values are
@@ -127,10 +149,10 @@ machine; the values stay `0.00` if libklookup cannot resolve `cpu_to_processor`.
 
 **Not yet present (planned — see TODO):**
 
-  - Per-thread register/state files, process memory (`mem`) and address-space
-    map (`map`), `auxv`, and the broader set of Linux-style `/proc` files
-    (`stat`, `meminfo`, `mounts`, `/proc/sys/`, …). Scaffolding for several of
-    these exists in the source tree but is not yet wired into the node structure.
+  - Per-thread register/state files, the address-space map (`map`), `auxv`, and
+    the broader set of Linux-style `/proc` files (`stat`, `mounts`,
+    `/proc/sys/`, …). Scaffolding for several of these exists in the source tree
+    but is not yet wired into the node structure.
 
 ## How to build procfs
 Build a universal (arm64e + x86_64) binary with:
@@ -202,11 +224,11 @@ through `hexdump` to read the raw contents:
 
 ## TODO:
  - Populate `taskinfo` and per-thread `info` content (needs forward-ports of `fill_taskprocinfo` / `fill_taskthreadinfo`); enumeration already works.
- - Wire up the scaffolded but not-yet-exposed nodes: process memory (`mem`), address-space map (`map`), `auxv`, and register state (`fpregs`/regs).
+ - Wire up the scaffolded but not-yet-exposed nodes: address-space map (`map`), `auxv`, and register state (`fpregs`/regs).
  - Implement `note` delivery (and a `vnop_write` path so the node is writable).
  - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
  - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
- - Implement more linux-compatible files a la NetBSD and FreeBSD (`stat`, `meminfo`, `mounts`, `/proc/sys/`, …).
+ - Implement more linux-compatible files a la NetBSD and FreeBSD (`stat`, `mounts`, `/proc/sys/`, …).
 
 ## Issues
 Currently known issues:
