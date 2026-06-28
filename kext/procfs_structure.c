@@ -151,6 +151,8 @@ procfs_structure_init(void)
         add_file(one_proc_dir, "note", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_donote);
         add_file(one_proc_dir, "limit", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_dolimit);
         add_file(one_proc_dir, "mem", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_domem);
+        add_file(one_proc_dir, "map", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_domap);
+        add_file(one_proc_dir, "maps", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_domaps);
 
         // --- Per thread files.
         add_file(one_thread_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_taskinfo), NULL, procfs_read_thread_info);

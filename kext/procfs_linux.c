@@ -46,6 +46,7 @@
 #else
 #include <mach/vm_param.h>
 #endif
+#include <mach/vm_prot.h>
 
 #include <bsdcompat/sys/malloc.h>
 
@@ -780,6 +781,32 @@ procfs_dopartitions(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
     sbuf_delete(&sb);
 
     return error;
+}
+
+/*
+ * Linux-compatible /proc/<pid>/maps. Shares the VM-region walk in procfs_map.c
+ * (procfs_map_render) with the NetBSD-format `map` node; only the per-region
+ * line format is Linux-specific:
+ *   start-end perms offset dev inode path
+ * The dev/inode/path columns are reported as "00:00 0" with no path, since the
+ * region's backing file is not reachable here (see procfs_map.c).
+ */
+static void
+procfs_maps_fmt_linux(struct sbuf *sb, const struct procfs_region *r)
+{
+    sbuf_printf(sb, "%016llx-%016llx %c%c%c%c %016llx 00:00 0 \n",
+        (unsigned long long)r->start, (unsigned long long)r->end,
+        (r->prot & VM_PROT_READ)    ? 'r' : '-',
+        (r->prot & VM_PROT_WRITE)   ? 'w' : '-',
+        (r->prot & VM_PROT_EXECUTE) ? 'x' : '-',
+        r->shared ? 's' : 'p',
+        (unsigned long long)r->offset);
+}
+
+int
+procfs_domaps(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
+{
+    return procfs_map_render(pnp, uio, ctx, procfs_maps_fmt_linux);
 }
 
 /*

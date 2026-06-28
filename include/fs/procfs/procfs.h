@@ -412,6 +412,30 @@ extern int procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 extern int procfs_doprocargs(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_domem(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
+/*
+ * One VM region, as handed to a map formatter. Plain scalars so formatters in
+ * either file need no Mach VM headers; `prot`/`max_prot` carry VM_PROT_* bits.
+ */
+struct sbuf;
+struct procfs_region {
+    uint64_t     start;
+    uint64_t     end;
+    uint64_t     offset;
+    int          prot;
+    int          max_prot;
+    int          shared;
+    unsigned int wired;
+};
+typedef void (*procfs_region_fmt_fn)(struct sbuf *sb, const struct procfs_region *r);
+
+/* Shared VM-region walk (procfs_map.c): enumerates the process's regions and
+ * calls `fmt` per region. procfs_domap formats NetBSD-style here; procfs_domaps
+ * (Linux-style) lives in procfs_linux.c and reuses this. */
+extern int procfs_map_render(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx,
+                             procfs_region_fmt_fn fmt);
+extern int procfs_domap(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_domaps(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+
 /* BSD/Linux-compatible features */
 extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dolimit(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
