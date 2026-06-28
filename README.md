@@ -92,6 +92,9 @@ Verified with `test/test_features.sh`.
   - `mem` — the process's memory; the read offset is the virtual address (the
     NetBSD/Linux `mem` semantics). Only resident pages are returned (see Apple
     Silicon note)
+  - `map` / `maps` — the process's virtual-memory regions (`map` in NetBSD
+    procfs format, `maps` in Linux `/proc/<pid>/maps` format), with address
+    ranges and protections (see Apple Silicon note)
 
 `cmdline`, `fd/` and `threads/` required forward-porting work to function under
 PAC on Apple Silicon rather than relying on the unavailable private KPIs: `fd/`
@@ -134,6 +137,15 @@ an unmapped or paged-out address (including offset 0, the NULL page) returns
 `EIO`, and a read stops cleanly at the first hole. Access is gated by the same
 credential check as the rest of the filesystem.
 
+`map` and `maps` enumerate the process's VM regions through the libklookup-
+resolved `mach_vm_region()` (with `get_task_map()`): macOS exports no region-
+enumeration KPI a kext may link, and the internal walkers are stripped on
+arm64. `mach_vm_region()` takes the map's read lock itself, so this needs no
+struct-walking or manual locking. Both nodes share one walk and differ only in
+formatting (`map` NetBSD-style, `maps` Linux-style). Backing-file paths (the
+trailing Linux column) are not resolved — the region's object→vnode is not
+reachable here — so the device/inode/path columns read `00:00 0`.
+
 `partitions` lists mounted block-device filesystems rather than raw disks.
 Linux's `/proc/partitions` enumerates every block device, but on macOS that
 information lives in IOKit, which a C VFS-only kext cannot reach. Instead the
@@ -158,10 +170,10 @@ partitions are not shown.
 
 **Not yet present (planned — see TODO):**
 
-  - Per-thread register/state files, the address-space map (`map`), `auxv`, and
-    the broader set of Linux-style `/proc` files (`stat`, `mounts`,
-    `/proc/sys/`, …). Scaffolding for several of these exists in the source tree
-    but is not yet wired into the node structure.
+  - Per-thread register/state files, `auxv`, and the broader set of Linux-style
+    `/proc` files (`stat`, `vmstat`, `mounts`, `/proc/sys/`, …). Scaffolding for
+    several of these exists in the source tree but is not yet wired into the node
+    structure.
 
 ## How to build procfs
 Build a universal (arm64e + x86_64) binary with:
@@ -233,7 +245,7 @@ through `hexdump` to read the raw contents:
 
 ## TODO:
  - Populate `taskinfo` and per-thread `info` content (needs forward-ports of `fill_taskprocinfo` / `fill_taskthreadinfo`); enumeration already works.
- - Wire up the scaffolded but not-yet-exposed nodes: address-space map (`map`), `auxv`, and register state (`fpregs`/regs).
+ - Wire up the scaffolded but not-yet-exposed nodes: `auxv` and register state (`fpregs`/regs).
  - Implement `note` delivery (and a `vnop_write` path so the node is writable).
  - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
  - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
