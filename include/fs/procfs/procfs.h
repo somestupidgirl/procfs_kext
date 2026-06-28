@@ -408,6 +408,7 @@ extern int procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 extern int procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doprocargs(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_domem(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* BSD/Linux-compatible features */
 extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
