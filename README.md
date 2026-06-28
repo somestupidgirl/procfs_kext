@@ -85,6 +85,8 @@ Verified with `test/test_features.sh`.
     (`vnode_fdinfowithpath`) and `socket` (`socket_fdinfo`, common fields plus
     UNIX/IPv4 addresses)
   - `threads/` — enumerates the process's threads (one directory per thread id)
+  - `task/` — the Linux name for the same per-thread view (`/proc/<pid>/task/<tid>`),
+    one directory per thread id
   - `tty` — the process's controlling terminal device path (e.g. `/dev/ttys001`),
     empty when it has none
   - `limit` — the process's resource limits (FreeBSD `procfs_rlimit` format: one
