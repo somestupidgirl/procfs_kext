@@ -34,7 +34,7 @@ Linux-compatible files and helpers:
 |`cpuinfo`     | Linux-style CPU information (text)                                   |
 |`loadavg`     | Linux-style load averages (text; load values are a CPU-utilisation approximation on Apple Silicon — see below) |
 |`meminfo`     | Linux-style memory summary (text; `MemFree` is the FreeBSD non-wired estimate on Apple Silicon — see below) |
-|`partitions`  | Linux-style partition table (text; currently dummy values)          |
+|`partitions`  | Linux-style partition table (text; mounted block devices — see below) |
 |`version`     | Kernel version string (text)                                        |
 |`curproc`     | Symbolic link to the calling process's directory                    |
 |`byname/`     | Directory of symbolic links, one per process, named by command name |
@@ -73,6 +73,8 @@ Verified with `test/test_features.sh`.
     the load values are a CPU-utilisation approximation (see Apple Silicon note)
   - `meminfo` — Linux-style memory summary; `MemTotal` and `MemFree` are
     populated (`MemFree` via the FreeBSD non-wired estimate — see Apple Silicon note)
+  - `partitions` — Linux-style table of mounted block devices (real major/minor,
+    block counts and names; mounted volumes only — see note below)
   - `curproc` symlink and the `byname/` directory of per-process symlinks
   - Per-process `pid`, `ppid`, `pgid`, `sid` (binary `int32`)
   - Per-process `status` — `proc_bsdshortinfo` (pid/ppid/pgid, status, command
@@ -132,10 +134,17 @@ an unmapped or paged-out address (including offset 0, the NULL page) returns
 `EIO`, and a read stops cleanly at the first hole. Access is gated by the same
 credential check as the rest of the filesystem.
 
+`partitions` lists mounted block-device filesystems rather than raw disks.
+Linux's `/proc/partitions` enumerates every block device, but on macOS that
+information lives in IOKit, which a C VFS-only kext cannot reach. Instead the
+node walks the mount list with `vfs_iterate()` and, for each `/dev/*` mount,
+reports the major/minor from `vfs_statfs()`'s `f_fsid`, the 1 K block count from
+`f_blocks × f_bsize`, and the device name — real data for every mounted volume
+(on APFS each volume reports its shared container capacity). Unmounted
+partitions are not shown.
+
 **Partially available (placeholder / incomplete data):**
 
-  - `partitions` — emits a well-formed Linux-style table, but the values are
-    dummy placeholders.
   - `taskinfo` and per-thread `threads/<tid>/info` — return correctly-sized but
     **all-zero** structures: they depend on the private `fill_taskprocinfo` /
     `fill_taskthreadinfo` symbols, which cannot be resolved under PAC and are not
@@ -236,7 +245,7 @@ Currently known issues:
 - On Apple Silicon, `cmdline`, `fd/`, `threads/` and `tty` previously required private kernel symbols unavailable under PAC; they now work (the first three forward-ported, `tty` via libklookup-resolved `proc_gettty`). `tty` depends on the `procfs_ksyms` staging helper having run (it does during `make install`); if the staged symbol file is missing or stale for the running kernel, `tty` falls back to `ENOTSUP`.
 - `taskinfo` and per-thread `threads/<tid>/info` are currently zeroed (they need the private `fill_taskprocinfo` / `fill_taskthreadinfo`); the surrounding `fd/` and `threads/` enumeration works.
 - `note` is a NetBSD-style scaffold: reads return `EINVAL` and writing a note is not yet possible (no write path / no delivery).
-- The `procfs_dopartitions` function in kext/procfs_linux.c is still in early stages of development so it will only return dummy values at the moment.
+- The `procfs_dopartitions` function in kext/procfs_linux.c lists mounted block-device filesystems (via `vfs_iterate`), not raw or unmounted disks — enumerating those needs IOKit, which a VFS-only kext can't reach.
 - Certain fields in `procfs_docpuinfo`, in kext/procfs_linux.c, such as `bugs` and `pm` have yet to be incorporated. Support for CPU flags for AMD CPUs is also still limited.
 
 ## Contributing and Bug Reporting
