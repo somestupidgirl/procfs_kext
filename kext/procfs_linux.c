@@ -36,9 +36,11 @@
 #else
 #include <arm/proc_reg.h>
 #endif
+#include <sys/mount.h>
 #include <sys/queue.h>
 #include <sys/sbuf.h>
 #include <sys/sysctl.h>
+#include <sys/types.h>
 #if defined(__x86_64__)
 #include <mach/i386/vm_param.h>
 #else
@@ -723,31 +725,59 @@ procfs_domeminfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 }
 
 /*
- * Linux-compatible /proc/partitions
+ * Linux-compatible /proc/partitions. Linux lists every block device; macOS has
+ * no kext-linkable way to enumerate raw/unmounted disks (that lives in IOKit),
+ * so we list the mounted block-device filesystems instead - real major/minor,
+ * block counts and names for everything backed by a /dev node. Each mounted
+ * volume is reported (on APFS that means the container's volumes), which is the
+ * closest faithful equivalent reachable from a VFS-only kext.
  */
+struct procfs_part_ctx {
+    struct sbuf *sb;
+};
+
+/*
+ * vfs_iterate() callout: emit one partitions line per mounted /dev device.
+ * Runs with the mount referenced; uses only vfs_statfs() (no blocking I/O or
+ * vnode lookups) so it is safe inside the iteration.
+ */
+static int
+procfs_partitions_cb(mount_t mp, void *arg)
+{
+    struct procfs_part_ctx *pc = (struct procfs_part_ctx *)arg;
+    struct vfsstatfs *st = vfs_statfs(mp);
+
+    if (st == NULL || strncmp(st->f_mntfromname, "/dev/", 5) != 0) {
+        return VFS_RETURNED;        /* skip non-block-device mounts */
+    }
+
+    dev_t    dev    = (dev_t)st->f_fsid.val[0];
+    uint64_t blocks = ((uint64_t)st->f_blocks * st->f_bsize) >> 10;  /* 1K blocks */
+
+    sbuf_printf(pc->sb, "%4d %7d %10llu %s\n",
+        major(dev), minor(dev), (unsigned long long)blocks,
+        st->f_mntfromname + 5 /* strip "/dev/" */);
+
+    return VFS_RETURNED;
+}
+
 int
 procfs_dopartitions(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    int error = 0;
-    int len = 0, xlen = 0;
+    char buf[4096];
+    struct sbuf sb;
+    if (sbuf_new(&sb, buf, sizeof(buf), SBUF_FIXEDLEN) == NULL) {
+        return ENOMEM;
+    }
 
-    vm_offset_t off = uio_offset(uio);
-    vm_offset_t pgno = trunc_page(off);
-    off_t pgoff = (off - pgno);
+    sbuf_printf(&sb, "major minor  #blocks  name\n\n");
 
-    int major = 0, minor = 0, block_size = 0;
-    char *name = "Feature not yet implemented.";
+    struct procfs_part_ctx pc = { &sb };
+    vfs_iterate(0, procfs_partitions_cb, &pc);
 
-    char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
-
-    len = snprintf(buf, LBFSZ, "major minor  #blocks  name\n"
-                               "%d %d %d %s\n",
-                               major, minor, block_size, name);
-
-    xlen = (len - pgoff);
-    error = uiomove((const char *)buf, xlen, uio);
-
-    free(buf, M_TEMP);
+    sbuf_finish(&sb);
+    int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+    sbuf_delete(&sb);
 
     return error;
 }
