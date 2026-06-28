@@ -18,11 +18,16 @@
 #else
 #include <arm/cpuid.h>
 #endif
+#include <kern/clock.h>
+#include <kern/thread_call.h>
 #include <libkern/libkern.h>
 #include <libkern/OSMalloc.h>
 #include <libkern/version.h>
 #include <mach/machine.h>
+#include <mach/mach_types.h>
+#include <mach/processor_info.h>
 #include <os/log.h>
+#include <ptrauth.h>
 #include <sys/disklabel.h>
 #include <sys/errno.h>
 #include <sys/malloc.h>
@@ -37,6 +42,7 @@
 #include <bsdcompat/sys/malloc.h>
 
 #include <fs/procfs/procfs.h>
+#include "lib/symbols.h"
 
 #include "lib/cpu.h"
 #include "lib/symbols.h"
@@ -463,6 +469,150 @@ procfs_docpuinfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 }
 
 /*
+ * Load-average sampler for the loadavg node.
+ *
+ * A true run-queue load average is unreachable on arm64: averunnable,
+ * compute_averunnable, host_statistics and processor_set_info are all stripped
+ * from the kernel and unexported. What IS reachable is per-CPU tick counts via
+ * processor_info(PROCESSOR_CPU_LOAD_INFO), given a processor_t from
+ * cpu_to_processor() (resolved through libklookup). So we periodically sample
+ * CPU utilisation and feed util*ncpu through the standard load-average EWMA,
+ * writing the result into the local `averunnable` (lib/kern.c) the node reads.
+ *
+ * NOTE: this approximates CPU utilisation (it saturates near ncpu), not the
+ * true run-queue length, so it under-reports an overloaded machine. It is a
+ * best-effort stand-in for the otherwise-unavailable load average.
+ */
+extern kern_return_t processor_info(processor_t processor, processor_flavor_t flavor,
+    host_t *host, processor_info_t info, mach_msg_type_number_t *count);
+
+typedef processor_t (*cpu_to_processor_fn)(int);
+
+#define LA_SAMPLE_SECS 5
+
+/* exp(-5s/{60,300,900}s) * FSCALE - the classic 5-second-sample decay table. */
+static const fixpt_t la_cexp[3] = { 1884, 2014, 2037 };
+
+static thread_call_t        la_call;
+static cpu_to_processor_fn  la_cpu_to_processor;
+static int                  la_ncpu;
+static uint64_t             la_busy;        /* cumulative across CPUs, last sample */
+static uint64_t             la_idle;
+static boolean_t            la_primed;
+
+/*
+ * Sum busy/idle ticks across all CPUs, then fold a utilisation-derived
+ * instantaneous load into the three EWMAs.
+ */
+static void
+la_sample(void)
+{
+    uint64_t busy = 0, idle = 0;
+
+    for (int i = 0; i < la_ncpu; i++) {
+        processor_t pr = la_cpu_to_processor(i);
+        if (pr == PROCESSOR_NULL) {
+            continue;
+        }
+        processor_cpu_load_info_data_t info;
+        mach_msg_type_number_t count = PROCESSOR_CPU_LOAD_INFO_COUNT;
+        host_t host;
+        if (processor_info(pr, PROCESSOR_CPU_LOAD_INFO, &host,
+                (processor_info_t)&info, &count) != KERN_SUCCESS) {
+            continue;
+        }
+        busy += (uint64_t)info.cpu_ticks[CPU_STATE_USER] +
+                info.cpu_ticks[CPU_STATE_SYSTEM] +
+                info.cpu_ticks[CPU_STATE_NICE];
+        idle += info.cpu_ticks[CPU_STATE_IDLE];
+    }
+
+    if (!la_primed) {
+        la_busy = busy;
+        la_idle = idle;
+        la_primed = TRUE;
+        return;
+    }
+
+    uint64_t dbusy = busy - la_busy;
+    uint64_t didle = idle - la_idle;
+    la_busy = busy;
+    la_idle = idle;
+
+    /* Instantaneous "load" = utilisation * ncpu, in fixed point. */
+    uint64_t total = dbusy + didle;
+    fixpt_t nrun = 0;
+    if (total > 0) {
+        nrun = (fixpt_t)((dbusy * (uint64_t)la_ncpu * FSCALE) / total);
+    }
+
+    for (int i = 0; i < 3; i++) {
+        averunnable.ldavg[i] = (fixpt_t)(((uint64_t)la_cexp[i] * averunnable.ldavg[i] +
+            (uint64_t)nrun * (FSCALE - la_cexp[i])) >> FSHIFT);
+    }
+    averunnable.fscale = FSCALE;
+}
+
+static void
+la_timer(__unused thread_call_param_t a, __unused thread_call_param_t b)
+{
+    uint64_t deadline;
+
+    la_sample();
+    clock_interval_to_deadline(LA_SAMPLE_SECS, NSEC_PER_SEC, &deadline);
+    thread_call_enter_delayed(la_call, deadline);
+}
+
+/*
+ * Start the periodic sampler. No-op (loadavg values stay zero) if libklookup
+ * could not resolve cpu_to_processor.
+ */
+void
+procfs_loadavg_start(void)
+{
+    if (la_call != NULL || procfs_kl_cpu_to_processor == NULL) {
+        return;
+    }
+
+    /* Sign the klookup-resolved address for the arm64e ABI (disc 0; the
+     * assignment resigns to the call's type discriminator). */
+    la_cpu_to_processor = ptrauth_sign_unauthenticated(procfs_kl_cpu_to_processor,
+        ptrauth_key_function_pointer, 0);
+
+    int ncpu = 0;
+    size_t sz = sizeof(ncpu);
+    if (sysctlbyname("hw.logicalcpu", &ncpu, &sz, NULL, 0) != 0 || ncpu <= 0) {
+        ncpu = 1;
+    }
+    la_ncpu = ncpu;
+    averunnable.fscale = FSCALE;
+
+    la_call = thread_call_allocate(la_timer, NULL);
+    if (la_call == NULL) {
+        return;
+    }
+
+    la_sample();    /* prime the cumulative counters */
+
+    uint64_t deadline;
+    clock_interval_to_deadline(LA_SAMPLE_SECS, NSEC_PER_SEC, &deadline);
+    thread_call_enter_delayed(la_call, deadline);
+}
+
+/*
+ * Stop the sampler (kext unload).
+ */
+void
+procfs_loadavg_stop(void)
+{
+    if (la_call != NULL) {
+        thread_call_cancel(la_call);
+        thread_call_free(la_call);
+        la_call = NULL;
+    }
+}
+
+/*
  * Linux-compatible /proc/loadavg
  */
 int
@@ -476,12 +626,11 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 
     char *buf = malloc(LBFSZ, M_TEMP, M_WAITOK);
 
-    // Report the load averages from our local averunnable (lib/kern.c). The
-    // kernel's own averunnable is not reachable from a kext, and there is
-    // currently no driver populating ours: every CPU-load / run-queue source is
-    // either unexported (host_statistics, processor_set_statistics) or in the
-    // Apple-only com.apple.kpi.private KPI (cpu_to_processor + processor_info).
-    // So these values read 0.00 until a usable nrun source is found.
+    // Report the load averages from our local averunnable (lib/kern.c), which
+    // procfs_loadavg_start()'s sampler keeps populated from per-CPU utilisation
+    // (the kernel's own averunnable and every run-queue source are stripped on
+    // arm64). When libklookup can't resolve cpu_to_processor the sampler never
+    // runs and these stay 0.00.
     long fscale = averunnable.fscale > 0 ? averunnable.fscale : FSCALE;
     int load1  = (int)((uint64_t)averunnable.ldavg[0] * 100 / fscale);
     int load5  = (int)((uint64_t)averunnable.ldavg[1] * 100 / fscale);

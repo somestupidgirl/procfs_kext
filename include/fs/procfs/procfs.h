@@ -413,6 +413,8 @@ extern int procfs_doprocargs(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dolimit(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doloadavg(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern void procfs_loadavg_start(void);
+extern void procfs_loadavg_stop(void);
 extern int procfs_dopartitions(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doversion(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_donote(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);

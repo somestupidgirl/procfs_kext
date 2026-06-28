@@ -32,7 +32,7 @@ Linux-compatible files and helpers:
 | Entry        | Summary                                                              |
 |--------------|---------------------------------------------------------------------|
 |`cpuinfo`     | Linux-style CPU information (text)                                   |
-|`loadavg`     | Linux-style load averages (text; process count is real, load values are 0 on ARM64 — see below) |
+|`loadavg`     | Linux-style load averages (text; load values are a CPU-utilisation approximation on Apple Silicon — see below) |
 |`partitions`  | Linux-style partition table (text; currently dummy values)          |
 |`version`     | Kernel version string (text)                                        |
 |`curproc`     | Symbolic link to the calling process's directory                    |
@@ -68,6 +68,8 @@ Verified with `test/test_features.sh`.
   - Directory listing of the root and per-process directories via `ls`, `find`, `readdir(3)` and `getdirentries64(2)`
   - `version` — kernel version string
   - `cpuinfo` — Linux-style CPU information (some flag fields incomplete; see Issues)
+  - `loadavg` — process count plus 1/5/15-minute load averages. On Apple Silicon
+    the load values are a CPU-utilisation approximation (see Apple Silicon note)
   - `curproc` symlink and the `byname/` directory of per-process symlinks
   - Per-process `pid`, `ppid`, `pgid`, `sid` (binary `int32`)
   - Per-process `status` — `proc_bsdshortinfo` (pid/ppid/pgid, status, command
@@ -97,13 +99,19 @@ resolved at load time from the on-disk kernel collection (libklookup, fed by the
 `procfs_ksyms` staging helper run at install) and called directly — its SMR and
 session locking run inside the kernel's own code, so the resolved call is safe.
 
+`loadavg`'s load values are an approximation on Apple Silicon. The kernel's true
+run-queue load average is unreachable — `averunnable`, `compute_averunnable`,
+`host_statistics` and `processor_set_info` are all stripped from the kernel and
+unexported. What survives is per-CPU tick counts via the exported
+`processor_info(PROCESSOR_CPU_LOAD_INFO)`, given a `processor_t` from the
+libklookup-resolved `cpu_to_processor()`. A `thread_call` samples CPU
+utilisation every 5 seconds and feeds `utilisation × ncpu` through the standard
+load-average EWMA. Because this tracks CPU utilisation rather than run-queue
+depth, it saturates near the CPU count and under-reports a genuinely overloaded
+machine; the values stay `0.00` if libklookup cannot resolve `cpu_to_processor`.
+
 **Partially available (placeholder / incomplete data):**
 
-  - `loadavg` — the process-count field is real, but the three load-average
-    values read 0.00 on Apple Silicon. The kernel's `averunnable` global is not
-    exported to kexts, is absent from the (stripped) kernel symbol table, and
-    the `vm.loadavg` sysctl returns `EPERM` from kernel context, so there is no
-    safe way to obtain the values.
   - `partitions` — emits a well-formed Linux-style table, but the values are
     dummy placeholders.
   - `taskinfo` and per-thread `threads/<tid>/info` — return correctly-sized but
