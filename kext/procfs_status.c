@@ -191,9 +191,28 @@ procfs_read_task_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p != PROC_NULL) {
         struct proc_taskinfo info;
 
-        // Get the task info and copy it out.
+        // Get the task info and copy it out. On arm64 proc_pidtaskinfo() leaves
+        // everything zero (fill_taskprocinfo is stripped), so fill the fields
+        // reachable without it: the memory sizes from the VM-region walk, the
+        // thread count from the uthread list, and the default thread policy.
+        // The remaining counters (CPU time, faults, syscalls, ...) live only in
+        // the opaque task struct and stay zero. On x86_64, where
+        // proc_pidtaskinfo already populated everything, these recompute the
+        // same values (the VM walk is a no-op without libklookup).
         error = proc_pidtaskinfo(p, &info);
         if (error == 0) {
+            uint64_t vsize = 0, rsize = 0;
+            if (procfs_task_vm_sizes(p, &vsize, &rsize) == 0) {
+                info.pti_virtual_size  = vsize;
+                info.pti_resident_size = rsize;
+            }
+            int tcount = procfs_get_task_thread_count(p);
+            if (tcount > 0) {
+                info.pti_threadnum = tcount;
+            }
+            if (info.pti_policy == 0) {
+                info.pti_policy = POLICY_TIMESHARE;
+            }
             error = procfs_copy_data((const char *)&info, sizeof(info), uio);
         } else {
             error = ESRCH;

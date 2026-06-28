@@ -30,6 +30,11 @@
 #include <mach/vm_types.h>
 #include <mach/vm_prot.h>
 #include <mach/vm_region.h>
+#if defined(__x86_64__)
+#include <mach/i386/vm_param.h>
+#else
+#include <mach/vm_param.h>
+#endif
 #include <sys/errno.h>
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
@@ -144,6 +149,63 @@ procfs_map_render(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx, procfs_region_fm
     sbuf_delete(&sb);
 
     return error;
+}
+
+/*
+ * Sum the task's virtual size and resident size by walking its VM regions with
+ * VM_REGION_EXTENDED_INFO (which carries pages_resident per region). This is the
+ * offset-free way to obtain proc_taskinfo's pti_virtual_size / pti_resident_size
+ * on arm64, where fill_taskprocinfo, task_info and pmap_resident_count are all
+ * stripped. Caller holds the proc_find() reference.
+ */
+int
+procfs_task_vm_sizes(proc_t p, uint64_t *vsize, uint64_t *rsize)
+{
+    *vsize = 0;
+    *rsize = 0;
+
+    if (procfs_kl_get_task_map == NULL || procfs_kl_mach_vm_region == NULL) {
+        return ENOTSUP;
+    }
+
+    procfs_get_task_map_fn   get_task_map   =
+        ptrauth_sign_unauthenticated(procfs_kl_get_task_map, ptrauth_key_function_pointer, 0);
+    procfs_mach_vm_region_fn mach_vm_region =
+        ptrauth_sign_unauthenticated(procfs_kl_mach_vm_region, ptrauth_key_function_pointer, 0);
+
+    task_t   task = proc_task(p);
+    if (task == TASK_NULL) {
+        return ESRCH;
+    }
+    vm_map_t map = get_task_map(task);
+    if (map == NULL) {
+        return EIO;
+    }
+
+    mach_vm_offset_t addr = 0;
+    for (int n = 0; n < PROCFS_MAP_MAX_REGIONS; n++) {
+        mach_vm_size_t                    size  = 0;
+        vm_region_extended_info_data_t    info;
+        mach_msg_type_number_t            count = VM_REGION_EXTENDED_INFO_COUNT;
+        void                             *object_name = NULL;  /* gets IP_NULL */
+
+        kern_return_t kr = mach_vm_region(map, &addr, &size, VM_REGION_EXTENDED_INFO,
+            (int *)&info, &count, &object_name);
+        if (kr != KERN_SUCCESS) {
+            break;
+        }
+
+        *vsize += (uint64_t)size;
+        *rsize += (uint64_t)info.pages_resident * PAGE_SIZE;
+
+        mach_vm_offset_t next = addr + size;
+        if (next <= addr) {
+            break;
+        }
+        addr = next;
+    }
+
+    return 0;
 }
 
 /*
