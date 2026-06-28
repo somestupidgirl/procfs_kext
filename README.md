@@ -53,6 +53,7 @@ Each directory named for a process id represents one process on the system. By d
 |`cmdline`  | Process argument vector (NUL-separated, Linux format) | text |
 |`tty`      | Controlling terminal device path (e.g. `/dev/ttys001`) | text |
 |`note`     | Write a note to the process (NetBSD-style) | write-only; read returns `EINVAL`. **Delivery not yet implemented** |
+|`limit`    | Process resource limits, one `<name> <cur> <max>` line per limit (`-1` = unlimited) | text |
 
 The `fd` directory contains one entry for each file that the process has open. Each entry is a directory that’s numbered for the corresponding file descriptor. Within each subdirectory you’ll find two files called `details` and `socket`. The `details` file contains a `vnode_fdinfowithpath` structure, which contains information about the file including its path name if it is a file system file. If the file is a socket endpoint, you can read a `socket_fdinfo` structure from the `socket` file.
 
@@ -79,6 +80,8 @@ Verified with `test/test_features.sh`.
   - `threads/` — enumerates the process's threads (one directory per thread id)
   - `tty` — the process's controlling terminal device path (e.g. `/dev/ttys001`),
     empty when it has none
+  - `limit` — the process's resource limits (FreeBSD `procfs_rlimit` format: one
+    `<name> <cur> <max>` line per limit, `-1` for unlimited)
 
 `cmdline`, `fd/` and `threads/` required forward-porting work to function under
 PAC on Apple Silicon rather than relying on the unavailable private KPIs: `fd/`
@@ -117,10 +120,9 @@ session locking run inside the kernel's own code, so the resolved call is safe.
 **Not yet present (planned — see TODO):**
 
   - Per-thread register/state files, process memory (`mem`) and address-space
-    map (`map`), `auxv`, resource limits, and the broader set of Linux-style
-    `/proc` files (`stat`, `meminfo`, `mounts`, `/proc/sys/`, …). Scaffolding for
-    several of these exists in the source tree but is not yet wired into the
-    node structure.
+    map (`map`), `auxv`, and the broader set of Linux-style `/proc` files
+    (`stat`, `meminfo`, `mounts`, `/proc/sys/`, …). Scaffolding for several of
+    these exists in the source tree but is not yet wired into the node structure.
 
 ## How to build procfs
 Build a universal (arm64e + x86_64) binary with:
@@ -192,7 +194,7 @@ through `hexdump` to read the raw contents:
 
 ## TODO:
  - Populate `taskinfo` and per-thread `info` content (needs forward-ports of `fill_taskprocinfo` / `fill_taskthreadinfo`); enumeration already works.
- - Wire up the scaffolded but not-yet-exposed nodes: process memory (`mem`), address-space map (`map`), `auxv`, register state (`fpregs`/regs) and resource limits.
+ - Wire up the scaffolded but not-yet-exposed nodes: process memory (`mem`), address-space map (`map`), `auxv`, and register state (`fpregs`/regs).
  - Implement `note` delivery (and a `vnop_write` path so the node is writable).
  - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
  - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
