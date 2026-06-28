@@ -98,6 +98,7 @@ SYM_INIT(cpuid_info);
  */
 int  (*procfs_proc_gettty)(proc_t p, vnode_t *vpp) = NULL;  /* PAC-signed */
 void *procfs_kl_cpu_to_processor = NULL;
+unsigned int *procfs_vm_page_wire_count = NULL;  /* data global, not PAC-signed */
 
 kern_return_t
 resolve_symbols(void)
@@ -108,11 +109,12 @@ resolve_symbols(void)
      * additionally validates against "_kernel_pmap", so a non-matching staged
      * file yields NULLs and we leave the features disabled.
      */
-    enum { I_VERSION, I_PROC_GETTTY, I_CPU_TO_PROCESSOR, N_SYMS };
+    enum { I_VERSION, I_PROC_GETTTY, I_CPU_TO_PROCESSOR, I_VM_PAGE_WIRE_COUNT, N_SYMS };
     static const char *const names[N_SYMS] = {
-        [I_VERSION]           = "_version",
-        [I_PROC_GETTTY]       = "_proc_gettty",
-        [I_CPU_TO_PROCESSOR]  = "_cpu_to_processor",
+        [I_VERSION]             = "_version",
+        [I_PROC_GETTTY]         = "_proc_gettty",
+        [I_CPU_TO_PROCESSOR]    = "_cpu_to_processor",
+        [I_VM_PAGE_WIRE_COUNT]  = "_vm_page_wire_count",
     };
     void *addr[N_SYMS] = { NULL };
 
@@ -131,8 +133,13 @@ resolve_symbols(void)
     }
     procfs_kl_cpu_to_processor = addr[I_CPU_TO_PROCESSOR];
 
-    printf("procfs: libklookup OK (proc_gettty=%d cpu_to_processor=%d)\n",
-           procfs_proc_gettty != NULL, procfs_kl_cpu_to_processor != NULL);
+    /* vm_page_wire_count is a plain data global; the resolved address is read
+     * directly (no PAC), used by the meminfo node to estimate free memory. */
+    procfs_vm_page_wire_count = (unsigned int *)addr[I_VM_PAGE_WIRE_COUNT];
+
+    printf("procfs: libklookup OK (proc_gettty=%d cpu_to_processor=%d vm_page_wire_count=%d)\n",
+           procfs_proc_gettty != NULL, procfs_kl_cpu_to_processor != NULL,
+           procfs_vm_page_wire_count != NULL);
 
     return KERN_SUCCESS;
 }

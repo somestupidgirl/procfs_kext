@@ -384,5 +384,6 @@ extern uint32_t                 (*_avenrun)[3];
 extern boolean_t                procfs_klookup_ok;
 extern int                      (*procfs_proc_gettty)(proc_t p, vnode_t *vpp);
 extern void *                   procfs_kl_cpu_to_processor;
+extern unsigned int *           procfs_vm_page_wire_count;
 
 #endif /* _symbols_h */

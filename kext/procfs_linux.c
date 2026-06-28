@@ -667,38 +667,35 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 /*
  * Linux-compatible /proc/meminfo, modelled on FreeBSD's linprocfs_domeminfo()
  * (sys/compat/linux/linprocfs/linprocfs.c) - same field set and "%9lu kB"
- * layout. The data sources necessarily differ: FreeBSD reads physmem,
- * vm_wire_count() etc. directly, whereas none of XNU's vm_page_*_count globals
- * are exported (and most are stripped from the arm64 symbol table), so we pull
- * the figures from the kernel's own sysctls, which expose them safely:
- *   hw.memsize                        -> MemTotal
- *   vm.page_free_count                -> MemFree
- *   vm.page_pageable_external_count   -> Cached (file-backed pages)
- *   vm.swapusage                      -> SwapTotal / SwapFree
- * Buffers is reported as 0, exactly as FreeBSD does (its bufspace is private).
- * Any sysctl that cannot be read leaves its field 0 rather than failing.
+ * layout, and the same "all memory that isn't wired down is free" estimate
+ * (FreeBSD: memused = vm_wire_count * PAGE_SIZE; memfree = memtotal - memused).
+ *
+ * Data sources differ on macOS. MemTotal comes from the hw.memsize sysctl
+ * (readable from kernel context). The wired-page count comes from the kernel's
+ * vm_page_wire_count global, resolved through libklookup (it survives in the
+ * arm64 kernel symbol table; the vm.* page-count sysctls are not readable from
+ * kernel context, and most vm_page_*_count globals are stripped). Cached,
+ * Buffers and swap have no comparable source on arm64 and are reported as 0
+ * (Buffers is 0 on FreeBSD too). If libklookup did not resolve the wired count,
+ * MemFree is reported as 0 rather than guessed.
  */
 int
 procfs_domeminfo(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    uint64_t          memtotal = 0;             /* total memory in bytes  */
-    uint32_t          pagesize = (uint32_t)PAGE_SIZE;
-    uint32_t          freecnt  = 0;             /* free pages             */
-    uint32_t          extcnt   = 0;             /* file-backed pages      */
-    struct xsw_usage  swap     = { 0 };         /* swap totals in bytes   */
-    size_t            sz;
+    uint64_t memtotal = 0;                       /* total memory in bytes */
+    size_t   sz = sizeof(memtotal);
+    (void)sysctlbyname("hw.memsize", &memtotal, &sz, NULL, 0);
 
-    sz = sizeof(memtotal); (void)sysctlbyname("hw.memsize", &memtotal, &sz, NULL, 0);
-    sz = sizeof(pagesize); (void)sysctlbyname("vm.pagesize", &pagesize, &sz, NULL, 0);
-    sz = sizeof(freecnt);  (void)sysctlbyname("vm.page_free_count", &freecnt, &sz, NULL, 0);
-    sz = sizeof(extcnt);   (void)sysctlbyname("vm.page_pageable_external_count", &extcnt, &sz, NULL, 0);
-    sz = sizeof(swap);     (void)sysctlbyname("vm.swapusage", &swap, &sz, NULL, 0);
+    unsigned long memfree = 0;
+    if (procfs_vm_page_wire_count != NULL) {
+        uint64_t wired = (uint64_t)*procfs_vm_page_wire_count * PAGE_SIZE;
+        memfree = (unsigned long)(memtotal > wired ? memtotal - wired : 0);
+    }
 
-    unsigned long      memfree   = (unsigned long)freecnt * pagesize;
-    unsigned long      cached    = (unsigned long)extcnt * pagesize;
+    unsigned long      cached    = 0;
     unsigned long      buffers   = 0;
-    unsigned long long swaptotal = (unsigned long long)swap.xsu_total;
-    unsigned long long swapfree  = (unsigned long long)swap.xsu_avail;
+    unsigned long long swaptotal = 0;
+    unsigned long long swapfree  = 0;
 
     char buf[512];
     struct sbuf sb;

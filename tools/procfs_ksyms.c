@@ -40,8 +40,9 @@
 static const char *const WANTED[] = {
     "_version",
     "_kernel_pmap",
-    "_proc_gettty",        /* tty   */
-    "_cpu_to_processor",   /* loadavg */
+    "_proc_gettty",         /* tty     */
+    "_cpu_to_processor",    /* loadavg */
+    "_vm_page_wire_count",  /* meminfo */
 };
 #define NWANTED (sizeof(WANTED) / sizeof(WANTED[0]))
 
