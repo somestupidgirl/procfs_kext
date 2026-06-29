@@ -196,7 +196,24 @@ procfs_task_vm_sizes(proc_t p, uint64_t *vsize, uint64_t *rsize)
         }
 
         *vsize += (uint64_t)size;
-        *rsize += (uint64_t)info.pages_resident * PAGE_SIZE;
+
+        /*
+         * Approximate proc_pidinfo's pti_resident_size, which is the task's
+         * phys_footprint (ledger phys_mem) - private memory, excluding pages
+         * shared with other tasks (the dyld shared cache, shared libraries).
+         * EXTENDED_INFO's pages_resident counts shared pages too, which would
+         * over-report by ~10x, so only count regions that are not shared. The
+         * exact ledger value is unreachable (ledger_get_balance is stripped).
+         */
+        switch (info.share_mode) {
+        case SM_SHARED:
+        case SM_TRUESHARED:
+        case SM_SHARED_ALIASED:
+            break;      /* shared with other tasks - not part of footprint */
+        default:
+            *rsize += (uint64_t)info.pages_resident * PAGE_SIZE;
+            break;
+        }
 
         mach_vm_offset_t next = addr + size;
         if (next <= addr) {
