@@ -789,6 +789,77 @@ procfs_dopartitions(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t c
 }
 
 /*
+ * Linux-compatible /proc/mtab (the /etc/mtab equivalent): one line per mounted
+ * filesystem, "device mountpoint fstype options 0 0". Enumerated the same way as
+ * partitions (vfs_iterate + vfs_statfs), but lists every mount, not just block
+ * devices, with the mount options decoded from f_flags.
+ */
+static void
+procfs_mtab_options(uint64_t flags, char *out, size_t cap)
+{
+    static const struct { uint64_t flag; const char *opt; } tab[] = {
+        { MNT_NOSUID,      ",nosuid"     },
+        { MNT_NODEV,       ",nodev"      },
+        { MNT_NOEXEC,      ",noexec"     },
+        { MNT_SYNCHRONOUS, ",sync"       },
+        { MNT_ASYNC,       ",async"      },
+        { MNT_NOATIME,     ",noatime"    },
+        { MNT_UNION,       ",union"      },
+        { MNT_JOURNALED,   ",journaled"  },
+        { MNT_LOCAL,       ",local"      },
+        { MNT_DONTBROWSE,  ",nobrowse"   },
+    };
+
+    strlcpy(out, (flags & MNT_RDONLY) ? "ro" : "rw", cap);
+    for (size_t i = 0; i < sizeof(tab) / sizeof(tab[0]); i++) {
+        if (flags & tab[i].flag) {
+            strlcat(out, tab[i].opt, cap);
+        }
+    }
+}
+
+struct procfs_mtab_ctx {
+    struct sbuf *sb;
+};
+
+static int
+procfs_mtab_cb(mount_t mp, void *arg)
+{
+    struct procfs_mtab_ctx *mc = (struct procfs_mtab_ctx *)arg;
+    struct vfsstatfs *st = vfs_statfs(mp);
+
+    if (st == NULL) {
+        return VFS_RETURNED;
+    }
+
+    char opts[160];
+    procfs_mtab_options(st->f_flags, opts, sizeof(opts));
+
+    sbuf_printf(mc->sb, "%s %s %s %s 0 0\n",
+        st->f_mntfromname, st->f_mntonname, st->f_fstypename, opts);
+
+    return VFS_RETURNED;
+}
+
+int
+procfs_domtab(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct sbuf sb;
+    if (sbuf_new(&sb, NULL, 4096, SBUF_AUTOEXTEND) == NULL) {
+        return ENOMEM;
+    }
+
+    struct procfs_mtab_ctx mc = { &sb };
+    vfs_iterate(0, procfs_mtab_cb, &mc);
+
+    sbuf_finish(&sb);
+    int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+    sbuf_delete(&sb);
+
+    return error;
+}
+
+/*
  * Linux-compatible /proc/<pid>/maps. Shares the VM-region walk in procfs_map.c
  * (procfs_map_render) with the NetBSD-format `map` node; only the per-region
  * line format is Linux-specific:
