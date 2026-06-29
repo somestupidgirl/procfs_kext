@@ -36,6 +36,8 @@ Linux-compatible files and helpers:
 |`meminfo`     | Linux-style memory summary (text; `MemFree` is the FreeBSD non-wired estimate on Apple Silicon — see below) |
 |`partitions`  | Linux-style partition table (text; mounted block devices — see below) |
 |`mtab`        | Linux-style mounted-filesystem table (`/etc/mtab` format: `device mountpoint fstype options 0 0`) |
+|`stat`        | Linux-style kernel/system statistics (`cpu`/`cpuN` ticks, `btime`, `processes`; see below) |
+|`vmstat`      | Linux-style virtual-memory statistics (daemon-backed `host_statistics64`; see below) |
 |`version`     | Kernel version string (text)                                        |
 |`curproc`     | Symbolic link to the calling process's directory                    |
 |`byname/`     | Directory of symbolic links, one per process, named by command name |
@@ -78,6 +80,12 @@ Verified with `test/test_features.sh`.
     block counts and names; mounted volumes only — see note below)
   - `mtab` — Linux `/etc/mtab`-style table of every mounted filesystem
     (`device mountpoint fstype options 0 0`), via `vfs_iterate` + `vfs_statfs`
+  - `stat` — Linux `/proc/stat`: per-CPU `cpu`/`cpuN` user/nice/system/idle
+    ticks (from `processor_info`, the loadavg per-CPU source), `btime`
+    (`kern.boottime`) and `processes`; interrupt/ctxt/fork counters read 0
+  - `vmstat` — Linux `/proc/vmstat`: VM page counters from the `procfsd` daemon's
+    `host_statistics64(HOST_VM_INFO64)`, mapped onto Linux keys (`nr_free_pages`,
+    `pgpgin`/`pgpgout`, `pgfault`, …); zero without the daemon
   - `curproc` symlink and the `byname/` directory of per-process symlinks
   - Per-process `pid`, `ppid`, `pgid`, `sid` (binary `int32`)
   - Per-process `status` — `proc_bsdshortinfo` (pid/ppid/pgid, status, command
@@ -165,12 +173,23 @@ reports the major/minor from `vfs_statfs()`'s `f_fsid`, the 1 K block count from
 (on APFS each volume reports its shared container capacity). Unmounted
 partitions are not shown.
 
-**Partially available (placeholder / incomplete data):**
+### The `procfsd` daemon
 
-  - `taskinfo` and per-thread `threads/<tid>/info` — return correctly-sized but
-    **all-zero** structures: they depend on the private `fill_taskprocinfo` /
-    `fill_taskthreadinfo` symbols, which cannot be resolved under PAC and are not
-    yet forward-ported.
+Several fields are unreachable from a kext on Apple Silicon: the kernel
+functions that produce them (`fill_taskprocinfo`, `task_info`, per-thread info,
+the VM-statistics globals) are stripped from the kernel symbol table, and the
+data lives in per-CPU/`recount` structures with no linkable accessor. The
+`procfsd` userspace daemon supplies these via `libproc`'s `proc_pidinfo()` and
+`host_statistics64()` — the same interfaces `top`/Activity Monitor use — over a
+privileged `PF_SYSTEM` kernel control (`procfs_ctl.c`): a node read sends a
+request and the daemon replies. So `taskinfo` (all 18 fields exact),
+`task/<tid>/{info,comm,stat,status,sched}` and `vmstat` are fully populated when
+the daemon runs, and fall back to the kext's best-effort values (or zero) when
+it does not. The daemon also stages the libklookup symbol file at boot and,
+when armed, loads the kext; see *Installing*. `taskinfo`'s `pti_resident_size`
+is then the exact `phys_footprint` from the daemon (the kext's own estimate is
+only the fallback). Without the daemon the per-thread `info` reads zero
+(`fill_taskthreadinfo` is stripped from the arm64 kernel).
 
 **Present but not yet functional:**
 
@@ -180,10 +199,8 @@ partitions are not shown.
 
 **Not yet present (planned — see TODO):**
 
-  - Per-thread register/state files, `auxv`, and the broader set of Linux-style
-    `/proc` files (`stat`, `vmstat`, `mounts`, `/proc/sys/`, …). Scaffolding for
-    several of these exists in the source tree but is not yet wired into the node
-    structure.
+  - Per-thread register/state files (`regs`/`fpregs`), `auxv`, and further
+    Linux-style `/proc` files (`/proc/sys/`, …).
 
 ## How to build procfs
 Build a universal (arm64e + x86_64) binary with:
@@ -259,7 +276,7 @@ through `hexdump` to read the raw contents:
  - Implement `note` delivery (and a `vnop_write` path so the node is writable).
  - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
  - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
- - Implement more linux-compatible files a la NetBSD and FreeBSD (`stat`, `mounts`, `/proc/sys/`, …).
+ - Implement more linux-compatible files a la NetBSD and FreeBSD (`/proc/sys/`, …).
 
 ## Issues
 Currently known issues:
