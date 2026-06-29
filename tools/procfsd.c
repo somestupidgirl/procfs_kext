@@ -117,9 +117,10 @@ main(void)
             break;
         }
         case PROCFS_REQ_THREADINFO: {
-            /* arg is the thread handle (from PROC_PIDLISTTHREADS), not a tid. */
+            /* arg is the kext's tid (== thread_id). PROC_PIDTHREADID64INFO keys
+             * on thread_id, so the tid is the handle directly - no mapping. */
             struct proc_threadinfo thi;
-            int r = proc_pidinfo(req->pid, PROC_PIDTHREADINFO, req->arg, &thi, sizeof(thi));
+            int r = proc_pidinfo(req->pid, PROC_PIDTHREADID64INFO, req->arg, &thi, sizeof(thi));
             if (r == (int)sizeof(thi)) {
                 memcpy(payload, &thi, sizeof(thi));
                 resp->len = sizeof(thi);
