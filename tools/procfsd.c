@@ -17,6 +17,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdint.h>
+#include <spawn.h>
+#include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/sys_domain.h>
 #include <sys/kern_control.h>
@@ -25,6 +27,47 @@
 #include <sys/proc_info.h>
 
 #include "../include/fs/procfs/procfs_ctl.h"
+
+extern char **environ;
+
+/* Boot orchestration paths. */
+#define PROCFS_BUNDLE_ID  "com.beako.filesystems.procfs"
+#define PROCFS_STAGER     "/usr/local/sbin/procfs_ksyms"   /* symbol-staging helper */
+#define PROCFS_ARM_FLAG   "/var/db/procfs.enabled"         /* gate for auto-loading the kext */
+
+/* Run a program to completion (best-effort). */
+static void
+run_to_completion(const char *path, char *const argv[])
+{
+    pid_t pid;
+    if (posix_spawn(&pid, path, NULL, NULL, argv, environ) == 0) {
+        int status;
+        while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+            /* retry */
+        }
+    }
+}
+
+/*
+ * Boot bootstrap: stage the kernel symbols (so the kext's libklookup features
+ * work), then - only if armed - load the kext. The arm flag is absent by
+ * default so a kext panic during development cannot boot-loop the machine; the
+ * operator creates PROCFS_ARM_FLAG to enable auto-load. Mounting is left to the
+ * per-user login agent (the mount lives in the user's ~/proc).
+ */
+static void
+procfsd_bootstrap(void)
+{
+    if (access(PROCFS_STAGER, X_OK) == 0) {
+        char *argv[] = { (char *)PROCFS_STAGER, NULL };
+        run_to_completion(PROCFS_STAGER, argv);
+    }
+
+    if (access(PROCFS_ARM_FLAG, F_OK) == 0) {
+        char *argv[] = { "/usr/bin/kmutil", "load", "-b", (char *)PROCFS_BUNDLE_ID, NULL };
+        run_to_completion("/usr/bin/kmutil", argv);
+    }
+}
 
 /* Connect to the kext's kernel control. Returns the socket fd or -1. */
 static int
@@ -72,6 +115,8 @@ wait_connect(void)
 int
 main(void)
 {
+    procfsd_bootstrap();        /* stage symbols, gated kext load */
+
     int fd = wait_connect();
     fprintf(stderr, "procfsd: connected to %s\n", PROCFS_CTL_NAME);
 

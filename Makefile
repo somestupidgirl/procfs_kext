@@ -106,13 +106,33 @@ release: debug
 
 install: debug install-only
 
-install-only: stage-symbols
+install-only: stage-symbols install-daemon
 	cp -r $(OUT)/procfs.kext /Library/Extensions
 	cp -r $(OUT)/procfs.fs /Library/Filesystems
 	chmod -R 755 /Library/Extensions/procfs.kext
 	chown -R root:wheel /Library/Extensions/procfs.kext
 	chmod -R 755 /Library/Filesystems/procfs.fs
 	chown -R root:wheel /Library/Filesystems/procfs.fs
+
+# Build + install the userspace daemon (procfsd: serves proc_pidinfo to the kext
+# via the kernel-control bridge, and at boot stages symbols + optionally loads
+# the kext), the staging helper, the login mount wrapper, and the launchd jobs.
+# Auto-load and auto-mount stay DISARMED until the operator creates
+# /var/db/procfs.enabled - so a kext panic during development cannot boot-loop
+# the machine. The plists are RunAtLoad, so procfsd starts on the next boot.
+install-daemon:
+	@mkdir -p $(OUT)
+	cc -O2 -Wall -o $(OUT)/procfsd tools/procfsd.c
+	cc -O2 -Wall -o $(OUT)/procfs_ksyms tools/procfs_ksyms.c -lcompression
+	install -d -m 755 /usr/local/sbin
+	install -m 755 $(OUT)/procfsd        /usr/local/sbin/procfsd
+	install -m 755 $(OUT)/procfs_ksyms   /usr/local/sbin/procfs_ksyms
+	install -m 755 tools/procfs-mount.sh /usr/local/sbin/procfs-mount.sh
+	install -m 644 -o root -g wheel tools/com.beako.procfsd.plist      /Library/LaunchDaemons/com.beako.procfsd.plist
+	install -m 644 -o root -g wheel tools/com.beako.procfs.mount.plist /Library/LaunchAgents/com.beako.procfs.mount.plist
+	@echo "procfs: daemon + launchd jobs installed (auto-load/mount DISARMED)."
+	@echo "procfs: to arm auto-load + login mount:  sudo touch /var/db/procfs.enabled"
+	@echo "procfs: start now without reboot:        sudo launchctl bootstrap system /Library/LaunchDaemons/com.beako.procfsd.plist"
 
 # Build and run the userspace symbol-staging helper. It decompresses the booted
 # kernelcache and writes /var/db/procfs.ksyms, from which the kext resolves the
@@ -138,4 +158,4 @@ clean:
 clean-tests:
 	$(MAKE) -C test clean
 
-.PHONY: all debug release install install-only stage-symbols clean tests clean-tests
+.PHONY: all debug release install install-only install-daemon stage-symbols clean tests clean-tests
