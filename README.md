@@ -35,6 +35,7 @@ Linux-compatible files and helpers:
 |`loadavg`     | Linux-style load averages (text; load values are a CPU-utilisation approximation on Apple Silicon — see below) |
 |`meminfo`     | Linux-style memory summary (text; `MemFree` is the FreeBSD non-wired estimate on Apple Silicon — see below) |
 |`partitions`  | Linux-style partition table (text; mounted block devices — see below) |
+|`mtab`        | Linux-style mounted-filesystem table (`/etc/mtab` format: `device mountpoint fstype options 0 0`) |
 |`version`     | Kernel version string (text)                                        |
 |`curproc`     | Symbolic link to the calling process's directory                    |
 |`byname/`     | Directory of symbolic links, one per process, named by command name |
@@ -75,6 +76,8 @@ Verified with `test/test_features.sh`.
     populated (`MemFree` via the FreeBSD non-wired estimate — see Apple Silicon note)
   - `partitions` — Linux-style table of mounted block devices (real major/minor,
     block counts and names; mounted volumes only — see note below)
+  - `mtab` — Linux `/etc/mtab`-style table of every mounted filesystem
+    (`device mountpoint fstype options 0 0`), via `vfs_iterate` + `vfs_statfs`
   - `curproc` symlink and the `byname/` directory of per-process symlinks
   - Per-process `pid`, `ppid`, `pgid`, `sid` (binary `int32`)
   - Per-process `status` — `proc_bsdshortinfo` (pid/ppid/pgid, status, command
