@@ -25,6 +25,7 @@
 #include <sys/ioctl.h>
 #include <libproc.h>
 #include <sys/proc_info.h>
+#include <mach/mach.h>
 
 #include "../include/fs/procfs/procfs_ctl.h"
 
@@ -171,6 +172,22 @@ main(void)
                 resp->len = sizeof(thi);
             } else {
                 resp->error = (r < 0) ? errno : ESRCH;
+            }
+            break;
+        }
+        case PROCFS_REQ_VMSTAT: {
+            vm_statistics64_data_t vm;
+            mach_msg_type_number_t cnt = HOST_VM_INFO64_COUNT;
+            if (host_statistics64(mach_host_self(), HOST_VM_INFO64,
+                    (host_info64_t)&vm, &cnt) == KERN_SUCCESS) {
+                size_t n = (size_t)cnt * sizeof(integer_t);
+                if (n > PROCFS_CTL_MAXPAYLOAD) {
+                    n = PROCFS_CTL_MAXPAYLOAD;
+                }
+                memcpy(payload, &vm, n);
+                resp->len = (uint32_t)n;
+            } else {
+                resp->error = EIO;
             }
             break;
         }

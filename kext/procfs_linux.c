@@ -49,6 +49,7 @@
 #include <mach/vm_prot.h>
 
 #include <mach/thread_info.h>
+#include <mach/vm_statistics.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
 
@@ -754,6 +755,69 @@ procfs_dostat(__unused pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
     sbuf_printf(&sb, "processes %d\n", total_procs);
     sbuf_printf(&sb, "procs_running 1\n");
     sbuf_printf(&sb, "procs_blocked 0\n");
+
+    sbuf_finish(&sb);
+    int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+    sbuf_delete(&sb);
+
+    return error;
+}
+
+/*
+ * Linux-compatible /proc/vmstat. The VM page-count globals are stripped on
+ * arm64, so the figures come from the procfsd daemon's
+ * host_statistics64(HOST_VM_INFO64) (a vm_statistics64). macOS and Linux model
+ * memory differently, so the macOS counters are mapped onto the closest Linux
+ * keys, plus a few macOS-specific lines (nr_wired/nr_compressed/...). All counts
+ * are in pages. Without a daemon every value reads 0.
+ */
+int
+procfs_dovmstat(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    vm_statistics64_data_t vm;
+    bzero(&vm, sizeof(vm));
+    uint32_t got = 0;
+    (void)procfs_ctl_request(PROCFS_REQ_VMSTAT, 0, 0, &vm, sizeof(vm), &got);
+
+    struct sbuf sb;
+    if (sbuf_new(&sb, NULL, 2048, SBUF_AUTOEXTEND) == NULL) {
+        return ENOMEM;
+    }
+
+    sbuf_printf(&sb,
+        "nr_free_pages %u\n"
+        "nr_inactive_anon 0\n"
+        "nr_active_anon 0\n"
+        "nr_inactive_file %u\n"
+        "nr_active_file %u\n"
+        "nr_anon_pages %u\n"
+        "nr_file_pages %u\n"
+        "nr_wired %u\n"
+        "nr_purgeable %u\n"
+        "nr_speculative %u\n"
+        "nr_throttled %u\n"
+        "nr_compressed %u\n"
+        "pgpgin %llu\n"
+        "pgpgout %llu\n"
+        "pswpin %llu\n"
+        "pswpout %llu\n"
+        "pgfault %llu\n"
+        "pgmajfault %llu\n"
+        "pgreactivate %llu\n"
+        "cow_faults %llu\n"
+        "decompressions %llu\n"
+        "compressions %llu\n",
+        (unsigned)vm.free_count,
+        (unsigned)vm.inactive_count, (unsigned)vm.active_count,
+        (unsigned)vm.internal_page_count, (unsigned)vm.external_page_count,
+        (unsigned)vm.wire_count, (unsigned)vm.purgeable_count,
+        (unsigned)vm.speculative_count, (unsigned)vm.throttled_count,
+        (unsigned)vm.compressor_page_count,
+        (unsigned long long)vm.pageins, (unsigned long long)vm.pageouts,
+        (unsigned long long)vm.swapins, (unsigned long long)vm.swapouts,
+        (unsigned long long)vm.faults, (unsigned long long)vm.pageins,
+        (unsigned long long)vm.reactivations, (unsigned long long)vm.cow_faults,
+        (unsigned long long)vm.decompressions, (unsigned long long)vm.compressions);
 
     sbuf_finish(&sb);
     int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);

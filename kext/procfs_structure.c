@@ -106,6 +106,10 @@ procfs_structure_init(void)
         pfssnode_t *stat = add_node(root_node, "stat",
                         PFSstat, next_node_id++, 0, 0, NULL, procfs_dostat);
 
+        // Linux-compatible /proc/vmstat
+        pfssnode_t *vmstat = add_node(root_node, "vmstat",
+                        PFSvmstat, next_node_id++, 0, 0, NULL, procfs_dovmstat);
+
         pfssnode_t *partitions = add_node(root_node, "partitions",
                         PFSpartitions, next_node_id++, 0, 0, NULL, procfs_dopartitions);
 
