@@ -86,7 +86,12 @@ Verified with `test/test_features.sh`.
     UNIX/IPv4 addresses)
   - `threads/` — enumerates the process's threads (one directory per thread id)
   - `task/` — the Linux name for the same per-thread view (`/proc/<pid>/task/<tid>`),
-    one directory per thread id
+    one directory per thread id, with Linux-format per-thread files: `comm`,
+    `stat`, `status`, `sched`, `maps` (and the binary `info`). Per-thread data
+    (name, run state, user/system CPU time, priority, policy) comes from the
+    `procfsd` daemon via `proc_pidinfo(PROC_PIDTHREADID64INFO)`; fields with no
+    macOS source (Linux fault counters, CFS scheduler internals, register
+    addresses, ctxt-switch counts) are reported as 0
   - `tty` — the process's controlling terminal device path (e.g. `/dev/ttys001`),
     empty when it has none
   - `limit` — the process's resource limits (FreeBSD `procfs_rlimit` format: one
