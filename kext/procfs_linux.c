@@ -48,9 +48,14 @@
 #endif
 #include <mach/vm_prot.h>
 
+#include <mach/thread_info.h>
+#include <sys/proc.h>
+#include <sys/proc_info.h>
+
 #include <bsdcompat/sys/malloc.h>
 
 #include <fs/procfs/procfs.h>
+#include <fs/procfs/procfs_ctl.h>
 #include "lib/symbols.h"
 
 #include "lib/cpu.h"
@@ -807,6 +812,186 @@ int
 procfs_domaps(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 {
     return procfs_map_render(pnp, uio, ctx, procfs_maps_fmt_linux);
+}
+
+/*
+ * Linux-compatible per-thread files: /proc/<pid>/task/<tid>/{comm,stat,status,
+ * sched}. The per-thread data (run state, user/system time, name, priority,
+ * policy) comes from the procfsd daemon via proc_pidinfo(PROC_PIDTHREADID64INFO)
+ * keyed on the tid; process-level fields come from the kext directly. Fields
+ * with no macOS source (Linux fault counters, CFS scheduler internals, register
+ * addresses) are reported as 0 to keep the layout parseable.
+ */
+#define PROCFS_NS_PER_TICK 10000000ULL   /* 100 Hz: ns -> clock ticks */
+
+/* Fetch per-thread info from the daemon (ti left zeroed if unavailable). */
+static int
+procfs_thread_info(pfsnode_t *pnp, struct proc_threadinfo *ti)
+{
+    bzero(ti, sizeof(*ti));
+    uint32_t got = 0;
+    if (procfs_ctl_request(PROCFS_REQ_THREADINFO, pnp->node_id.nodeid_pid,
+            pnp->node_id.nodeid_objectid, ti, sizeof(*ti), &got) == 0 &&
+        got == sizeof(*ti)) {
+        return 0;
+    }
+    return ENOTSUP;     /* best-effort: callers format the zeroed struct */
+}
+
+/* Process-level context for the thread's owning process. */
+struct procfs_pctx {
+    int      pid, ppid, pgid, sid, nthreads;
+    uint64_t vsize, rsize;
+    char     comm[MAXCOMLEN + 1];
+};
+
+static void
+procfs_pctx_get(pfsnode_t *pnp, struct procfs_pctx *c)
+{
+    bzero(c, sizeof(*c));
+    c->pid = pnp->node_id.nodeid_pid;
+    proc_t p = proc_find(c->pid);
+    if (p == PROC_NULL) {
+        return;
+    }
+    c->ppid     = proc_ppid(p);
+    c->pgid     = proc_pgrpid(p);
+    c->sid      = proc_sessionid(p);
+    c->nthreads = procfs_get_task_thread_count(p);
+    (void)procfs_task_vm_sizes(p, &c->vsize, &c->rsize);
+    proc_name(c->pid, c->comm, sizeof(c->comm));
+    proc_rele(p);
+}
+
+static char
+procfs_thread_state(int run_state)
+{
+    switch (run_state) {
+    case TH_STATE_RUNNING:         return 'R';
+    case TH_STATE_STOPPED:         return 'T';
+    case TH_STATE_UNINTERRUPTIBLE: return 'D';
+    case TH_STATE_WAITING:
+    case TH_STATE_HALTED:
+    default:                       return 'S';
+    }
+}
+
+static const char *
+procfs_thread_state_word(char c)
+{
+    switch (c) {
+    case 'R': return "running";
+    case 'T': return "stopped";
+    case 'D': return "disk sleep";
+    default:  return "sleeping";
+    }
+}
+
+int
+procfs_dothreadcomm(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct proc_threadinfo ti;
+    procfs_thread_info(pnp, &ti);
+
+    const char *name = ti.pth_name[0] ? ti.pth_name : NULL;
+    char comm[MAXCOMLEN + 1] = { 0 };
+    if (name == NULL) {
+        proc_name(pnp->node_id.nodeid_pid, comm, sizeof(comm));
+        name = comm;
+    }
+
+    char buf[MAXTHREADNAMESIZE + 2];
+    int len = snprintf(buf, sizeof(buf), "%s\n", name);
+    return procfs_copy_data(buf, len, uio);
+}
+
+int
+procfs_dothreadstat(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct proc_threadinfo ti;
+    struct procfs_pctx     c;
+    procfs_thread_info(pnp, &ti);
+    procfs_pctx_get(pnp, &c);
+
+    uint64_t    tid   = pnp->node_id.nodeid_objectid;
+    const char *name  = ti.pth_name[0] ? ti.pth_name : c.comm;
+    char        state = procfs_thread_state(ti.pth_run_state);
+    uint64_t    utime = ti.pth_user_time   / PROCFS_NS_PER_TICK;
+    uint64_t    stime = ti.pth_system_time / PROCFS_NS_PER_TICK;
+    uint64_t    rss_pages = c.rsize / PAGE_SIZE;
+
+    /* Linux /proc/<pid>/task/<tid>/stat: 52 space-separated fields. Field 41 is
+     * the scheduling policy; fields with no macOS source are 0/-1. */
+    char buf[640];
+    int len = snprintf(buf, sizeof(buf),
+        "%llu (%s) %c %d %d %d 0 -1 0 0 0 0 0 "                /* 1-13  */
+        "%llu %llu 0 0 %d 0 %d 0 0 "                           /* 14-22 */
+        "%llu %llu 18446744073709551615 "                     /* 23-25 */
+        "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "                       /* 26-40 */
+        "%d "                                                  /* 41 policy */
+        "0 0 0 0 0 0 0 0 0 0 0\n",                             /* 42-52 */
+        (unsigned long long)tid, name, state, c.ppid, c.pgid, c.sid,
+        (unsigned long long)utime, (unsigned long long)stime,
+        ti.pth_curpri, c.nthreads,
+        (unsigned long long)c.vsize, (unsigned long long)rss_pages,
+        ti.pth_policy);
+    return procfs_copy_data(buf, len, uio);
+}
+
+int
+procfs_dothreadstatus(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct proc_threadinfo ti;
+    struct procfs_pctx     c;
+    procfs_thread_info(pnp, &ti);
+    procfs_pctx_get(pnp, &c);
+
+    uint64_t    tid  = pnp->node_id.nodeid_objectid;
+    const char *name = ti.pth_name[0] ? ti.pth_name : c.comm;
+    char        st   = procfs_thread_state(ti.pth_run_state);
+
+    char buf[512];
+    int len = snprintf(buf, sizeof(buf),
+        "Name:\t%s\n"
+        "State:\t%c (%s)\n"
+        "Tgid:\t%d\n"
+        "Pid:\t%llu\n"
+        "PPid:\t%d\n"
+        "VmSize:\t%8llu kB\n"
+        "VmStk:\t%8llu kB\n"
+        "Threads:\t%d\n"
+        "voluntary_ctxt_switches:\t0\n"
+        "nonvoluntary_ctxt_switches:\t0\n",
+        name, st, procfs_thread_state_word(st),
+        c.pid, (unsigned long long)tid, c.ppid,
+        (unsigned long long)(c.vsize >> 10), 0ULL, c.nthreads);
+    return procfs_copy_data(buf, len, uio);
+}
+
+int
+procfs_dothreadsched(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct proc_threadinfo ti;
+    struct procfs_pctx     c;
+    procfs_thread_info(pnp, &ti);
+    procfs_pctx_get(pnp, &c);
+
+    uint64_t    tid  = pnp->node_id.nodeid_objectid;
+    const char *name = ti.pth_name[0] ? ti.pth_name : c.comm;
+
+    /* Linux's CFS-internal se.* metrics (vruntime, load.weight, avg.*) have no
+     * macOS equivalent and are omitted; we report the metrics we do have. */
+    char buf[512];
+    int len = snprintf(buf, sizeof(buf),
+        "%s (%llu, #threads: %d)\n"
+        "-------------------------------------------------------------------\n"
+        "se.sum_exec_runtime  : %20llu\n"
+        "policy               : %20d\n"
+        "prio                 : %20d\n",
+        name, (unsigned long long)tid, c.nthreads,
+        (unsigned long long)(ti.pth_user_time + ti.pth_system_time),
+        ti.pth_policy, ti.pth_curpri);
+    return procfs_copy_data(buf, len, uio);
 }
 
 /*

@@ -170,6 +170,14 @@ procfs_structure_init(void)
         add_file(one_thread_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_taskinfo), NULL, procfs_read_thread_info);
         add_file(one_task_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_taskinfo), NULL, procfs_read_thread_info);
 
+        // Linux-compatible per-thread files under /proc/<pid>/task/<tid>/.
+        // maps reuses the process map walk (threads share the address space).
+        add_file(one_task_dir, "comm", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, 0, NULL, procfs_dothreadcomm);
+        add_file(one_task_dir, "stat", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, 0, NULL, procfs_dothreadstat);
+        add_file(one_task_dir, "status", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, 0, NULL, procfs_dothreadstatus);
+        add_file(one_task_dir, "sched", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, 0, NULL, procfs_dothreadsched);
+        add_file(one_task_dir, "maps", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, 0, NULL, procfs_domaps);
+
         // --- Per file descriptor files.
         add_file(one_fd_dir, "details", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct vnode_fdinfowithpath), NULL, procfs_read_fd_data);
         add_file(one_fd_dir, "socket", next_node_id++, PSN_FLAG_PROCESS, sizeof(struct socket_fdinfo), NULL, procfs_read_socket_data);

@@ -445,6 +445,12 @@ extern int           procfs_ctl_request(uint32_t type, int pid, uint64_t arg,
 extern int procfs_domap(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_domaps(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
+/* Linux-compatible per-thread files (/proc/<pid>/task/<tid>/). */
+extern int procfs_dothreadcomm(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_dothreadstat(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_dothreadstatus(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_dothreadsched(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+
 /* BSD/Linux-compatible features */
 extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dolimit(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);

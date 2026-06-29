@@ -270,10 +270,15 @@ procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p != PROC_NULL) {
         struct proc_threadinfo info;
         uint64_t threadid = pnp->node_id.nodeid_objectid;
-        
-        // Get the task info and copy it out.
-        error = proc_pidthreadinfo(p, threadid, TRUE, &info);
-        if (error == 0) {
+
+        // Preferred: the daemon returns the exact per-thread info via
+        // proc_pidinfo(PROC_PIDTHREADID64INFO), keyed on thread_id == our tid.
+        // Fall back to the local (zeroed on arm64) proc_pidthreadinfo otherwise.
+        uint32_t got = 0;
+        if (procfs_ctl_request(PROCFS_REQ_THREADINFO, pnp->node_id.nodeid_pid,
+                threadid, &info, sizeof(info), &got) == 0 && got == sizeof(info)) {
+            error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+        } else if (proc_pidthreadinfo(p, threadid, TRUE, &info) == 0) {
             error = procfs_copy_data((const char *)&info, sizeof(info), uio);
         } else {
             error = ESRCH;
