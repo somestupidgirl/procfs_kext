@@ -1,0 +1,139 @@
+/*
+ * Copyright (c) 2022-2026 Sunneva N. Mariu
+ *
+ * procfsd.c
+ *
+ * Userspace daemon for the procfs kext. It connects to the kext's PF_SYSTEM
+ * kernel control and answers requests using libproc's proc_pidinfo() - the data
+ * the kext cannot obtain on arm64 (the full proc_taskinfo, per-thread info).
+ * Run as root via a LaunchDaemon; it reconnects automatically across kext
+ * load/unload.
+ *
+ *   cc -O2 -Wall -o procfsd tools/procfsd.c
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <errno.h>
+#include <stdint.h>
+#include <sys/socket.h>
+#include <sys/sys_domain.h>
+#include <sys/kern_control.h>
+#include <sys/ioctl.h>
+#include <libproc.h>
+#include <sys/proc_info.h>
+
+#include "../include/fs/procfs/procfs_ctl.h"
+
+/* Connect to the kext's kernel control. Returns the socket fd or -1. */
+static int
+connect_ctl(void)
+{
+    int fd = socket(PF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL);
+    if (fd < 0) {
+        return -1;
+    }
+
+    struct ctl_info info;
+    memset(&info, 0, sizeof(info));
+    strlcpy(info.ctl_name, PROCFS_CTL_NAME, sizeof(info.ctl_name));
+    if (ioctl(fd, CTLIOCGINFO, &info) < 0) {
+        close(fd);
+        return -1;      /* control not registered yet (kext not loaded) */
+    }
+
+    struct sockaddr_ctl addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sc_len      = sizeof(addr);
+    addr.sc_family   = AF_SYSTEM;
+    addr.ss_sysaddr  = AF_SYS_CONTROL;
+    addr.sc_id       = info.ctl_id;
+    addr.sc_unit     = 0;
+    if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
+
+static int
+wait_connect(void)
+{
+    for (;;) {
+        int fd = connect_ctl();
+        if (fd >= 0) {
+            return fd;
+        }
+        sleep(1);       /* wait for the kext to register the control */
+    }
+}
+
+int
+main(void)
+{
+    int fd = wait_connect();
+    fprintf(stderr, "procfsd: connected to %s\n", PROCFS_CTL_NAME);
+
+    for (;;) {
+        uint8_t rbuf[256];
+        ssize_t n = recv(fd, rbuf, sizeof(rbuf), 0);
+        if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            close(fd);                  /* kext unloaded / socket error */
+            fd = wait_connect();
+            fprintf(stderr, "procfsd: reconnected\n");
+            continue;
+        }
+        if (n < (ssize_t)sizeof(struct procfs_ctl_req)) {
+            continue;
+        }
+
+        struct procfs_ctl_req *req = (struct procfs_ctl_req *)rbuf;
+        if (req->magic != PROCFS_CTL_MAGIC) {
+            continue;
+        }
+
+        uint8_t sbuf[sizeof(struct procfs_ctl_resp) + PROCFS_CTL_MAXPAYLOAD];
+        struct procfs_ctl_resp *resp = (struct procfs_ctl_resp *)sbuf;
+        resp->magic = PROCFS_CTL_MAGIC;
+        resp->seq   = req->seq;
+        resp->error = 0;
+        resp->len   = 0;
+        void *payload = sbuf + sizeof(*resp);
+
+        switch (req->type) {
+        case PROCFS_REQ_TASKINFO: {
+            struct proc_taskinfo ti;
+            int r = proc_pidinfo(req->pid, PROC_PIDTASKINFO, 0, &ti, sizeof(ti));
+            if (r == (int)sizeof(ti)) {
+                memcpy(payload, &ti, sizeof(ti));
+                resp->len = sizeof(ti);
+            } else {
+                resp->error = (r < 0) ? errno : ESRCH;
+            }
+            break;
+        }
+        case PROCFS_REQ_THREADINFO: {
+            /* arg is the thread handle (from PROC_PIDLISTTHREADS), not a tid. */
+            struct proc_threadinfo thi;
+            int r = proc_pidinfo(req->pid, PROC_PIDTHREADINFO, req->arg, &thi, sizeof(thi));
+            if (r == (int)sizeof(thi)) {
+                memcpy(payload, &thi, sizeof(thi));
+                resp->len = sizeof(thi);
+            } else {
+                resp->error = (r < 0) ? errno : ESRCH;
+            }
+            break;
+        }
+        default:
+            resp->error = EINVAL;
+            break;
+        }
+
+        (void)send(fd, sbuf, sizeof(*resp) + resp->len, 0);
+    }
+    return 0;
+}

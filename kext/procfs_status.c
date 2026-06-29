@@ -24,6 +24,7 @@
 #include <netinet/in.h>
 
 #include <fs/procfs/procfs.h>
+#include <fs/procfs/procfs_ctl.h>
 
 #include "lib/symbols.h"
 #include "lib/kern.h"
@@ -191,14 +192,25 @@ procfs_read_task_info(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p != PROC_NULL) {
         struct proc_taskinfo info;
 
-        // Get the task info and copy it out. On arm64 proc_pidtaskinfo() leaves
-        // everything zero (fill_taskprocinfo is stripped), so fill the fields
-        // reachable without it: the memory sizes from the VM-region walk, the
-        // thread count from the uthread list, and the default thread policy.
-        // The remaining counters (CPU time, faults, syscalls, ...) live only in
-        // the opaque task struct and stay zero. On x86_64, where
-        // proc_pidtaskinfo already populated everything, these recompute the
-        // same values (the VM walk is a no-op without libklookup).
+        // Preferred path: the procfsd daemon returns the exact proc_taskinfo
+        // (all 18 fields) via libproc's proc_pidinfo(). Only when no daemon is
+        // connected (or it doesn't answer in time) do we fall back to what the
+        // kext can compute itself.
+        uint32_t got = 0;
+        if (procfs_ctl_request(PROCFS_REQ_TASKINFO, pnp->node_id.nodeid_pid, 0,
+                &info, sizeof(info), &got) == 0 && got == sizeof(info)) {
+            error = procfs_copy_data((const char *)&info, sizeof(info), uio);
+            proc_rele(p);
+            return error;
+        }
+
+        // Fallback. On arm64 proc_pidtaskinfo() leaves everything zero
+        // (fill_taskprocinfo is stripped), so fill the fields reachable without
+        // it: the memory sizes from the VM-region walk, the thread count from
+        // the uthread list, the default thread policy, and priority. The
+        // remaining counters (CPU time, faults, syscalls, ...) live only in the
+        // opaque task struct and stay zero. On x86_64, where proc_pidtaskinfo
+        // already populated everything, these recompute the same values.
         error = proc_pidtaskinfo(p, &info);
         if (error == 0) {
             uint64_t vsize = 0, rsize = 0;

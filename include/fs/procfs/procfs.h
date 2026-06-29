@@ -436,7 +436,12 @@ extern int procfs_map_render(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx,
 /* Sum a task's virtual and resident sizes via the VM-region walk (procfs_map.c);
  * the offset-free source for proc_taskinfo's size fields on arm64. */
 extern int procfs_task_vm_sizes(proc_t p, uint64_t *vsize, uint64_t *rsize);
-extern int procfs_dotaskdump(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);  /* TEMP diagnostic */
+
+/* Kernel-control bridge to the procfsd daemon (procfs_ctl.c). */
+extern kern_return_t procfs_ctl_register(void);
+extern void          procfs_ctl_deregister(void);
+extern int           procfs_ctl_request(uint32_t type, int pid, uint64_t arg,
+                                         void *out, uint32_t outcap, uint32_t *outlen);
 extern int procfs_domap(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_domaps(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 

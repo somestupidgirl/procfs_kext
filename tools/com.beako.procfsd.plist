@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  procfsd LaunchDaemon. Install to /Library/LaunchDaemons/com.beako.procfsd.plist
+  (owned root:wheel, mode 644), with procfsd at /usr/local/sbin/procfsd, then:
+      sudo launchctl bootstrap system /Library/LaunchDaemons/com.beako.procfsd.plist
+  procfsd connects to the kext's kernel control and serves proc_pidinfo data;
+  KeepAlive restarts it (and it reconnects) across kext load/unload.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.beako.procfsd</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/sbin/procfsd</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/procfsd.log</string>
+</dict>
+</plist>
