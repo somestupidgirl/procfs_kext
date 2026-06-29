@@ -85,6 +85,7 @@ typedef enum {
     PFSversion,     /* Linux-compatible /proc/version */
     PFSmeminfo,     /* Linux-compatible /proc/meminfo */
     PFSmtab,        /* Linux-compatible /proc/mtab */
+    PFSstat,        /* Linux-compatible /proc/stat */
 } pfstype;
 
 typedef struct pfsnode pfsnode_t;
@@ -347,7 +348,8 @@ procfs_is_directory_type(pfstype type)
     return type != PFScurproc && type != PFSloadavg
         && type != PFSfile && type != PFScpuinfo
         && type != PFSpartitions && type != PFSversion
-        && type != PFSmeminfo && type != PFSmtab;
+        && type != PFSmeminfo && type != PFSmtab
+        && type != PFSstat;
 }
 
 /* Gets the pid_t for the process corresponding to a pfsnode_t. */
@@ -458,6 +460,7 @@ extern int procfs_dolimit(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doloadavg(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_domeminfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_domtab(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_dostat(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern void procfs_loadavg_start(void);
 extern void procfs_loadavg_stop(void);
 extern int procfs_dopartitions(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);

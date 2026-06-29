@@ -673,6 +673,96 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 }
 
 /*
+ * Linux-compatible /proc/stat. The cpu/cpuN lines (user/nice/system/idle ticks)
+ * come from the same per-CPU source as the loadavg sampler:
+ * processor_info(PROCESSOR_CPU_LOAD_INFO) on each processor_t from the
+ * libklookup-resolved cpu_to_processor(). The macOS cpu_ticks are already in
+ * 1/CLK_TCK units (USER_HZ jiffies), so they map straight onto the Linux
+ * columns. btime comes from kern.boottime; interrupt/ctxt/fork counters have no
+ * kernel-reachable source and are reported as 0.
+ */
+int
+procfs_dostat(__unused pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
+{
+    struct sbuf sb;
+    if (sbuf_new(&sb, NULL, 2048, SBUF_AUTOEXTEND) == NULL) {
+        return ENOMEM;
+    }
+
+    int    ncpu = 0;
+    size_t sz   = sizeof(ncpu);
+    if (sysctlbyname("hw.logicalcpu", &ncpu, &sz, NULL, 0) != 0 || ncpu <= 0) {
+        ncpu = 1;
+    }
+
+    struct cpuline { uint64_t user, nice, sys, idle; };
+    struct cpuline *cl = malloc((size_t)ncpu * sizeof(*cl), M_TEMP, M_WAITOK);
+    if (cl == NULL) {
+        sbuf_delete(&sb);
+        return ENOMEM;
+    }
+    bzero(cl, (size_t)ncpu * sizeof(*cl));
+
+    struct cpuline agg = { 0, 0, 0, 0 };
+    if (la_cpu_to_processor != NULL) {
+        for (int i = 0; i < ncpu; i++) {
+            processor_t pr = la_cpu_to_processor(i);
+            if (pr == PROCESSOR_NULL) {
+                continue;
+            }
+            processor_cpu_load_info_data_t info;
+            mach_msg_type_number_t count = PROCESSOR_CPU_LOAD_INFO_COUNT;
+            host_t host;
+            if (processor_info(pr, PROCESSOR_CPU_LOAD_INFO, &host,
+                    (processor_info_t)&info, &count) != KERN_SUCCESS) {
+                continue;
+            }
+            cl[i].user = info.cpu_ticks[CPU_STATE_USER];
+            cl[i].nice = info.cpu_ticks[CPU_STATE_NICE];
+            cl[i].sys  = info.cpu_ticks[CPU_STATE_SYSTEM];
+            cl[i].idle = info.cpu_ticks[CPU_STATE_IDLE];
+            agg.user += cl[i].user;
+            agg.nice += cl[i].nice;
+            agg.sys  += cl[i].sys;
+            agg.idle += cl[i].idle;
+        }
+    }
+
+    /* cpu line columns: user nice system idle iowait irq softirq steal guest guest_nice */
+    sbuf_printf(&sb, "cpu  %llu %llu %llu %llu 0 0 0 0 0 0\n",
+        (unsigned long long)agg.user, (unsigned long long)agg.nice,
+        (unsigned long long)agg.sys,  (unsigned long long)agg.idle);
+    for (int i = 0; i < ncpu; i++) {
+        sbuf_printf(&sb, "cpu%d %llu %llu %llu %llu 0 0 0 0 0 0\n", i,
+            (unsigned long long)cl[i].user, (unsigned long long)cl[i].nice,
+            (unsigned long long)cl[i].sys,  (unsigned long long)cl[i].idle);
+    }
+    free(cl, M_TEMP);
+
+    long long btime = 0;
+    struct timeval bt;
+    sz = sizeof(bt);
+    if (sysctlbyname("kern.boottime", &bt, &sz, NULL, 0) == 0) {
+        btime = (long long)bt.tv_sec;
+    }
+
+    int total_procs = procfs_get_process_count(vfs_context_ucred(ctx));
+
+    sbuf_printf(&sb, "intr 0\n");
+    sbuf_printf(&sb, "ctxt 0\n");
+    sbuf_printf(&sb, "btime %lld\n", btime);
+    sbuf_printf(&sb, "processes %d\n", total_procs);
+    sbuf_printf(&sb, "procs_running 1\n");
+    sbuf_printf(&sb, "procs_blocked 0\n");
+
+    sbuf_finish(&sb);
+    int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+    sbuf_delete(&sb);
+
+    return error;
+}
+
+/*
  * Linux-compatible /proc/meminfo, modelled on FreeBSD's linprocfs_domeminfo()
  * (sys/compat/linux/linprocfs/linprocfs.c) - same field set and "%9lu kB"
  * layout, and the same "all memory that isn't wired down is free" estimate

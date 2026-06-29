@@ -102,6 +102,10 @@ procfs_structure_init(void)
         pfssnode_t *mtab = add_node(root_node, "mtab",
                         PFSmtab, next_node_id++, 0, 0, NULL, procfs_domtab);
 
+        // Linux-compatible /proc/stat
+        pfssnode_t *stat = add_node(root_node, "stat",
+                        PFSstat, next_node_id++, 0, 0, NULL, procfs_dostat);
+
         pfssnode_t *partitions = add_node(root_node, "partitions",
                         PFSpartitions, next_node_id++, 0, 0, NULL, procfs_dopartitions);
 
