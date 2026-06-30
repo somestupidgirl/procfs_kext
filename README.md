@@ -53,7 +53,7 @@ Each directory named for a process id represents one process on the system. By d
 |`pgid`     | Process group id                 | `pid_t` (binary `int32`)         |
 |`sid`      | Session id                       | `pid_t` (binary `int32`)         |
 |`status`   | Basic process info               | `struct proc_bsdshortinfo`        |
-|`taskinfo` | Info for the process’s Mach task | `struct proc_taskinfo` — **currently zeroed** (see Feature status) |
+|`taskinfo` | Info for the process’s Mach task | `struct proc_taskinfo` — exact via the `procfsd` daemon; falls back to the kext’s partial fill without it (see Feature status) |
 |`cmdline`  | Process argument vector (NUL-separated, Linux format) | text |
 |`tty`      | Controlling terminal device path (e.g. `/dev/ttys001`) | text |
 |`note`     | Write a note to the process (NetBSD-style) | write-only; read returns `EINVAL`. **Delivery not yet implemented** |
@@ -61,7 +61,7 @@ Each directory named for a process id represents one process on the system. By d
 
 The `fd` directory contains one entry for each file that the process has open. Each entry is a directory that’s numbered for the corresponding file descriptor. Within each subdirectory you’ll find two files called `details` and `socket`. The `details` file contains a `vnode_fdinfowithpath` structure, which contains information about the file including its path name if it is a file system file. If the file is a socket endpoint, you can read a `socket_fdinfo` structure from the `socket` file.
 
-The `threads` directory contains a subdirectory for each of the process’ threads, named by thread id. Each thread directory contains a single file called `info` that is meant to hold a `proc_threadinfo` structure. Thread *enumeration* works on Apple Silicon (the directory lists the real thread ids); the per-thread `info` *contents* are currently zeroed, pending a forward-port of the private `fill_taskthreadinfo`.
+The `threads` directory contains a subdirectory for each of the process’ threads, named by thread id. Each thread directory contains a single file called `info` that holds a `proc_threadinfo` structure. Thread *enumeration* works on Apple Silicon (the directory lists the real thread ids), and the per-thread `info` *contents* are now supplied exactly by the `procfsd` daemon (`proc_pidinfo(PROC_PIDTHREADID64INFO)`); they read zero only when no daemon is connected (the private `fill_taskthreadinfo` is stripped from the arm64 kernel).
 
 ## Feature status
 
@@ -271,7 +271,6 @@ through `hexdump` to read the raw contents:
     cat ~/proc/curproc/taskinfo | hexdump -C
 
 ## TODO:
- - Populate `taskinfo` and per-thread `info` content (needs forward-ports of `fill_taskprocinfo` / `fill_taskthreadinfo`); enumeration already works.
  - Wire up the scaffolded but not-yet-exposed nodes: `auxv` and register state (`fpregs`/regs).
  - Implement `note` delivery (and a `vnop_write` path so the node is writable).
  - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
@@ -282,7 +281,7 @@ through `hexdump` to read the raw contents:
 Currently known issues:
 
 - On Apple Silicon, `cmdline`, `fd/`, `threads/` and `tty` previously required private kernel symbols unavailable under PAC; they now work (the first three forward-ported, `tty` via libklookup-resolved `proc_gettty`). `tty` depends on the `procfs_ksyms` staging helper having run (it does during `make install`); if the staged symbol file is missing or stale for the running kernel, `tty` falls back to `ENOTSUP`.
-- `taskinfo` and per-thread `threads/<tid>/info` are currently zeroed (they need the private `fill_taskprocinfo` / `fill_taskthreadinfo`); the surrounding `fd/` and `threads/` enumeration works.
+- `taskinfo` and per-thread `info` are populated by the `procfsd` daemon (`proc_pidinfo`); they read the kext fallback / zero only when no daemon is connected, since the private `fill_taskprocinfo` / `fill_taskthreadinfo` are stripped from the arm64 kernel.
 - `note` is a NetBSD-style scaffold: reads return `EINVAL` and writing a note is not yet possible (no write path / no delivery).
 - The `procfs_dopartitions` function in kext/procfs_linux.c lists mounted block-device filesystems (via `vfs_iterate`), not raw or unmounted disks — enumerating those needs IOKit, which a VFS-only kext can't reach.
 - Certain fields in `procfs_docpuinfo`, in kext/procfs_linux.c, such as `bugs` and `pm` have yet to be incorporated. Support for CPU flags for AMD CPUs is also still limited.
