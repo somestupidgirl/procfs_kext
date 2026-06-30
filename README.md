@@ -32,7 +32,7 @@ Linux-compatible files and helpers:
 | Entry        | Summary                                                              |
 |--------------|---------------------------------------------------------------------|
 |`cpuinfo`     | Linux-style CPU information (text)                                   |
-|`loadavg`     | Linux-style load averages (text; load values are a CPU-utilisation approximation on Apple Silicon — see below) |
+|`loadavg`     | Linux-style load averages (text; true values via the `procfsd` daemon, CPU-utilisation approximation as fallback — see below) |
 |`meminfo`     | Linux-style memory summary (text; `MemFree` is the FreeBSD non-wired estimate on Apple Silicon — see below) |
 |`partitions`  | Linux-style partition table (text; mounted block devices — see below) |
 |`mtab`        | Linux-style mounted-filesystem table (`/etc/mtab` format: `device mountpoint fstype options 0 0`) |
@@ -72,8 +72,9 @@ Verified with `test/test_features.sh`.
   - Directory listing of the root and per-process directories via `ls`, `find`, `readdir(3)` and `getdirentries64(2)`
   - `version` — kernel version string
   - `cpuinfo` — Linux-style CPU information (some flag fields incomplete; see Issues)
-  - `loadavg` — process count plus 1/5/15-minute load averages. On Apple Silicon
-    the load values are a CPU-utilisation approximation (see Apple Silicon note)
+  - `loadavg` — process count plus the true 1/5/15-minute load averages from the
+    `procfsd` daemon (`getloadavg`); falls back to a CPU-utilisation approximation
+    when no daemon is connected (see Apple Silicon note)
   - `meminfo` — Linux-style memory summary; `MemTotal` and `MemFree` are
     populated (`MemFree` via the FreeBSD non-wired estimate — see Apple Silicon note)
   - `partitions` — Linux-style table of mounted block devices (real major/minor,
@@ -128,16 +129,18 @@ resolved at load time from the on-disk kernel collection (libklookup, fed by the
 `procfs_ksyms` staging helper run at install) and called directly — its SMR and
 session locking run inside the kernel's own code, so the resolved call is safe.
 
-`loadavg`'s load values are an approximation on Apple Silicon. The kernel's true
-run-queue load average is unreachable — `averunnable`, `compute_averunnable`,
+`loadavg`'s load values come from the `procfsd` daemon's `getloadavg()` — the
+kernel's true 1/5/15-minute averages — when it is connected. They are not
+reachable from the kext itself: `averunnable`, `compute_averunnable`,
 `host_statistics` and `processor_set_info` are all stripped from the kernel and
-unexported. What survives is per-CPU tick counts via the exported
-`processor_info(PROCESSOR_CPU_LOAD_INFO)`, given a `processor_t` from the
-libklookup-resolved `cpu_to_processor()`. A `thread_call` samples CPU
-utilisation every 5 seconds and feeds `utilisation × ncpu` through the standard
-load-average EWMA. Because this tracks CPU utilisation rather than run-queue
-depth, it saturates near the CPU count and under-reports a genuinely overloaded
-machine; the values stay `0.00` if libklookup cannot resolve `cpu_to_processor`.
+unexported. So without a daemon the node falls back to a CPU-utilisation
+approximation: a `thread_call` samples per-CPU tick counts via the exported
+`processor_info(PROCESSOR_CPU_LOAD_INFO)` (with a `processor_t` from the
+libklookup-resolved `cpu_to_processor()`) every 5 seconds and feeds
+`utilisation × ncpu` through the standard load-average EWMA. That approximation
+tracks CPU utilisation rather than run-queue depth, so it saturates near the CPU
+count and under-reports a genuinely overloaded machine; it reads `0.00` if
+libklookup cannot resolve `cpu_to_processor` either.
 
 `meminfo` reports `MemTotal` from the `hw.memsize` sysctl and `MemFree` using
 FreeBSD's `linprocfs_domeminfo` estimate (`MemFree = MemTotal − wired`). The
