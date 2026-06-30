@@ -182,6 +182,9 @@ procfs_structure_init(void)
         add_file(one_proc_dir, "regs", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_doregs);
         add_file(one_proc_dir, "fpregs", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_dofpregs);
 
+        // Auxiliary vector (XNU's apple[] array - the macOS auxv equivalent).
+        add_file(one_proc_dir, "auxv", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_doauxv);
+
         // --- Per thread files.
         add_file(one_thread_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_threadinfo), NULL, procfs_read_thread_info);
         add_file(one_task_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_threadinfo), NULL, procfs_read_thread_info);

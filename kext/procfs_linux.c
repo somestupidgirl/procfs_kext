@@ -45,6 +45,7 @@
 #endif
 #include <sys/mount.h>
 #include <sys/queue.h>
+#include <sys/kauth.h>
 #include <sys/sbuf.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
@@ -1403,6 +1404,55 @@ procfs_dofpregs_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     (void)thread;
     sbuf_printf(&sb, "fpregs: x86_64 text format not implemented\n");
 #endif
+
+    sbuf_finish(&sb);
+    int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+    sbuf_delete(&sb);
+    proc_rele(p);
+    return error;
+}
+
+/*
+ * Linux-compatibility-mode auxiliary vector (human-readable AT_* text).
+ *
+ * Counterpart to the native /proc/<pid>/auxv node in procfs_auxv.c, which emits
+ * XNU's apple[] array. macOS (Mach-O) has no real ELF aux vector, so this
+ * synthesizes the AT_* entries that are cheaply derivable from the kernel - a
+ * best-effort Linux-style view. HWCAP/PHDR/ENTRY/RANDOM/EXECFN are not yet
+ * synthesized (they need cpu-feature bits and the Mach-O image layout) and can
+ * be added later.
+ *
+ * GUARDED FOR NOW: compiled but not attached to any node; the structure wires
+ * the native procfs_doauxv() unconditionally until the userspace native/linux
+ * mode switch exists.
+ */
+int
+procfs_doauxv_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    if (uio_rw(uio) != UIO_READ) {
+        return EOPNOTSUPP;
+    }
+
+    proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    if (p == PROC_NULL) {
+        return ESRCH;
+    }
+
+    struct sbuf sb;
+    if (sbuf_new(&sb, NULL, 512, SBUF_AUTOEXTEND) == NULL) {
+        proc_rele(p);
+        return ENOMEM;
+    }
+
+    kauth_cred_t cr = kauth_cred_proc_ref(p);
+    sbuf_printf(&sb, "AT_PAGESZ\t%u\n", (unsigned)PAGE_SIZE);
+    sbuf_printf(&sb, "AT_CLKTCK\t%d\n", 100);
+    sbuf_printf(&sb, "AT_UID\t%u\n",    kauth_cred_getruid(cr));
+    sbuf_printf(&sb, "AT_EUID\t%u\n",   kauth_cred_getuid(cr));
+    sbuf_printf(&sb, "AT_GID\t%u\n",    kauth_cred_getrgid(cr));
+    sbuf_printf(&sb, "AT_EGID\t%u\n",   kauth_cred_getgid(cr));
+    sbuf_printf(&sb, "AT_SECURE\t%d\n", 0);
+    kauth_cred_unref(&cr);
 
     sbuf_finish(&sb);
     int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);

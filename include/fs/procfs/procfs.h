@@ -449,12 +449,15 @@ extern int           procfs_ctl_request(uint32_t type, int pid, uint64_t arg,
 extern int procfs_domap(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_domaps(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
-/* Process machine state (NetBSD-style binary register dumps). */
+/* Process machine state (NetBSD-style binary register dumps) and the auxiliary
+ * vector (XNU's apple[] array). */
 extern int procfs_doregs(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dofpregs(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-/* Linux-compat-mode text register dumps (guarded; not yet wired). */
+extern int procfs_doauxv(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+/* Linux-compat-mode text variants (guarded; not yet wired). */
 extern int procfs_doregs_linux(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dofpregs_linux(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_doauxv_linux(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* Linux-compatible per-thread files (/proc/<pid>/task/<tid>/). */
 extern int procfs_dothreadcomm(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);

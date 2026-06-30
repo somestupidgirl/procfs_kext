@@ -76,7 +76,7 @@ extern unsigned int ml_phys_read(vm_offset_t paddr);
  * through the physical aperture, so a paged-out page is simply not returned
  * rather than faulted in (the args are normally resident).
  */
-static size_t
+size_t
 procfs_copy_user_phys(pmap_t pmap, user_addr_t uva, uint8_t *dst, size_t len)
 {
     size_t done = 0;
