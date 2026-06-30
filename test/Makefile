@@ -1,7 +1,5 @@
-PROC_PATH?= /Users/sunneva/proc
-
 CC=     cc
-CFLAGS= -Wall -Wextra -std=c99 -g -DPROC_PATH=\"$(PROC_PATH)\"
+CFLAGS= -Wall -Wextra -std=c99 -g
 
 PROGS=  test_mount test_readdir test_getdents
 
