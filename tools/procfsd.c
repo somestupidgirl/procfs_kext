@@ -18,11 +18,16 @@
 #include <errno.h>
 #include <stdint.h>
 #include <spawn.h>
+#include <pthread.h>
+#include <pwd.h>
+#include <limits.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/sys_domain.h>
 #include <sys/kern_control.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/mount.h>
 #include <libproc.h>
 #include <sys/proc_info.h>
 #include <mach/mach.h>
@@ -72,15 +77,64 @@ procfsd_bootstrap(void)
             PROCFS_ARM_FLAG, PROCFS_BUNDLE_ID);
         char *argv[] = { "/usr/bin/kmutil", "load", "-b", (char *)PROCFS_BUNDLE_ID, NULL };
         run_to_completion("/usr/bin/kmutil", argv);
-
-        /* Let the per-user login agent mount procfs on its own (user-owned)
-         * ~/proc without root: enable BSD user mounts. */
-        char *sa[] = { "/usr/sbin/sysctl", "-w", "vfs.usermount=1", NULL };
-        run_to_completion("/usr/sbin/sysctl", sa);
     } else {
         fprintf(stderr, "procfsd: not armed (%s absent); skipping kext auto-load. "
             "Create it to enable auto-load + login mount.\n", PROCFS_ARM_FLAG);
     }
+}
+
+/* procfs mount arguments (mirrors the kext / mount_procfs helper). */
+typedef struct {
+    int mnt_options;
+} pfsmount_args_t;
+
+/*
+ * Mount procfs on the console user's ~/proc, as root (macOS has no
+ * vfs.usermount, so a user-context agent cannot do this). Gated on the arm
+ * flag; a no-op when no user is at the console or it is already mounted.
+ */
+static void
+procfsd_try_mount(void)
+{
+    if (access(PROCFS_ARM_FLAG, F_OK) != 0) {
+        return;
+    }
+
+    struct stat cst;
+    if (stat("/dev/console", &cst) != 0 || cst.st_uid == 0) {
+        return;                 /* no console user logged in yet */
+    }
+    struct passwd *pw = getpwuid(cst.st_uid);
+    if (pw == NULL || pw->pw_dir == NULL) {
+        return;
+    }
+
+    char path[PATH_MAX];
+    snprintf(path, sizeof(path), "%s/proc", pw->pw_dir);
+
+    struct statfs sfs;
+    if (statfs(path, &sfs) == 0 && strcmp(sfs.f_fstypename, "procfs") == 0) {
+        return;                 /* already mounted */
+    }
+
+    mkdir(path, 0755);
+    pfsmount_args_t args = { 0 };
+    if (mount("procfs", path, 0, &args) == 0) {
+        fprintf(stderr, "procfsd: mounted procfs at %s\n", path);
+    } else if (errno != EBUSY) {
+        fprintf(stderr, "procfsd: mount %s failed: %s\n", path, strerror(errno));
+    }
+}
+
+static void *
+procfsd_mount_thread(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        procfsd_try_mount();
+        sleep(3);
+    }
+    return NULL;
 }
 
 /* Connect to the kext's kernel control. Returns the socket fd or -1. */
@@ -130,6 +184,12 @@ int
 main(void)
 {
     procfsd_bootstrap();        /* stage symbols, gated kext load */
+
+    /* Keep the console user's ~/proc mounted (root; gated by the arm flag). */
+    pthread_t mt;
+    if (pthread_create(&mt, NULL, procfsd_mount_thread, NULL) == 0) {
+        pthread_detach(mt);
+    }
 
     int fd = wait_connect();
     fprintf(stderr, "procfsd: connected to %s\n", PROCFS_CTL_NAME);
