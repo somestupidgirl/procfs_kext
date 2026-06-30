@@ -89,16 +89,31 @@ int main(int argc, char *argv[])
         /*NOTREACHED*/
     }
 
-    /* -- Mount the file system -- */
-    pfsmount_args_t mount_args;
-    mount_args.mnt_options = procfs_options;
+    /*
+     * -- Mount the file system --
+     *
+     * Pass a page-sized, zeroed buffer as the mount data rather than a bare
+     * pfsmount_args_t. The kext only interprets the leading pfsmount_args_t
+     * (mnt_options); the trailing zero padding is harmless ("defaults").
+     *
+     * The padding matters because a kext build can copyin() a larger struct
+     * than this 4-byte pfsmount_args_t. When that happens against a 4-byte
+     * stack/heap object, the over-read walks off the end of the allocation and
+     * faults with EFAULT ("Bad address") whenever the bytes past it are
+     * unmapped - which is exactly what we observed against the loaded kext (a
+     * 4-byte buffer and NULL both faulted; a page-sized buffer mounted cleanly).
+     * A full page is always large enough and is trivially mapped and zeroed in
+     * BSS, so this works against both an over-reading kext and a correct one.
+     */
+    static unsigned char mount_data[4096];   /* zeroed (BSS) */
+    ((pfsmount_args_t *)mount_data)->mnt_options = procfs_options;
 
     char *mntdir = argv[1];
     if (verbose) {
         syslog(PROCFS_SYSLOG_LEVEL, "%s: Mounting procfs on %s", prog_name, mntdir);
     }
 
-    int result = mount("procfs", mntdir, generic_options, &mount_args);
+    int result = mount("procfs", mntdir, generic_options, mount_data);
     if (result < 0) {
         fprintf(stderr, "%s: Failed to mount procfs on %s: %s\n", prog_name, mntdir, strerror(errno));
     }
