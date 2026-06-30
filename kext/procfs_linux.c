@@ -26,6 +26,13 @@
 #include <mach/machine.h>
 #include <mach/mach_types.h>
 #include <mach/processor_info.h>
+#include <mach/thread_act.h>
+#include <mach/thread_status.h>
+#if defined(__arm64__) || defined(__aarch64__)
+#include <mach/arm/thread_status.h>
+#elif defined(__x86_64__)
+#include <mach/i386/thread_status.h>
+#endif
 #include <os/log.h>
 #include <ptrauth.h>
 #include <sys/disklabel.h>
@@ -1256,5 +1263,90 @@ procfs_doversion(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 
     free(buf, M_TEMP);
 
+    return error;
+}
+
+/*
+ * Linux-compatibility-mode register dump (human-readable text).
+ *
+ * This is the Linux-flavoured counterpart to the native binary /proc/<pid>/regs
+ * node implemented in procfs_regs.c. It reports the same machine state - the
+ * representative thread's, via thread_get_state() - but as "name 0xvalue" lines
+ * instead of a raw struct.
+ *
+ * GUARDED FOR NOW: it is compiled but not attached to any node. It will be
+ * selected by the planned userspace switch that toggles procfs between native
+ * BSD/XNU and Linux-compatible presentation; until that selector exists, the
+ * structure wires the native procfs_doregs() unconditionally.
+ */
+int
+procfs_doregs_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    if (uio_rw(uio) != UIO_READ) {
+        return EOPNOTSUPP;
+    }
+
+    proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    if (p == PROC_NULL) {
+        return ESRCH;
+    }
+
+    thread_t thread = procfs_get_representative_thread(p);
+    if (thread == THREAD_NULL) {
+        proc_rele(p);
+        return ESRCH;
+    }
+
+    struct sbuf sb;
+    if (sbuf_new(&sb, NULL, 1024, SBUF_AUTOEXTEND) == NULL) {
+        proc_rele(p);
+        return ENOMEM;
+    }
+
+#if defined(__arm64__) || defined(__aarch64__)
+    arm_thread_state64_t   st;
+    mach_msg_type_number_t count = ARM_THREAD_STATE64_COUNT;
+    memset(&st, 0, sizeof(st));
+    if (thread_get_state((thread_act_t)thread, ARM_THREAD_STATE64,
+                         (thread_state_t)&st, &count) == KERN_SUCCESS) {
+        /* The kernel uses the non-opaque arm_thread_state64 layout; fp/lr/sp/pc
+         * are plain uint64 fields. On arm64e the saved pc/lr carry PAC bits and
+         * are emitted raw, matching the native node. */
+        for (int i = 0; i < 29; i++) {
+            sbuf_printf(&sb, "x%-2d  0x%016llx\n", i, (uint64_t)st.x[i]);
+        }
+        sbuf_printf(&sb, "fp   0x%016llx\n", (uint64_t)st.fp);
+        sbuf_printf(&sb, "lr   0x%016llx\n", (uint64_t)st.lr);
+        sbuf_printf(&sb, "sp   0x%016llx\n", (uint64_t)st.sp);
+        sbuf_printf(&sb, "pc   0x%016llx\n", (uint64_t)st.pc);
+        sbuf_printf(&sb, "cpsr 0x%08x\n",    (uint32_t)st.cpsr);
+    }
+#elif defined(__x86_64__)
+    x86_thread_state64_t   st;
+    mach_msg_type_number_t count = x86_THREAD_STATE64_COUNT;
+    memset(&st, 0, sizeof(st));
+    if (thread_get_state((thread_act_t)thread, x86_THREAD_STATE64,
+                         (thread_state_t)&st, &count) == KERN_SUCCESS) {
+        sbuf_printf(&sb, "rax 0x%016llx\nrbx 0x%016llx\nrcx 0x%016llx\n"
+                         "rdx 0x%016llx\nrsi 0x%016llx\nrdi 0x%016llx\n"
+                         "rbp 0x%016llx\nrsp 0x%016llx\n",
+            (uint64_t)st.__rax, (uint64_t)st.__rbx, (uint64_t)st.__rcx,
+            (uint64_t)st.__rdx, (uint64_t)st.__rsi, (uint64_t)st.__rdi,
+            (uint64_t)st.__rbp, (uint64_t)st.__rsp);
+        sbuf_printf(&sb, "r8  0x%016llx\nr9  0x%016llx\nr10 0x%016llx\n"
+                         "r11 0x%016llx\nr12 0x%016llx\nr13 0x%016llx\n"
+                         "r14 0x%016llx\nr15 0x%016llx\n",
+            (uint64_t)st.__r8,  (uint64_t)st.__r9,  (uint64_t)st.__r10,
+            (uint64_t)st.__r11, (uint64_t)st.__r12, (uint64_t)st.__r13,
+            (uint64_t)st.__r14, (uint64_t)st.__r15);
+        sbuf_printf(&sb, "rip 0x%016llx\nrflags 0x%016llx\n",
+            (uint64_t)st.__rip, (uint64_t)st.__rflags);
+    }
+#endif
+
+    sbuf_finish(&sb);
+    int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+    sbuf_delete(&sb);
+    proc_rele(p);
     return error;
 }

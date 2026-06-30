@@ -178,6 +178,9 @@ procfs_structure_init(void)
         add_file(one_proc_dir, "map", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_domap);
         add_file(one_proc_dir, "maps", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_domaps);
 
+        // Native Mach register dump for the process's representative thread.
+        add_file(one_proc_dir, "regs", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_doregs);
+
         // --- Per thread files.
         add_file(one_thread_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_threadinfo), NULL, procfs_read_thread_info);
         add_file(one_task_dir, "info", next_node_id++, PSN_FLAG_PROCESS | PSN_FLAG_THREAD, sizeof(struct proc_threadinfo), NULL, procfs_read_thread_info);
