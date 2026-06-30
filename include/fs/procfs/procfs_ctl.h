@@ -24,6 +24,7 @@ enum {
     PROCFS_REQ_TASKINFO   = 1,  /* payload: struct proc_taskinfo                 */
     PROCFS_REQ_THREADINFO = 2,  /* arg = tid; payload: struct proc_threadinfo    */
     PROCFS_REQ_VMSTAT     = 3,  /* payload: vm_statistics64_data_t (HOST_VM_INFO64) */
+    PROCFS_REQ_LOADAVG    = 4,  /* payload: uint32_t[3] (getloadavg, scaled x100) */
 };
 
 /* kext -> daemon */

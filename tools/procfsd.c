@@ -191,6 +191,17 @@ main(void)
             }
             break;
         }
+        case PROCFS_REQ_LOADAVG: {
+            double la[3] = { 0, 0, 0 };
+            (void)getloadavg(la, 3);
+            uint32_t out[3];
+            for (int i = 0; i < 3; i++) {
+                out[i] = (uint32_t)(la[i] * 100.0 + 0.5);
+            }
+            memcpy(payload, out, sizeof(out));
+            resp->len = sizeof(out);
+            break;
+        }
         default:
             resp->error = EINVAL;
             break;

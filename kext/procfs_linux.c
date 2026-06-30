@@ -651,6 +651,18 @@ procfs_doloadavg(__unused pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
     int load5  = (int)((uint64_t)averunnable.ldavg[1] * 100 / fscale);
     int load15 = (int)((uint64_t)averunnable.ldavg[2] * 100 / fscale);
 
+    // Preferred: the procfsd daemon returns the kernel's true 1/5/15-minute load
+    // averages (getloadavg), scaled x100. Without a daemon we keep the CPU-
+    // utilisation approximation from the local averunnable above.
+    uint32_t la[3] = { 0, 0, 0 };
+    uint32_t got = 0;
+    if (procfs_ctl_request(PROCFS_REQ_LOADAVG, 0, 0, &la, sizeof(la), &got) == 0 &&
+        got == sizeof(la)) {
+        load1  = (int)la[0];
+        load5  = (int)la[1];
+        load15 = (int)la[2];
+    }
+
     int total_procs = procfs_get_process_count(vfs_context_ucred(ctx));
     int running = 1;
     int lastpid = 0;
