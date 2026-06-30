@@ -4,10 +4,11 @@ PROGS=  procfs_ksyms procfsd
 
 all: $(PROGS)
 
+# procfs_ksyms decompresses the booted kernelcache and stages private kernel
+# symbols to /var/db/procfs.ksyms. It is run at install/boot time (by procfsd),
+# never at build time.
 procfs_ksyms: procfs_ksyms.c
-	@echo "Staging kernel symbols (libklookup)..."
 	$(CC) $(CFLAGS) -o $@ -lcompression $<
-	$(OUT)/procfs_ksyms || echo "procfs: symbol staging failed; klookup features disabled"
 
 procfsd: procfsd.c
 	$(CC) $(CFLAGS) -o $@ $<
