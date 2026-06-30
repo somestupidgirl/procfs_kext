@@ -84,10 +84,20 @@ procfsd_bootstrap(void)
 #define PROCFS_MOUNTPOINT "/proc"
 
 /*
- * Keep procfs mounted at /proc, as root, via the installed mount_procfs helper
- * (/sbin/mount -t procfs). A direct mount(2) from this daemon's context returns
- * EFAULT, but spawning the helper - the same path the mount(8) command uses -
- * works. /proc itself is created by /etc/synthetic.conf (see the installer).
+ * Keep procfs mounted at /proc, as root, by calling mount(2) directly.
+ *
+ * We deliberately do NOT shell out to /sbin/mount: spawning a helper on every
+ * retry forks a child per attempt, and when a mount keeps failing (e.g. the
+ * kext is momentarily unloaded) that retry loop piles up processes until the
+ * fork table is exhausted. A direct syscall has no such failure mode.
+ *
+ * The mount data is a page-sized, zeroed buffer rather than a bare 4-byte
+ * pfsmount_args_t: a kext build can copyin() a larger struct than that, and the
+ * over-read faults with EFAULT when the bytes past a small object are unmapped.
+ * The kext interprets only the leading mnt_options (0 == defaults); the padding
+ * keeps the copyin in mapped memory. (Same fix as mount_procfs.c - and why the
+ * old "direct mount(2) returns EFAULT, so shell out" workaround is obsolete.)
+ *
  * Gated on the arm flag; a no-op until /proc exists and while already mounted.
  */
 static void
@@ -108,15 +118,14 @@ procfsd_try_mount(void)
         return;                 /* already mounted */
     }
 
-    char *argv[] = { "/sbin/mount", "-t", "procfs", "procfs", PROCFS_MOUNTPOINT, NULL };
-    run_to_completion("/sbin/mount", argv);
-
-    if (statfs(PROCFS_MOUNTPOINT, &sfs) == 0 &&
-        strcmp(sfs.f_fstypename, "procfs") == 0) {
+    static unsigned char mount_data[4096];      /* zeroed (BSS); generous args padding */
+    if (mount("procfs", PROCFS_MOUNTPOINT, 0, mount_data) == 0) {
         fprintf(stderr, "procfsd: mounted procfs at %s\n", PROCFS_MOUNTPOINT);
     } else {
-        fprintf(stderr, "procfsd: failed to mount %s (is mount_procfs installed?)\n",
-            PROCFS_MOUNTPOINT);
+        /* Usually benign: kext not loaded yet (ENOTSUP/ENODEV). Log and let the
+         * next tick retry - no process is spawned either way. */
+        fprintf(stderr, "procfsd: mount %s failed: %s\n",
+            PROCFS_MOUNTPOINT, strerror(errno));
     }
 }
 
@@ -175,8 +184,26 @@ wait_connect(void)
 }
 
 int
-main(void)
+main(int argc, char **argv)
 {
+    /*
+     * Defense in depth against a catastrophic mis-install. procfsd_bootstrap()
+     * execs the symbol stager at PROCFS_STAGER (/usr/local/sbin/procfs_ksyms).
+     * If a procfsd binary is ever installed there by mistake, exec'ing "the
+     * stager" runs procfsd again, which bootstraps and execs "the stager"
+     * again - unbounded recursion that fork-bombs the machine. Guard against it:
+     * if we were invoked under the stager's name, we are NOT the stager, so
+     * refuse to act as the daemon and exit instead of recursing.
+     */
+    const char *base = (argc > 0 && argv[0]) ? strrchr(argv[0], '/') : NULL;
+    base = base ? base + 1 : (argc > 0 ? argv[0] : "");
+    if (base && strcmp(base, "procfs_ksyms") == 0) {
+        fprintf(stderr, "procfsd: invoked as the symbol stager (%s) but this is "
+            "procfsd, not procfs_ksyms - refusing to run (mis-install?)\n",
+            argv[0] ? argv[0] : "?");
+        return 2;
+    }
+
     procfsd_bootstrap();        /* stage symbols, gated kext load */
 
     /* Keep the console user's ~/proc mounted (root; gated by the arm flag). */
