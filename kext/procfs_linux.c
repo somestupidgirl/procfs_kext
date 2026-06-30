@@ -1350,3 +1350,63 @@ procfs_doregs_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     proc_rele(p);
     return error;
 }
+
+/*
+ * Linux-compatibility-mode floating-point/SIMD register dump (human-readable
+ * text). Counterpart to the native binary /proc/<pid>/fpregs node in
+ * procfs_fpregs.c. GUARDED FOR NOW: compiled but not attached to any node (the
+ * structure wires the native procfs_dofpregs() unconditionally); it will be
+ * selected by the planned userspace native/linux mode switch.
+ */
+int
+procfs_dofpregs_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    if (uio_rw(uio) != UIO_READ) {
+        return EOPNOTSUPP;
+    }
+
+    proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    if (p == PROC_NULL) {
+        return ESRCH;
+    }
+
+    thread_t thread = procfs_get_representative_thread(p);
+    if (thread == THREAD_NULL) {
+        proc_rele(p);
+        return ESRCH;
+    }
+
+    struct sbuf sb;
+    if (sbuf_new(&sb, NULL, 2048, SBUF_AUTOEXTEND) == NULL) {
+        proc_rele(p);
+        return ENOMEM;
+    }
+
+#if defined(__arm64__) || defined(__aarch64__)
+    arm_neon_state64_t     st;
+    mach_msg_type_number_t count = ARM_NEON_STATE64_COUNT;
+    memset(&st, 0, sizeof(st));
+    if (thread_get_state((thread_act_t)thread, ARM_NEON_STATE64,
+                         (thread_state_t)&st, &count) == KERN_SUCCESS) {
+        /* Each q register is 128-bit; print as hi:lo 64-bit halves. */
+        for (int i = 0; i < 32; i++) {
+            const uint64_t *qw = (const uint64_t *)&st.q[i];
+            sbuf_printf(&sb, "q%-2d  0x%016llx%016llx\n", i,
+                        (uint64_t)qw[1], (uint64_t)qw[0]);
+        }
+        sbuf_printf(&sb, "fpsr 0x%08x\n", (uint32_t)st.fpsr);
+        sbuf_printf(&sb, "fpcr 0x%08x\n", (uint32_t)st.fpcr);
+    }
+#elif defined(__x86_64__)
+    /* Text formatting of the x86 FP/SSE state for the linux-compat mode is not
+     * yet implemented; the native binary node provides the full state. */
+    (void)thread;
+    sbuf_printf(&sb, "fpregs: x86_64 text format not implemented\n");
+#endif
+
+    sbuf_finish(&sb);
+    int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+    sbuf_delete(&sb);
+    proc_rele(p);
+    return error;
+}

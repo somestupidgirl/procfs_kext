@@ -451,8 +451,10 @@ extern int procfs_domaps(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* Process machine state (NetBSD-style binary register dumps). */
 extern int procfs_doregs(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-/* Linux-compat-mode text register dump (guarded; not yet wired). */
+extern int procfs_dofpregs(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+/* Linux-compat-mode text register dumps (guarded; not yet wired). */
 extern int procfs_doregs_linux(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_dofpregs_linux(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* Linux-compatible per-thread files (/proc/<pid>/task/<tid>/). */
 extern int procfs_dothreadcomm(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
