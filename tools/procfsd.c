@@ -60,13 +60,26 @@ static void
 procfsd_bootstrap(void)
 {
     if (access(PROCFS_STAGER, X_OK) == 0) {
+        fprintf(stderr, "procfsd: staging kernel symbols (%s)\n", PROCFS_STAGER);
         char *argv[] = { (char *)PROCFS_STAGER, NULL };
         run_to_completion(PROCFS_STAGER, argv);
+    } else {
+        fprintf(stderr, "procfsd: stager %s not found; skipping symbol staging\n", PROCFS_STAGER);
     }
 
     if (access(PROCFS_ARM_FLAG, F_OK) == 0) {
+        fprintf(stderr, "procfsd: armed (%s present) - loading kext %s\n",
+            PROCFS_ARM_FLAG, PROCFS_BUNDLE_ID);
         char *argv[] = { "/usr/bin/kmutil", "load", "-b", (char *)PROCFS_BUNDLE_ID, NULL };
         run_to_completion("/usr/bin/kmutil", argv);
+
+        /* Let the per-user login agent mount procfs on its own (user-owned)
+         * ~/proc without root: enable BSD user mounts. */
+        char *sa[] = { "/usr/sbin/sysctl", "-w", "vfs.usermount=1", NULL };
+        run_to_completion("/usr/sbin/sysctl", sa);
+    } else {
+        fprintf(stderr, "procfsd: not armed (%s absent); skipping kext auto-load. "
+            "Create it to enable auto-load + login mount.\n", PROCFS_ARM_FLAG);
     }
 }
 
