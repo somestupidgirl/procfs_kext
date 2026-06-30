@@ -8,6 +8,7 @@ test/*.dSYM
 **/.DS_Store
 .DS_Store
 **/*.kext
+**/*.kext.dsym
 *.kext
 **/*.o
 *.o
