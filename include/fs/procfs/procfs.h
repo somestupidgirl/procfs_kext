@@ -495,7 +495,6 @@ extern void procfs_get_pids(pid_t **pidpp, int *pid_count, uint32_t *sizep, kaut
 extern void procfs_release_pids(pid_t *pidp, uint32_t size);
 extern int procfs_get_thread_ids_for_task(proc_t p, uint64_t **thread_ids, int *thread_count);
 extern void procfs_release_thread_ids(uint64_t *thread_ids, int thread_count);
-extern thread_t procfs_get_representative_thread(proc_t p);
 struct proc_fdinfo;
 extern int procfs_get_fd_list(proc_t p, struct proc_fdinfo **fdlist, size_t *count);
 extern void procfs_release_fd_list(struct proc_fdinfo *fdlist);

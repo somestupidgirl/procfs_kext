@@ -427,37 +427,6 @@ procfs_release_thread_ids(uint64_t *thread_ids, int thread_count)
 }
 
 /*
- * Returns a representative thread for a process: the first uthread on its
- * p_uthlist, converted to its thread_t (XNU allocates the uthread immediately
- * above its thread, so thread = uthread - sizeof(struct thread); see
- * procfs_get_thread_ids_for_task()). Used by process-level nodes such as
- * /proc/<pid>/regs that report a single thread's machine state.
- *
- * The caller must hold a reference to p (e.g. via proc_find()); the returned
- * thread is valid for as long as that reference is held. Returns THREAD_NULL if
- * no thread can be safely recovered.
- */
-thread_t
-procfs_get_representative_thread(proc_t p)
-{
-    procfs_thread_size_init();
-    if (!g_thread_size_known || p == PROC_NULL) {
-        return THREAD_NULL;
-    }
-
-    uthread_t uth = TAILQ_FIRST(&p->p_uthlist);
-    if (uth == NULL || !procfs_kptr_ok((uintptr_t)uth)) {
-        return THREAD_NULL;
-    }
-
-    thread_t thread = (thread_t)((uintptr_t)uth - g_thread_struct_size);
-    if (!procfs_kptr_ok((uintptr_t)thread)) {
-        return THREAD_NULL;
-    }
-    return thread;
-}
-
-/*
  * Get the number of threads for a given process.
  */
 int

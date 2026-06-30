@@ -8,22 +8,22 @@
  * Named after NetBSD's procfs_dofpregs() (sys/miscfs/procfs/procfs_machdep.c)
  * for cross-reference. NetBSD dumps a machine-dependent `struct fpreg`; macOS
  * has no such struct, so this node emits the platform's native Mach floating-
- * point / SIMD state - the direct analog - obtained with thread_get_state():
+ * point / SIMD state - the direct analog:
  *
  *   arm64:  arm_neon_state64_t    (flavor ARM_NEON_STATE64)
  *   x86_64: x86_float_state64_t    (flavor x86_FLOAT_STATE64)
  *
- * As with regs, the state is reported for the process's representative thread
- * (the first on its p_uthlist), matching NetBSD's per-process fpregs node.
+ * As with regs, thread_get_state() is stripped from the arm64 kernelcache, so
+ * the state is fetched from userspace by the procfsd daemon over the kernel-
+ * control bridge (task_for_pid + task_threads + thread_get_state on the
+ * representative thread; see procfs_regs.c and tools/procfsd.c). task_for_pid is
+ * denied for Apple platform/hardened binaries (SIP/AMFI) - those return EPERM.
  *
  * A human-readable Linux-style dump is provided separately, guarded, in
  * procfs_linux.c for the planned native-vs-linux compatibility mode.
  */
 #include <stdint.h>
-#include <string.h>
 
-#include <kern/thread.h>
-#include <mach/thread_act.h>
 #include <mach/thread_status.h>
 #if defined(__arm64__) || defined(__aarch64__)
 #include <mach/arm/thread_status.h>
@@ -36,6 +36,7 @@
 #include <sys/uio.h>
 
 #include <fs/procfs/procfs.h>
+#include <fs/procfs/procfs_ctl.h>
 
 int
 procfs_dofpregs(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
@@ -48,43 +49,27 @@ procfs_dofpregs(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p == PROC_NULL) {
         return ESRCH;
     }
-
-    thread_t thread = procfs_get_representative_thread(p);
-    if (thread == THREAD_NULL) {
-        proc_rele(p);
-        return ESRCH;            /* zombie/system process with no live thread */
+    int sysproc = (p->p_stat == SZOMB) || (p->p_flag & P_SYSTEM) != 0;
+    proc_rele(p);
+    if (sysproc) {
+        return ESRCH;
     }
 
 #if defined(__arm64__) || defined(__aarch64__)
-    arm_neon_state64_t     state;
-    mach_msg_type_number_t count = ARM_NEON_STATE64_COUNT;
-    const int              flavor = ARM_NEON_STATE64;
+    arm_neon_state64_t  state;
 #elif defined(__x86_64__)
-    x86_float_state64_t    state;
-    mach_msg_type_number_t count = x86_FLOAT_STATE64_COUNT;
-    const int              flavor = x86_FLOAT_STATE64;
+    x86_float_state64_t state;
 #else
-    proc_rele(p);
     return ENOTSUP;
 #endif
 
 #if defined(__arm64__) || defined(__aarch64__) || defined(__x86_64__)
-    memset(&state, 0, sizeof(state));
-    kern_return_t kr = thread_get_state((thread_act_t)thread, flavor,
-                                        (thread_state_t)&state, &count);
-    if (kr != KERN_SUCCESS) {
-        proc_rele(p);
-        return EIO;
+    uint32_t got = 0;
+    int rc = procfs_ctl_request(PROCFS_REQ_FPREGS, pnp->node_id.nodeid_pid, 0,
+                                &state, sizeof(state), &got);
+    if (rc != 0) {
+        return (rc == ENOTCONN) ? ENOTSUP : rc;
     }
-
-    /* count is returned in natural_t (32-bit) words; clamp to the struct. */
-    int len = (int)(count * sizeof(natural_t));
-    if (len > (int)sizeof(state)) {
-        len = (int)sizeof(state);
-    }
-
-    int error = procfs_copy_data((const char *)&state, len, uio);
-    proc_rele(p);
-    return error;
+    return procfs_copy_data((const char *)&state, (int)got, uio);
 #endif
 }

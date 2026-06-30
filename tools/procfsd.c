@@ -29,6 +29,13 @@
 #include <libproc.h>
 #include <sys/proc_info.h>
 #include <mach/mach.h>
+#include <mach/task.h>
+#include <mach/thread_act.h>
+#if defined(__arm64__) || defined(__aarch64__)
+#include <mach/arm/thread_status.h>
+#elif defined(__x86_64__)
+#include <mach/i386/thread_status.h>
+#endif
 
 #include "../include/fs/procfs/procfs_ctl.h"
 
@@ -183,6 +190,66 @@ wait_connect(void)
     }
 }
 
+/*
+ * Serve a PROCFS_REQ_REGS / PROCFS_REQ_FPREGS request. thread_get_state is
+ * stripped from the arm64 kernelcache, so the kext cannot read register state;
+ * we do it from userspace - get the target's task port, then read its
+ * representative thread (threads[0]) machine state into the response payload.
+ * task_for_pid is denied to root for Apple platform/hardened binaries (SIP/AMFI)
+ * - those report EPERM, analogous to ptrace permissions on Linux.
+ */
+static void
+procfsd_handle_regs(const struct procfs_ctl_req *req, struct procfs_ctl_resp *resp,
+    void *payload)
+{
+    task_t task = TASK_NULL;
+    if (task_for_pid(mach_task_self(), req->pid, &task) != KERN_SUCCESS) {
+        resp->error = EPERM;
+        return;
+    }
+
+    thread_act_array_t     threads = NULL;
+    mach_msg_type_number_t tcount  = 0;
+    if (task_threads(task, &threads, &tcount) != KERN_SUCCESS || tcount == 0) {
+        resp->error = ESRCH;
+        mach_port_deallocate(mach_task_self(), task);
+        return;
+    }
+
+#if defined(__arm64__) || defined(__aarch64__)
+    int flavor = (req->type == PROCFS_REQ_REGS) ? ARM_THREAD_STATE64 : ARM_NEON_STATE64;
+    mach_msg_type_number_t cnt = (req->type == PROCFS_REQ_REGS)
+        ? ARM_THREAD_STATE64_COUNT : ARM_NEON_STATE64_COUNT;
+#elif defined(__x86_64__)
+    int flavor = (req->type == PROCFS_REQ_REGS) ? x86_THREAD_STATE64 : x86_FLOAT_STATE64;
+    mach_msg_type_number_t cnt = (req->type == PROCFS_REQ_REGS)
+        ? x86_THREAD_STATE64_COUNT : x86_FLOAT_STATE64_COUNT;
+#else
+    int flavor = 0;
+    mach_msg_type_number_t cnt = 0;
+    resp->error = ENOTSUP;
+#endif
+
+#if defined(__arm64__) || defined(__aarch64__) || defined(__x86_64__)
+    if ((size_t)cnt * sizeof(natural_t) <= PROCFS_CTL_MAXPAYLOAD) {
+        mach_msg_type_number_t got = cnt;
+        if (thread_get_state(threads[0], flavor, (thread_state_t)payload, &got) == KERN_SUCCESS) {
+            resp->len = (uint32_t)((size_t)got * sizeof(natural_t));
+        } else {
+            resp->error = EIO;
+        }
+    } else {
+        resp->error = EMSGSIZE;
+    }
+#endif
+
+    for (mach_msg_type_number_t i = 0; i < tcount; i++) {
+        mach_port_deallocate(mach_task_self(), threads[i]);
+    }
+    vm_deallocate(mach_task_self(), (vm_address_t)threads, tcount * sizeof(thread_act_t));
+    mach_port_deallocate(mach_task_self(), task);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -296,6 +363,15 @@ main(int argc, char **argv)
             resp->len = sizeof(out);
             break;
         }
+        case PROCFS_REQ_REGS:
+        case PROCFS_REQ_FPREGS:
+            /* thread_get_state is stripped from the kernelcache, so the kext
+             * cannot read register state itself. We do it from userspace: get
+             * the target's task port and read its representative thread's state.
+             * task_for_pid is denied for Apple platform/hardened binaries even
+             * to root (SIP/AMFI) - those report EPERM, like ptrace on Linux. */
+            procfsd_handle_regs(req, resp, payload);
+            break;
         default:
             resp->error = EINVAL;
             break;

@@ -25,6 +25,8 @@ enum {
     PROCFS_REQ_THREADINFO = 2,  /* arg = tid; payload: struct proc_threadinfo    */
     PROCFS_REQ_VMSTAT     = 3,  /* payload: vm_statistics64_data_t (HOST_VM_INFO64) */
     PROCFS_REQ_LOADAVG    = 4,  /* payload: uint32_t[3] (getloadavg, scaled x100) */
+    PROCFS_REQ_REGS       = 5,  /* payload: arm_thread_state64_t / x86_thread_state64_t */
+    PROCFS_REQ_FPREGS     = 6,  /* payload: arm_neon_state64_t / x86_float_state64_t   */
 };
 
 /* kext -> daemon */

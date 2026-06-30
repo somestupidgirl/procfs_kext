@@ -1291,28 +1291,25 @@ procfs_doregs_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p == PROC_NULL) {
         return ESRCH;
     }
-
-    thread_t thread = procfs_get_representative_thread(p);
-    if (thread == THREAD_NULL) {
-        proc_rele(p);
+    int sysproc = (p->p_stat == SZOMB) || (p->p_flag & P_SYSTEM) != 0;
+    proc_rele(p);
+    if (sysproc) {
         return ESRCH;
     }
 
     struct sbuf sb;
     if (sbuf_new(&sb, NULL, 1024, SBUF_AUTOEXTEND) == NULL) {
-        proc_rele(p);
         return ENOMEM;
     }
 
+    /* The register state comes from the procfsd daemon (see procfs_regs.c);
+     * an empty body means the daemon is unavailable or task_for_pid was denied. */
 #if defined(__arm64__) || defined(__aarch64__)
-    arm_thread_state64_t   st;
-    mach_msg_type_number_t count = ARM_THREAD_STATE64_COUNT;
-    memset(&st, 0, sizeof(st));
-    if (thread_get_state((thread_act_t)thread, ARM_THREAD_STATE64,
-                         (thread_state_t)&st, &count) == KERN_SUCCESS) {
-        /* The kernel uses the non-opaque arm_thread_state64 layout; fp/lr/sp/pc
-         * are plain uint64 fields. On arm64e the saved pc/lr carry PAC bits and
-         * are emitted raw, matching the native node. */
+    arm_thread_state64_t st;
+    uint32_t got = 0;
+    if (procfs_ctl_request(PROCFS_REQ_REGS, pnp->node_id.nodeid_pid, 0,
+                           &st, sizeof(st), &got) == 0 && got > 0) {
+        /* non-opaque arm_thread_state64 layout; pc/lr carry PAC bits, emitted raw. */
         for (int i = 0; i < 29; i++) {
             sbuf_printf(&sb, "x%-2d  0x%016llx\n", i, (uint64_t)st.x[i]);
         }
@@ -1323,11 +1320,10 @@ procfs_doregs_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         sbuf_printf(&sb, "cpsr 0x%08x\n",    (uint32_t)st.cpsr);
     }
 #elif defined(__x86_64__)
-    x86_thread_state64_t   st;
-    mach_msg_type_number_t count = x86_THREAD_STATE64_COUNT;
-    memset(&st, 0, sizeof(st));
-    if (thread_get_state((thread_act_t)thread, x86_THREAD_STATE64,
-                         (thread_state_t)&st, &count) == KERN_SUCCESS) {
+    x86_thread_state64_t st;
+    uint32_t got = 0;
+    if (procfs_ctl_request(PROCFS_REQ_REGS, pnp->node_id.nodeid_pid, 0,
+                           &st, sizeof(st), &got) == 0 && got > 0) {
         sbuf_printf(&sb, "rax 0x%016llx\nrbx 0x%016llx\nrcx 0x%016llx\n"
                          "rdx 0x%016llx\nrsi 0x%016llx\nrdi 0x%016llx\n"
                          "rbp 0x%016llx\nrsp 0x%016llx\n",
@@ -1348,7 +1344,6 @@ procfs_doregs_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     sbuf_finish(&sb);
     int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
     sbuf_delete(&sb);
-    proc_rele(p);
     return error;
 }
 
@@ -1370,25 +1365,23 @@ procfs_dofpregs_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     if (p == PROC_NULL) {
         return ESRCH;
     }
-
-    thread_t thread = procfs_get_representative_thread(p);
-    if (thread == THREAD_NULL) {
-        proc_rele(p);
+    int sysproc = (p->p_stat == SZOMB) || (p->p_flag & P_SYSTEM) != 0;
+    proc_rele(p);
+    if (sysproc) {
         return ESRCH;
     }
 
     struct sbuf sb;
     if (sbuf_new(&sb, NULL, 2048, SBUF_AUTOEXTEND) == NULL) {
-        proc_rele(p);
         return ENOMEM;
     }
 
+    /* FP/SIMD state comes from the procfsd daemon (see procfs_fpregs.c). */
 #if defined(__arm64__) || defined(__aarch64__)
-    arm_neon_state64_t     st;
-    mach_msg_type_number_t count = ARM_NEON_STATE64_COUNT;
-    memset(&st, 0, sizeof(st));
-    if (thread_get_state((thread_act_t)thread, ARM_NEON_STATE64,
-                         (thread_state_t)&st, &count) == KERN_SUCCESS) {
+    arm_neon_state64_t st;
+    uint32_t got = 0;
+    if (procfs_ctl_request(PROCFS_REQ_FPREGS, pnp->node_id.nodeid_pid, 0,
+                           &st, sizeof(st), &got) == 0 && got > 0) {
         /* Each q register is 128-bit; print as hi:lo 64-bit halves. */
         for (int i = 0; i < 32; i++) {
             const uint64_t *qw = (const uint64_t *)&st.q[i];
@@ -1401,14 +1394,12 @@ procfs_dofpregs_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 #elif defined(__x86_64__)
     /* Text formatting of the x86 FP/SSE state for the linux-compat mode is not
      * yet implemented; the native binary node provides the full state. */
-    (void)thread;
     sbuf_printf(&sb, "fpregs: x86_64 text format not implemented\n");
 #endif
 
     sbuf_finish(&sb);
     int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
     sbuf_delete(&sb);
-    proc_rele(p);
     return error;
 }
 

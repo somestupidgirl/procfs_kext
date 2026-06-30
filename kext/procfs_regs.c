@@ -8,24 +8,28 @@
  * Named after NetBSD's procfs_doregs() (sys/miscfs/procfs/procfs_machdep.c) for
  * cross-reference. NetBSD dumps a machine-dependent `struct reg`; macOS has no
  * such struct, so this node emits the platform's native Mach thread state - the
- * direct analog - obtained with thread_get_state():
+ * direct analog:
  *
  *   arm64:  arm_thread_state64_t   (flavor ARM_THREAD_STATE64)
  *   x86_64: x86_thread_state64_t   (flavor x86_THREAD_STATE64)
  *
- * The state is reported for the process's representative thread (the first on
- * its p_uthlist), matching NetBSD's per-process regs node. On arm64e the saved
- * pc/lr are PAC-signed; the raw (signed) values are emitted as-is, leaving any
- * pointer authentication stripping to the consumer.
+ * thread_get_state() is stripped from the arm64 kernelcache (it is neither a
+ * bindable KPI symbol nor present in the symtab for libklookup), so the kext
+ * cannot read register state itself. Instead the procfsd daemon reads it from
+ * userspace - via task_for_pid() + task_threads() + thread_get_state() on the
+ * representative thread - and returns it over the kernel-control bridge (see
+ * procfs_ctl.c, tools/procfsd.c). The state is for the process's representative
+ * thread, matching NetBSD's per-process regs node. On arm64e the saved pc/lr are
+ * PAC-signed and emitted raw, leaving stripping to the consumer.
+ *
+ * task_for_pid is denied to root for Apple platform/hardened binaries (SIP/AMFI)
+ * - reads of those return EPERM, analogous to ptrace permissions on Linux.
  *
  * A human-readable Linux-style register dump is provided separately, guarded,
  * in procfs_linux.c for the planned native-vs-linux compatibility mode.
  */
 #include <stdint.h>
-#include <string.h>
 
-#include <kern/thread.h>
-#include <mach/thread_act.h>
 #include <mach/thread_status.h>
 #if defined(__arm64__) || defined(__aarch64__)
 #include <mach/arm/thread_status.h>
@@ -38,6 +42,7 @@
 #include <sys/uio.h>
 
 #include <fs/procfs/procfs.h>
+#include <fs/procfs/procfs_ctl.h>
 
 int
 procfs_doregs(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
@@ -46,47 +51,34 @@ procfs_doregs(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         return EOPNOTSUPP;       /* the node is read-only */
     }
 
+    /* Validate the pid and reject processes with no user thread state. */
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p == PROC_NULL) {
         return ESRCH;
     }
-
-    thread_t thread = procfs_get_representative_thread(p);
-    if (thread == THREAD_NULL) {
-        proc_rele(p);
-        return ESRCH;            /* zombie/system process with no live thread */
+    int sysproc = (p->p_stat == SZOMB) || (p->p_flag & P_SYSTEM) != 0;
+    proc_rele(p);
+    if (sysproc) {
+        return ESRCH;
     }
 
 #if defined(__arm64__) || defined(__aarch64__)
-    arm_thread_state64_t   state;
-    mach_msg_type_number_t count = ARM_THREAD_STATE64_COUNT;
-    const int              flavor = ARM_THREAD_STATE64;
+    arm_thread_state64_t state;
 #elif defined(__x86_64__)
-    x86_thread_state64_t   state;
-    mach_msg_type_number_t count = x86_THREAD_STATE64_COUNT;
-    const int              flavor = x86_THREAD_STATE64;
+    x86_thread_state64_t state;
 #else
-    proc_rele(p);
     return ENOTSUP;
 #endif
 
 #if defined(__arm64__) || defined(__aarch64__) || defined(__x86_64__)
-    memset(&state, 0, sizeof(state));
-    kern_return_t kr = thread_get_state((thread_act_t)thread, flavor,
-                                        (thread_state_t)&state, &count);
-    if (kr != KERN_SUCCESS) {
-        proc_rele(p);
-        return EIO;
+    uint32_t got = 0;
+    int rc = procfs_ctl_request(PROCFS_REQ_REGS, pnp->node_id.nodeid_pid, 0,
+                                &state, sizeof(state), &got);
+    if (rc != 0) {
+        /* ENOTCONN: the daemon is not running. Otherwise the daemon's errno
+         * (EPERM for a SIP/AMFI-protected target, ESRCH/EIO otherwise). */
+        return (rc == ENOTCONN) ? ENOTSUP : rc;
     }
-
-    /* count is returned in natural_t (32-bit) words; clamp to the struct. */
-    int len = (int)(count * sizeof(natural_t));
-    if (len > (int)sizeof(state)) {
-        len = (int)sizeof(state);
-    }
-
-    int error = procfs_copy_data((const char *)&state, len, uio);
-    proc_rele(p);
-    return error;
+    return procfs_copy_data((const char *)&state, (int)got, uio);
 #endif
 }
