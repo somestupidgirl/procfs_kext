@@ -19,8 +19,6 @@
 #include <stdint.h>
 #include <spawn.h>
 #include <pthread.h>
-#include <pwd.h>
-#include <limits.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/sys_domain.h>
@@ -83,15 +81,14 @@ procfsd_bootstrap(void)
     }
 }
 
-/* procfs mount arguments (mirrors the kext / mount_procfs helper). */
-typedef struct {
-    int mnt_options;
-} pfsmount_args_t;
+#define PROCFS_MOUNTPOINT "/proc"
 
 /*
- * Mount procfs on the console user's ~/proc, as root (macOS has no
- * vfs.usermount, so a user-context agent cannot do this). Gated on the arm
- * flag; a no-op when no user is at the console or it is already mounted.
+ * Keep procfs mounted at /proc, as root, via the installed mount_procfs helper
+ * (/sbin/mount -t procfs). A direct mount(2) from this daemon's context returns
+ * EFAULT, but spawning the helper - the same path the mount(8) command uses -
+ * works. /proc itself is created by /etc/synthetic.conf (see the installer).
+ * Gated on the arm flag; a no-op until /proc exists and while already mounted.
  */
 static void
 procfsd_try_mount(void)
@@ -100,29 +97,26 @@ procfsd_try_mount(void)
         return;
     }
 
-    struct stat cst;
-    if (stat("/dev/console", &cst) != 0 || cst.st_uid == 0) {
-        return;                 /* no console user logged in yet */
+    struct stat st;
+    if (stat(PROCFS_MOUNTPOINT, &st) != 0 || !S_ISDIR(st.st_mode)) {
+        return;                 /* /proc not present yet (needs synthetic.conf + reboot) */
     }
-    struct passwd *pw = getpwuid(cst.st_uid);
-    if (pw == NULL || pw->pw_dir == NULL) {
-        return;
-    }
-
-    char path[PATH_MAX];
-    snprintf(path, sizeof(path), "%s/proc", pw->pw_dir);
 
     struct statfs sfs;
-    if (statfs(path, &sfs) == 0 && strcmp(sfs.f_fstypename, "procfs") == 0) {
+    if (statfs(PROCFS_MOUNTPOINT, &sfs) == 0 &&
+        strcmp(sfs.f_fstypename, "procfs") == 0) {
         return;                 /* already mounted */
     }
 
-    mkdir(path, 0755);
-    pfsmount_args_t args = { 0 };
-    if (mount("procfs", path, 0, &args) == 0) {
-        fprintf(stderr, "procfsd: mounted procfs at %s\n", path);
-    } else if (errno != EBUSY) {
-        fprintf(stderr, "procfsd: mount %s failed: %s\n", path, strerror(errno));
+    char *argv[] = { "/sbin/mount", "-t", "procfs", "procfs", PROCFS_MOUNTPOINT, NULL };
+    run_to_completion("/sbin/mount", argv);
+
+    if (statfs(PROCFS_MOUNTPOINT, &sfs) == 0 &&
+        strcmp(sfs.f_fstypename, "procfs") == 0) {
+        fprintf(stderr, "procfsd: mounted procfs at %s\n", PROCFS_MOUNTPOINT);
+    } else {
+        fprintf(stderr, "procfsd: failed to mount %s (is mount_procfs installed?)\n",
+            PROCFS_MOUNTPOINT);
     }
 }
 

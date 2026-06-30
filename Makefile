@@ -56,7 +56,7 @@ KEXT_FLAGS := ARCHFLAGS="$(KEXT_ARCHFLAGS)" TARGET_TRIPLE="$(KEXT_TRIPLE)"
 FS_FLAGS   := ARCHFLAGS="$(FS_ARCHFLAGS)"   TARGET_TRIPLE="$(FS_TRIPLE)"
 LIB_FLAGS  := ARCHFLAGS="$(LIB_ARCHFLAGS)"  TARGET_TRIPLE="$(LIB_TRIPLE)"
 
-all: debug stage-symbols tests
+all: debug install-daemon stage-symbols tests
 
 ifeq ($(ARCH),universal)
 
@@ -104,7 +104,7 @@ endif
 release: TARGET=release
 release: debug
 
-install: debug install-only
+install: debug install-only install-daemon stage-symbols
 
 install-only: stage-symbols install-daemon
 	cp -r $(OUT)/procfs.kext /Library/Extensions
@@ -128,9 +128,12 @@ install-daemon:
 	install -m 755 $(OUT)/procfsd        /usr/local/sbin/procfsd
 	install -m 755 $(OUT)/procfs_ksyms   /usr/local/sbin/procfs_ksyms
 	install -m 644 -o root -g wheel tools/com.beako.procfsd.plist /Library/LaunchDaemons/com.beako.procfsd.plist
+	@# Create the /proc mount point on the read-only system volume via synthetic.conf.
+	@grep -qxF 'proc' /etc/synthetic.conf 2>/dev/null || printf 'proc\n' >> /etc/synthetic.conf
+	@echo "procfs: ensured 'proc' in /etc/synthetic.conf -> /proc is created at boot."
 	@echo "procfs: daemon + LaunchDaemon installed (auto-load/mount DISARMED)."
 	@echo "procfs: to arm auto-load + mount:  sudo touch /var/db/procfs.enabled"
-	@echo "procfs: (re)start now:             sudo launchctl kickstart -k system/com.beako.procfsd"
+	@echo "procfs: then REBOOT (creates /proc + loads kext + procfsd mounts /proc)."
 
 # Build and run the userspace symbol-staging helper. It decompresses the booted
 # kernelcache and writes /var/db/procfs.ksyms, from which the kext resolves the
