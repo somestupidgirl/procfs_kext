@@ -58,6 +58,9 @@ Each directory named for a process id represents one process on the system. By d
 |`tty`      | Controlling terminal device path (e.g. `/dev/ttys001`) | text |
 |`note`     | Write a note to the process (NetBSD-style) | write-only; read returns `EINVAL`. **Delivery not yet implemented** |
 |`limit`    | Process resource limits, one `<name> <cur> <max>` line per limit (`-1` = unlimited) | text |
+|`regs`     | Representative thread's general registers, native Mach `arm_thread_state64_t` (x86_64: `x86_thread_state64_t`) — served by the `procfsd` daemon | binary |
+|`fpregs`   | Representative thread's FP/SIMD registers, native `arm_neon_state64_t` (x86_64: `x86_float_state64_t`) — served by the daemon | binary |
+|`auxv`     | XNU's auxiliary-vector equivalent — dyld's `apple[]` array (`key=value` strings) | text (NUL-separated) |
 
 The `fd` directory contains one entry for each file that the process has open. Each entry is a directory that’s numbered for the corresponding file descriptor. Within each subdirectory you’ll find two files called `details` and `socket`. The `details` file contains a `vnode_fdinfowithpath` structure, which contains information about the file including its path name if it is a file system file. If the file is a socket endpoint, you can read a `socket_fdinfo` structure from the `socket` file.
 
@@ -114,6 +117,14 @@ Verified with `test/test_features.sh`.
   - `map` / `maps` — the process's virtual-memory regions (`map` in NetBSD
     procfs format, `maps` in Linux `/proc/<pid>/maps` format), with address
     ranges and protections (see Apple Silicon note)
+  - `regs` / `fpregs` — the representative thread's general and FP/SIMD register
+    state as the native Mach `arm_thread_state64_t` / `arm_neon_state64_t`
+    (x86_64: `x86_thread_state64_t` / `x86_float_state64_t`), supplied by the
+    `procfsd` daemon; `EPERM` for Apple platform/hardened binaries, `ENOTSUP`
+    without a daemon (see below)
+  - `auxv` — XNU's auxiliary-vector equivalent: dyld's `apple[]` array
+    (`executable_path=`, `stack_guard=`, `dyld_file=`, `malloc_entropy=`,
+    `arm64e_abi=`, …), read from the target's user stack via its pmap
 
 `cmdline`, `fd/` and `threads/` required forward-porting work to function under
 PAC on Apple Silicon rather than relying on the unavailable private KPIs: `fd/`
@@ -167,6 +178,25 @@ formatting (`map` NetBSD-style, `maps` Linux-style). Backing-file paths (the
 trailing Linux column) are not resolved — the region's object→vnode is not
 reachable here — so the device/inode/path columns read `00:00 0`.
 
+`regs` and `fpregs` expose a thread's register state. `thread_get_state()` is
+neither a bindable KPI symbol nor present in the arm64 kernelcache symbol table
+(so it can be neither linked *nor* resolved via libklookup), so the kext cannot
+read register state itself. The `procfsd` daemon does it from userspace instead —
+`task_for_pid()` + `task_threads()` + `thread_get_state()` on the process's
+representative thread — and returns the native Mach state struct over the
+kernel-control bridge. Because `task_for_pid` is denied to root for Apple
+platform/hardened binaries under SIP/AMFI, those processes return `EPERM` — the
+same permission model as `ptrace` on Linux. On arm64e the saved `pc`/`lr` carry
+their PAC bits and are emitted raw, leaving stripping to the consumer.
+
+`auxv` reports XNU's equivalent of the ELF auxiliary vector. macOS binaries are
+Mach-O, so there is no `AT_*` array on the stack; the closest analog is dyld's
+`apple[]` array — the `key=value` strings the kernel places after `argv`/`envp`.
+The node finds them by skipping the `argc` slot and the `argv`/`envp` pointer
+arrays on the target's user stack (read through its pmap, as `cmdline` does) and
+following each `apple` pointer to its string. Zombies and system processes report
+empty.
+
 `partitions` lists mounted block-device filesystems rather than raw disks.
 Linux's `/proc/partitions` enumerates every block device, but on macOS that
 information lives in IOKit, which a C VFS-only kext cannot reach. Instead the
@@ -194,6 +224,11 @@ is then the exact `phys_footprint` from the daemon (the kext's own estimate is
 only the fallback). Without the daemon the per-thread `info` reads zero
 (`fill_taskthreadinfo` is stripped from the arm64 kernel).
 
+The daemon is also the *only* source for the `regs`/`fpregs` register nodes:
+`thread_get_state()` is unreachable from the kext (neither bindable nor in the
+kernelcache symtab), so those nodes require a connected daemon and return
+`ENOTSUP` without one, or `EPERM` for a `task_for_pid`-denied (SIP/AMFI) target.
+
 **Present but not yet functional:**
 
   - `note` — NetBSD-style node; reads return `EINVAL` as on NetBSD, but the node
@@ -202,26 +237,47 @@ only the fallback). Without the daemon the per-thread `info` reads zero
 
 **Not yet present (planned — see TODO):**
 
-  - Per-thread register/state files (`regs`/`fpregs`), `auxv`, and further
-    Linux-style `/proc` files (`/proc/sys/`, …).
+  - Further Linux-style `/proc` files (`/proc/sys/`, …) and a userspace switch to
+    select native (BSD/XNU) vs. Linux-compatible presentation. The Linux-style
+    text renderings of `regs`/`fpregs`/`auxv` are already implemented but not yet
+    wired, awaiting that switch.
 
 ## How to build procfs
-Build a universal (arm64e + x86_64) binary with:
+`make` builds the kext, the `procfs.fs` mount bundle, the userspace tools
+(`procfsd`, `procfs_ksyms`) and the LaunchDaemon plist into `bin/`:
 
-    make ARCH=universal
+    make                    # native arch (arm64e on Apple Silicon)
+    make ARCH=universal     # fat arm64e + x86_64
 
-To build and install in one step, use the provided install script (it runs
-`make clean && make && sudo make install-only && make clean`):
+To build and install in one step, use the install script — it runs
+`make clean && make && sudo make install` and prompts for your password:
 
-    ./install ARCH=universal
+    ./install.sh                # native arch
+    ./install.sh ARCH=universal
 
-`make install-only` copies `bin/procfs.kext` to `/Library/Extensions` and the
-`bin/procfs.fs` mount helper to `/Library/Filesystems`, and sets the required
-`root:wheel` ownership and `755` permissions on both.
+`sudo make install` **only copies** the prebuilt artifacts into place (it never
+compiles, so `bin/` and the build tree stay owned by you and `make clean` never
+needs sudo). It installs, with `root:wheel`/`755`: the kext to
+`/Library/Extensions`, the `procfs.fs` bundle to `/Library/Filesystems`,
+`procfsd`/`procfs_ksyms` to `/usr/local/sbin`, and the LaunchDaemon plist to
+`/Library/LaunchDaemons`. It also adds `proc` to `/etc/synthetic.conf` (so `/proc`
+is created at boot) and enables the LaunchDaemon. `sudo make uninstall` reverses
+all of this — unmounts, unloads the kext, clears the staging cache, and removes
+the installed files.
 
 Code signing is optional; the kext is ad-hoc signed by default. To sign with
 your own certificate instead, edit `Makefile.inc` and set the `SIGNCERT`
 variable to the identity in your keychain.
+
+Auto-load of the kext and auto-mount of `/proc` stay **disarmed** until you
+create the arm flag, so a kext panic during development cannot boot-loop the
+machine:
+
+    sudo touch /var/db/procfs.enabled
+    sudo reboot
+
+After the reboot, `procfsd` stages the kernel symbols, loads the kext, and mounts
+`/proc` for all users.
 
 ### Loading the kext (Apple Silicon, macOS 26)
 
@@ -232,49 +288,47 @@ the first install you must approve the extension in **System Settings → Privac
 When **re-installing a rebuilt kext**, the build's code identity (cdhash)
 changes, and a stale staging record will cause `kernelmanagerd` to reject it
 with *"tried to insert an invalid codeful kernel extension in the restricted
-lookup table."* Clear the staging area first, then the kext can be loaded into
-the running kernel without a reboot:
+lookup table."* `./install.sh` handles this: `make install`'s preinstall step
+unmounts procfs, unloads the old kext and clears the staging cache before
+copying the new build. To load into the running kernel without a reboot:
 
-    sudo umount ~/proc 2>/dev/null
-    sudo kmutil unload -b com.beako.filesystems.procfs
-    sudo kmutil clear-staging
-    ./install ARCH=universal
     sudo kmutil load -p /Library/Extensions/procfs.kext
     kextstat | grep procfs
 
 ## Mounting
-Open your Terminal application.
+With the arm flag set (see *How to build procfs*), `procfsd` mounts `/proc`
+automatically at boot. `/proc` itself is created by `/etc/synthetic.conf`.
 
-Now create an empty directory to use as your mount point, for example:
+To mount manually (the kext must be loaded):
 
-    mkdir ~/proc
-
-Mount the file system:
-
-    mount -t procfs proc proc
+    sudo mount -t procfs procfs /proc
 
 ## Exploring the file system
 Once mounted you can execute the `ls` command to list the contents:
 
-    ls -l ~/proc
+    ls -l /proc
 
 Or recursively:
 
-    ls ~/proc/*/*/*/*
+    ls /proc/*/*/*/*
 
 Note: Finder support has not yet been implemented so the contents of the proc folder will not be visible there. Currently only terminal is supported.
 
 Likewise you can use the `cat` command to get the contents of a file:
 
-    cat ~/proc/version
+    cat /proc/version
 
 Most per-process files contain binary structures rather than text, so pipe them
 through `hexdump` to read the raw contents:
 
-    cat ~/proc/curproc/taskinfo | hexdump -C
+    cat /proc/curproc/taskinfo | hexdump -C
+    cat /proc/self/regs | hexdump -C
+    cat /proc/self/auxv | tr '\0' '\n'
 
 ## TODO:
- - Wire up the scaffolded but not-yet-exposed nodes: `auxv` and register state (`fpregs`/regs).
+ - Implement a userspace switch to select native (BSD/XNU) vs. Linux-compatible
+   presentation (NetBSD-style), and wire the already-implemented Linux-style text
+   renderings of `regs`/`fpregs`/`auxv` to it.
  - Implement `note` delivery (and a `vnop_write` path so the node is writable).
  - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
  - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
@@ -286,6 +340,7 @@ Currently known issues:
 - On Apple Silicon, `cmdline`, `fd/`, `threads/` and `tty` previously required private kernel symbols unavailable under PAC; they now work (the first three forward-ported, `tty` via libklookup-resolved `proc_gettty`). `tty` depends on the `procfs_ksyms` staging helper having run (it does during `make install`); if the staged symbol file is missing or stale for the running kernel, `tty` falls back to `ENOTSUP`.
 - `taskinfo` and per-thread `info` are populated by the `procfsd` daemon (`proc_pidinfo`); they read the kext fallback / zero only when no daemon is connected, since the private `fill_taskprocinfo` / `fill_taskthreadinfo` are stripped from the arm64 kernel.
 - `note` is a NetBSD-style scaffold: reads return `EINVAL` and writing a note is not yet possible (no write path / no delivery).
+- `regs`/`fpregs` require the `procfsd` daemon (`thread_get_state` is unreachable from the kext — neither a bindable KPI nor in the arm64 kernelcache symtab) and return `EPERM` for Apple platform/hardened binaries, whose task ports `task_for_pid` denies even to root under SIP/AMFI — analogous to `ptrace` permissions on Linux.
 - The `procfs_dopartitions` function in kext/procfs_linux.c lists mounted block-device filesystems (via `vfs_iterate`), not raw or unmounted disks — enumerating those needs IOKit, which a VFS-only kext can't reach.
 - Certain fields in `procfs_docpuinfo`, in kext/procfs_linux.c, such as `bugs` and `pm` have yet to be incorporated. Support for CPU flags for AMD CPUs is also still limited.
 
