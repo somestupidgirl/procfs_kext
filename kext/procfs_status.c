@@ -155,6 +155,12 @@ procfs_read_tty_data(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 int
 procfs_dostatus(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
+    // Linux presentation mode renders status as text (Name:/State:/Pid:/...);
+    // native mode emits the binary proc_bsdshortinfo below.
+    if (procfs_linux_mode) {
+        return procfs_doprocstatus_linux(pnp, uio, ctx);
+    }
+
     // Get the process id from the node id in the pfsnode and locate
     // the process.
     int error = 0;

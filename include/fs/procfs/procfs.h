@@ -481,6 +481,7 @@ extern int procfs_dothreadstatus(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dothreadsched(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* Linux-compatible per-process text nodes. */
+extern int procfs_doprocstatus_linux(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_docomm(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dostatm(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doprocstat(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);

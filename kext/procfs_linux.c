@@ -1180,6 +1180,8 @@ procfs_thread_state_word(char c)
     case 'R': return "running";
     case 'T': return "stopped";
     case 'D': return "disk sleep";
+    case 'Z': return "zombie";
+    case 'I': return "idle";
     default:  return "sleeping";
     }
 }
@@ -1566,6 +1568,64 @@ procfs_doprocstat(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         (unsigned long long)utime, (unsigned long long)stime, c.nthreads,
         (unsigned long long)c.vsize, (unsigned long long)rss_pages);
     return procfs_copy_data(buf, len, uio);
+}
+
+/*
+ * /proc/<pid>/status in Linux text form - the linux-mode rendering of the status
+ * node (native mode emits the binary proc_bsdshortinfo). Reuses procfs_pctx for
+ * the process context and the credential for the Uid/Gid rows.
+ */
+int
+procfs_doprocstatus_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct procfs_pctx c;
+    procfs_pctx_get(pnp, &c);
+
+    uid_t ruid = 0, euid = 0, svuid = 0;
+    gid_t rgid = 0, egid = 0, svgid = 0;
+    proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    if (p != PROC_NULL) {
+        kauth_cred_t cr = kauth_cred_proc_ref(p);
+        ruid  = kauth_cred_getruid(cr);
+        euid  = kauth_cred_getuid(cr);
+        svuid = kauth_cred_getsvuid(cr);
+        rgid  = kauth_cred_getrgid(cr);
+        egid  = kauth_cred_getgid(cr);
+        svgid = kauth_cred_getsvgid(cr);
+        kauth_cred_unref(&cr);
+        proc_rele(p);
+    }
+
+    struct sbuf sb;
+    if (sbuf_new(&sb, NULL, 1024, SBUF_AUTOEXTEND) == NULL) {
+        return ENOMEM;
+    }
+    sbuf_printf(&sb,
+        "Name:\t%s\n"
+        "State:\t%c (%s)\n"
+        "Tgid:\t%d\n"
+        "Pid:\t%d\n"
+        "PPid:\t%d\n"
+        "TracerPid:\t0\n"
+        "Uid:\t%u\t%u\t%u\t%u\n"
+        "Gid:\t%u\t%u\t%u\t%u\n"
+        "VmSize:\t%8llu kB\n"
+        "VmRSS:\t%8llu kB\n"
+        "Threads:\t%d\n"
+        "voluntary_ctxt_switches:\t0\n"
+        "nonvoluntary_ctxt_switches:\t0\n",
+        c.comm, c.state, procfs_thread_state_word(c.state),
+        c.pid, c.pid, c.ppid,
+        ruid, euid, svuid, euid,        /* Uid: real effective saved fs (fs~=eff) */
+        rgid, egid, svgid, egid,        /* Gid: real effective saved fs           */
+        (unsigned long long)(c.vsize >> 10),
+        (unsigned long long)(c.rsize >> 10),
+        c.nthreads);
+
+    sbuf_finish(&sb);
+    int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+    sbuf_delete(&sb);
+    return error;
 }
 
 /* /proc/uptime - seconds since boot and (approximate) idle seconds. */
