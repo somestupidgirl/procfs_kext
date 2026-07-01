@@ -372,8 +372,7 @@ through `hexdump` to read the raw contents:
    and Linux renderings diverge (only `regs`/`fpregs`/`auxv` differ today).
  - Implement `note` delivery (and a `vnop_write` path so the node is writable).
  - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
- - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.
- - Implement more linux-compatible files a la NetBSD and FreeBSD (`/proc/sys/`, …).
+ - Implement more linux-compatible features (`/proc/sys/`, etc.)
 
 ## Issues
 Currently known issues:
