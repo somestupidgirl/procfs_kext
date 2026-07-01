@@ -416,6 +416,10 @@ extern int procfs_read_thread_info(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx)
 extern int procfs_read_fd_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_read_socket_data(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doprocargs(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+/* Shared reader of the flattened argument region: buffer + argv/env/apple offsets
+ * (used by cmdline, environ and the native auxv node). Caller holds proc_find. */
+extern int procfs_read_procargs(proc_t p, uint8_t **bufp, size_t *lenp,
+        size_t *argv_off, size_t *env_off, size_t *apple_off);
 extern int procfs_domem(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /*

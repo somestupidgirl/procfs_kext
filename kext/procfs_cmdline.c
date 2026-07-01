@@ -129,28 +129,31 @@ procfs_cmdline_comm(proc_t p, uio_t uio)
 }
 
 /*
- * Fetch and emit the argument vector for a live, non-system process. Reads the
- * args region out of the target's user stack via its pmap, parses out argv and
- * copies it to the uio. Mirrors the role of NetBSD's procfs_doprocargs_helper()
- * (which is instead an output callback for copy_procargs(); see the file
- * banner). The caller holds the proc_find() reference.
+ * Read the target's flattened argument region (the KERN_PROCARGS2 layout) and
+ * locate its argv / env / apple[] sections. On success returns 0 with *bufp a
+ * malloc'd buffer (free with M_TEMP), *lenp its length, and the byte offsets
+ * where each section begins:
+ *
+ *   [ bare exec path \0 pad ][ argv strings ][ env strings ][ apple strings ]
+ *     ^0                       ^*argv_off      ^*env_off       ^*apple_off
+ *
+ * The env/apple boundary is the first "executable_path=" entry (apple[0]); if no
+ * apple section is found, *apple_off == *lenp. Shared by cmdline (argv span),
+ * environ (env span) and the native auxv node (apple span). The caller holds the
+ * proc_find() reference.
+ *
+ * Snapshotting the pmap under that reference keeps proc->task (hence its map)
+ * valid; if the process exits mid-read its pages simply stop being resident and
+ * pmap_find_phys() returns 0 (matching XNU's own KERN_PROCARGS2 stance).
  */
-static int
-procfs_doprocargs_helper(proc_t p, uio_t uio)
+int
+procfs_read_procargs(proc_t p, uint8_t **bufp, size_t *lenp,
+    size_t *argv_off, size_t *env_off, size_t *apple_off)
 {
-    int error = 0;
+    *bufp = NULL;
+    *lenp = 0;
+    *argv_off = *env_off = *apple_off = 0;
 
-    /*
-     * Snapshot the argument metadata and the task pmap. The caller's
-     * proc_find() reference is held across the whole read: that keeps
-     * proc->task referenced, so the task is not deallocated and its map/pmap
-     * structs stay valid (the map is torn down at task_deallocate, not at
-     * terminate). If the process exits during the read, its pages simply stop
-     * being resident and pmap_find_phys() returns 0. (A concurrent execve()
-     * could still swap the map out from under us; that sub-microsecond window
-     * is unprotectable without vm_map_reference(), which is not linkable, and
-     * matches the "stale info acceptable" stance of XNU's own KERN_PROCARGS2.)
-     */
     int         argc       = p->p_argc;
     size_t      argslen    = p->p_argslen;
     user_addr_t user_stack = p->user_stack;
@@ -159,14 +162,13 @@ procfs_doprocargs_helper(proc_t p, uio_t uio)
 
     if (argc <= 0 || user_stack == 0 || pmap == NULL ||
         argslen <= sizeof(PROCFS_EXEC_KEY) - 1) {
-        return procfs_cmdline_comm(p, uio);
+        return EINVAL;
     }
 
     /*
      * The args region is [user_stack - argslen, user_stack); the leading
      * PROCFS_EXEC_KEY prefix is stripped exactly as sysctl_procargsx() does, so
-     * the data starts with the bare executable path followed by argv and then
-     * the environment. Read from the start of that data forward.
+     * the data starts with the bare executable path, then argv, env and apple[].
      */
     size_t      adj     = argslen - (sizeof(PROCFS_EXEC_KEY) - 1);
     user_addr_t data_va = user_stack - adj;
@@ -176,38 +178,73 @@ procfs_doprocargs_helper(proc_t p, uio_t uio)
     if (buf == NULL) {
         return ENOMEM;
     }
-
     size_t n = procfs_copy_user_phys(pmap, data_va, buf, readlen);
     if (n == 0) {
-        /* Could not read any pages; fall back to the command name. */
-        error = procfs_cmdline_comm(p, uio);
-    } else {
-        /*
-         * Parse the strings: index 0 is the bare executable path (which may be
-         * followed by NUL padding for alignment); indices 1..argc are argv. We
-         * output just the argv span, which is already NUL-separated/terminated.
-         */
-        size_t pos = strnlen((const char *)buf, n);
-        if (pos < n) {
-            pos++;                                       /* path's NUL */
-            while (pos < n && buf[pos] == '\0') {
-                pos++;                                   /* alignment padding */
-            }
-        }
-
-        size_t argv_start = pos;
-        for (int got = 0; got < argc && pos < n; got++) {
-            size_t remaining = n - pos;
-            size_t arglen = strnlen((const char *)buf + pos, remaining);
-            if (arglen < remaining) {
-                arglen++;                                /* include the NUL */
-            }
-            pos += arglen;
-        }
-
-        error = procfs_copy_data((const char *)(buf + argv_start), (int)(pos - argv_start), uio);
+        free(buf, M_TEMP);
+        return EIO;
     }
 
+    /* Index 0 is the bare exec path, possibly with NUL alignment padding. */
+    size_t pos = strnlen((const char *)buf, n);
+    if (pos < n) {
+        pos++;                                       /* path's NUL */
+        while (pos < n && buf[pos] == '\0') {
+            pos++;                                   /* alignment padding */
+        }
+    }
+    *argv_off = pos;
+
+    /* Skip the argc argv strings -> start of env. */
+    for (int got = 0; got < argc && pos < n; got++) {
+        size_t remaining = n - pos;
+        size_t arglen = strnlen((const char *)buf + pos, remaining);
+        if (arglen < remaining) {
+            arglen++;                                /* include the NUL */
+        }
+        pos += arglen;
+    }
+    *env_off = pos;
+
+    /* apple[] begins at the first "executable_path=" entry (apple[0]). */
+    const size_t keylen = sizeof(PROCFS_EXEC_KEY) - 1;
+    size_t apple = n;
+    for (size_t scan = pos; scan < n; ) {
+        size_t remaining = n - scan;
+        if (remaining >= keylen &&
+            memcmp(buf + scan, PROCFS_EXEC_KEY, keylen) == 0) {
+            apple = scan;
+            break;
+        }
+        size_t slen = strnlen((const char *)buf + scan, remaining);
+        if (slen == remaining) {
+            break;                                   /* no terminator; stop */
+        }
+        scan += slen + 1;
+    }
+    *apple_off = apple;
+
+    *bufp = buf;
+    *lenp = n;
+    return 0;
+}
+
+/*
+ * Fetch and emit the argument vector for a live, non-system process: the argv
+ * span of the argument region. Mirrors the role of NetBSD's
+ * procfs_doprocargs_helper(). The caller holds the proc_find() reference.
+ */
+static int
+procfs_doprocargs_helper(proc_t p, uio_t uio)
+{
+    uint8_t *buf = NULL;
+    size_t   n = 0, argv_off = 0, env_off = 0, apple_off = 0;
+
+    if (procfs_read_procargs(p, &buf, &n, &argv_off, &env_off, &apple_off) != 0) {
+        return procfs_cmdline_comm(p, uio);          /* fall back to (comm) */
+    }
+
+    int error = procfs_copy_data((const char *)(buf + argv_off),
+                                 (int)(env_off - argv_off), uio);
     free(buf, M_TEMP);
     return error;
 }
@@ -242,6 +279,43 @@ procfs_doprocargs(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         error = procfs_cmdline_comm(p, uio);
     } else {
         error = procfs_doprocargs_helper(p, uio);
+    }
+
+    proc_rele(p);
+    return error;
+}
+
+/*
+ * Reads the "environ" node: the process's environment strings, NUL-separated
+ * (the Linux /proc/<pid>/environ format). Same source and reader as cmdline,
+ * emitting the env span of the argument region (between argv and apple[]) rather
+ * than argv. Zombies/system processes have no user stack, so report empty.
+ */
+int
+procfs_doenviron(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    if (uio_rw(uio) != UIO_READ) {
+        return EOPNOTSUPP;
+    }
+
+    proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    if (p == PROC_NULL) {
+        return ESRCH;
+    }
+
+    int error;
+    if ((p->p_stat == SZOMB) || (p->p_flag & P_SYSTEM) != 0) {
+        error = procfs_copy_data("", 0, uio);
+    } else {
+        uint8_t *buf = NULL;
+        size_t   n = 0, argv_off = 0, env_off = 0, apple_off = 0;
+        if (procfs_read_procargs(p, &buf, &n, &argv_off, &env_off, &apple_off) == 0) {
+            error = procfs_copy_data((const char *)(buf + env_off),
+                                     (int)(apple_off - env_off), uio);
+            free(buf, M_TEMP);
+        } else {
+            error = procfs_copy_data("", 0, uio);
+        }
     }
 
     proc_rele(p);
