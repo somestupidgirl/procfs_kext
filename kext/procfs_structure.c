@@ -125,6 +125,14 @@ procfs_structure_init(void)
         pfssnode_t *uptime = add_node(root_node, "uptime",
                         PFSuptime, next_node_id++, 0, 0, NULL, procfs_douptime);
 
+        // Linux-compatible /proc/swaps
+        pfssnode_t *swaps = add_node(root_node, "swaps",
+                        PFSswaps, next_node_id++, 0, 0, NULL, procfs_doswaps);
+
+        // Linux-compatible /proc/filesystems
+        pfssnode_t *filesystems = add_node(root_node, "filesystems",
+                        PFSfilesystems, next_node_id++, 0, 0, NULL, procfs_dofilesystems);
+
         // Linux-compatible /proc/self (symlink to the calling process; resolves
         // exactly like "curproc", the BSD name).
         pfssnode_t *self = add_node(root_node, "self",

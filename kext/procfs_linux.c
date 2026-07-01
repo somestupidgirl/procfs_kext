@@ -1643,6 +1643,100 @@ procfs_douptime(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     return procfs_copy_data(buf, len, uio);
 }
 
+/* /proc/swaps - macOS uses dynamic swap files under /private/var/vm; report the
+ * aggregate usage from the vm.swapusage sysctl as a single swap area. */
+int
+procfs_doswaps(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct sbuf sb;
+    if (sbuf_new(&sb, NULL, 256, SBUF_AUTOEXTEND) == NULL) {
+        return ENOMEM;
+    }
+    sbuf_printf(&sb, "Filename\t\t\t\tType\t\tSize\tUsed\tPriority\n");
+
+    struct xsw_usage xsu;
+    size_t len = sizeof(xsu);
+    if (sysctlbyname("vm.swapusage", &xsu, &len, NULL, 0) == 0 && xsu.xsu_total > 0) {
+        sbuf_printf(&sb, "/private/var/vm/swapfile\tfile\t\t%llu\t%llu\t-1\n",
+            (unsigned long long)(xsu.xsu_total / 1024),
+            (unsigned long long)(xsu.xsu_used  / 1024));
+    }
+
+    sbuf_finish(&sb);
+    int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+    sbuf_delete(&sb);
+    return error;
+}
+
+/* Filesystem types that mount without a backing block device (Linux "nodev"). */
+static boolean_t
+procfs_fs_is_nodev(const char *type)
+{
+    static const char *const nodev[] = {
+        "devfs", "procfs", "autofs", "nullfs", "fdesc", "tmpfs", "mtmfs",
+        "lifs", "bindfs", "webdav", "nfs", "smbfs", "ftp", NULL
+    };
+    for (int i = 0; nodev[i] != NULL; i++) {
+        if (strncmp(type, nodev[i], MFSTYPENAMELEN) == 0) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+struct procfs_fstypes_ctx {
+    char names[32][MFSTYPENAMELEN];
+    int  count;
+};
+
+/* vfs_iterate() callout: collect each distinct mounted filesystem type. */
+static int
+procfs_fstypes_cb(mount_t mp, void *arg)
+{
+    struct procfs_fstypes_ctx *fc = (struct procfs_fstypes_ctx *)arg;
+    struct vfsstatfs *st = vfs_statfs(mp);
+    if (st == NULL) {
+        return VFS_RETURNED;
+    }
+    for (int i = 0; i < fc->count; i++) {
+        if (strncmp(fc->names[i], st->f_fstypename, MFSTYPENAMELEN) == 0) {
+            return VFS_RETURNED;                /* already seen this type */
+        }
+    }
+    if (fc->count < (int)(sizeof(fc->names) / sizeof(fc->names[0]))) {
+        strlcpy(fc->names[fc->count], st->f_fstypename, MFSTYPENAMELEN);
+        fc->count++;
+    }
+    return VFS_RETURNED;
+}
+
+/*
+ * /proc/filesystems - the distinct filesystem types currently in use (macOS has
+ * no kernel-context enumeration of all *registered* types, so this lists the
+ * mounted ones, deduplicated). "nodev" prefixes types that need no block device.
+ */
+int
+procfs_dofilesystems(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct procfs_fstypes_ctx fc;
+    bzero(&fc, sizeof(fc));
+    vfs_iterate(0, procfs_fstypes_cb, &fc);
+
+    struct sbuf sb;
+    if (sbuf_new(&sb, NULL, 512, SBUF_AUTOEXTEND) == NULL) {
+        return ENOMEM;
+    }
+    for (int i = 0; i < fc.count; i++) {
+        sbuf_printf(&sb, "%s\t%s\n",
+            procfs_fs_is_nodev(fc.names[i]) ? "nodev" : "", fc.names[i]);
+    }
+
+    sbuf_finish(&sb);
+    int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
+    sbuf_delete(&sb);
+    return error;
+}
+
 #pragma mark -
 #pragma mark Presentation-mode switch (native vs Linux)
 

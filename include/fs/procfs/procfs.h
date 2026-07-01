@@ -88,6 +88,8 @@ typedef enum {
     PFSstat,        /* Linux-compatible /proc/stat */
     PFSvmstat,      /* Linux-compatible /proc/vmstat */
     PFSuptime,      /* Linux-compatible /proc/uptime */
+    PFSswaps,       /* Linux-compatible /proc/swaps */
+    PFSfilesystems, /* Linux-compatible /proc/filesystems */
     PFSproclink,    /* per-process symlink: exe/cwd/root (target by node name) */
 } pfstype;
 
@@ -353,7 +355,8 @@ procfs_is_directory_type(pfstype type)
         && type != PFSpartitions && type != PFSversion
         && type != PFSmeminfo && type != PFSmtab
         && type != PFSstat && type != PFSvmstat
-        && type != PFSuptime && type != PFSproclink;
+        && type != PFSuptime && type != PFSproclink
+        && type != PFSswaps && type != PFSfilesystems;
 }
 
 /* Gets the pid_t for the process corresponding to a pfsnode_t. */
@@ -488,6 +491,8 @@ extern int procfs_dostatm(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doprocstat(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doenviron(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_douptime(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_doswaps(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_dofilesystems(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* BSD/Linux-compatible features */
 extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
