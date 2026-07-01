@@ -351,7 +351,8 @@ procfs_is_directory_type(pfstype type)
         && type != PFSfile && type != PFScpuinfo
         && type != PFSpartitions && type != PFSversion
         && type != PFSmeminfo && type != PFSmtab
-        && type != PFSstat && type != PFSvmstat;
+        && type != PFSstat && type != PFSvmstat
+        && type != PFSuptime;
 }
 
 /* Gets the pid_t for the process corresponding to a pfsnode_t. */
