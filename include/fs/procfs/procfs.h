@@ -454,10 +454,19 @@ extern int procfs_domaps(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doregs(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dofpregs(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doauxv(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
-/* Linux-compat-mode text variants (guarded; not yet wired). */
+/* Linux-compat-mode text variants, selected at runtime by procfs_linux_mode. */
 extern int procfs_doregs_linux(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dofpregs_linux(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_doauxv_linux(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+
+/*
+ * Presentation mode: 0 = native (BSD/XNU), 1 = Linux-compatible. Toggled live
+ * from userspace via the `procfs.linux` sysctl. Nodes that have both a native
+ * and a Linux rendering (regs/fpregs/auxv) dispatch on it.
+ */
+extern int  procfs_linux_mode;
+extern void procfs_sysctl_register(void);
+extern void procfs_sysctl_unregister(void);
 
 /* Linux-compatible per-thread files (/proc/<pid>/task/<tid>/). */
 extern int procfs_dothreadcomm(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);

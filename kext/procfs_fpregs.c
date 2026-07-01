@@ -45,6 +45,11 @@ procfs_dofpregs(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         return EOPNOTSUPP;       /* the node is read-only */
     }
 
+    /* Linux presentation mode renders the FP/SIMD registers as text. */
+    if (procfs_linux_mode) {
+        return procfs_dofpregs_linux(pnp, uio, ctx);
+    }
+
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p == PROC_NULL) {
         return ESRCH;

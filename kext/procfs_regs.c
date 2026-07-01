@@ -51,6 +51,11 @@ procfs_doregs(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         return EOPNOTSUPP;       /* the node is read-only */
     }
 
+    /* Linux presentation mode renders the registers as text (procfs_linux.c). */
+    if (procfs_linux_mode) {
+        return procfs_doregs_linux(pnp, uio, ctx);
+    }
+
     /* Validate the pid and reject processes with no user thread state. */
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p == PROC_NULL) {

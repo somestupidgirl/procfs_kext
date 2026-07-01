@@ -240,12 +240,21 @@ kernelcache symtab), so those nodes require a connected daemon and return
     model is currently read-only (no `vnop_write`) and note delivery is
     unimplemented, so writing one is not yet possible.
 
+**Presentation mode (native vs Linux):** the `procfs.linux` sysctl selects how
+nodes that have both renderings present themselves — `0` (default) = native
+BSD/XNU, `1` = Linux-compatible. It is a live global toggle:
+
+    sudo sysctl -w procfs.linux=1     # Linux-compatible
+    sudo sysctl -w procfs.linux=0     # native (default)
+
+Currently `regs`, `fpregs` and `auxv` honour it: in native mode they emit the
+binary Mach state / the raw `apple[]` array; in Linux mode they emit the
+human-readable text forms (`x0 0x…`, `q0 0x…`, `AT_PAGESZ …`) from
+`procfs_linux.c`. Other nodes keep their single format for now.
+
 **Not yet present (planned — see TODO):**
 
-  - Further Linux-style `/proc` files (`/proc/sys/`, …) and a userspace switch to
-    select native (BSD/XNU) vs. Linux-compatible presentation. The Linux-style
-    text renderings of `regs`/`fpregs`/`auxv` are already implemented but not yet
-    wired, awaiting that switch.
+  - Further Linux-style `/proc` files (`/proc/sys/`, …).
 
 ## How to build procfs
 `make` builds the kext, the `procfs.fs` mount bundle, the userspace tools
@@ -331,9 +340,8 @@ through `hexdump` to read the raw contents:
     cat /proc/self/auxv | tr '\0' '\n'
 
 ## TODO:
- - Implement a userspace switch to select native (BSD/XNU) vs. Linux-compatible
-   presentation (NetBSD-style), and wire the already-implemented Linux-style text
-   renderings of `regs`/`fpregs`/`auxv` to it.
+ - Extend the `procfs.linux` presentation-mode switch to more nodes as native
+   and Linux renderings diverge (only `regs`/`fpregs`/`auxv` differ today).
  - Implement `note` delivery (and a `vnop_write` path so the node is writable).
  - Fix per-node timestamps reported by `getattr` (currently show placeholder values in `ls -l`).
  - Make the code, function names, structures, etc. be more consistent with NetBSD's procfs for easier comparison and porting.

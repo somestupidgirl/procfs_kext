@@ -149,6 +149,11 @@ procfs_doauxv(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
         return EOPNOTSUPP;       /* the node is read-only */
     }
 
+    /* Linux presentation mode renders synthesized AT_* text (procfs_linux.c). */
+    if (procfs_linux_mode) {
+        return procfs_doauxv_linux(pnp, uio, ctx);
+    }
+
     proc_t p = proc_find(pnp->node_id.nodeid_pid);
     if (p == PROC_NULL) {
         return ESRCH;

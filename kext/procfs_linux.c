@@ -1473,3 +1473,69 @@ procfs_doauxv_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     proc_rele(p);
     return error;
 }
+
+#pragma mark -
+#pragma mark Presentation-mode switch (native vs Linux)
+
+/*
+ * Presentation mode, toggled live from userspace via the `procfs.linux` sysctl:
+ *   sysctl -w procfs.linux=1   # Linux-compatible rendering
+ *   sysctl -w procfs.linux=0   # native BSD/XNU rendering (default)
+ *
+ * Nodes with both renderings (regs/fpregs/auxv) check this; other nodes keep
+ * their single format. The oids are registered/unregistered by the kext's
+ * start/stop (a kext must register its sysctl oids explicitly - they are not
+ * wired into the kernel's linker set).
+ */
+int procfs_linux_mode = 0;
+
+/*
+ * The `procfs.linux` oids are built by hand rather than with the SYSCTL_NODE /
+ * SYSCTL_INT macros. Under XNU_KERNEL_PRIVATE (which the kext compiles with)
+ * those macros expand to an in-kernel STARTUP auto-registration that references
+ * sysctl_register_oid_early() - an internal symbol NOT exported to kexts, so the
+ * kext would fail to bind and never load. Constructing the sysctl_oid structs
+ * directly and registering them through the KPI sysctl_register_oid() avoids
+ * that symbol entirely; omitting CTLFLAG_PERMANENT lets us remove them at unload.
+ */
+static struct sysctl_oid_list procfs_sysctl_children;
+
+static struct sysctl_oid procfs_sysctl_node = {
+    .oid_parent  = &sysctl__children,
+    .oid_number  = OID_AUTO,
+    .oid_kind    = CTLTYPE_NODE | CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_OID2,
+    .oid_arg1    = &procfs_sysctl_children,
+    .oid_arg2    = 0,
+    .oid_name    = "procfs",
+    .oid_handler = NULL,
+    .oid_fmt     = "N",
+    .oid_descr   = "procfs filesystem",
+    .oid_version = SYSCTL_OID_VERSION,
+};
+
+static struct sysctl_oid procfs_sysctl_linux = {
+    .oid_parent  = &procfs_sysctl_children,
+    .oid_number  = OID_AUTO,
+    .oid_kind    = CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_OID2,
+    .oid_arg1    = &procfs_linux_mode,
+    .oid_arg2    = 0,
+    .oid_name    = "linux",
+    .oid_handler = sysctl_handle_int,
+    .oid_fmt     = "I",
+    .oid_descr   = "procfs presentation mode: 0 = native BSD/XNU, 1 = Linux-compatible",
+    .oid_version = SYSCTL_OID_VERSION,
+};
+
+void
+procfs_sysctl_register(void)
+{
+    sysctl_register_oid(&procfs_sysctl_node);   /* parent first */
+    sysctl_register_oid(&procfs_sysctl_linux);
+}
+
+void
+procfs_sysctl_unregister(void)
+{
+    sysctl_unregister_oid(&procfs_sysctl_linux);
+    sysctl_unregister_oid(&procfs_sysctl_node);
+}

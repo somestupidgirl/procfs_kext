@@ -125,6 +125,9 @@ procfs_start(kmod_info_t *ki, __unused void *d)
      * proc_pidinfo-backed fields the kext cannot compute itself. Non-fatal. */
     (void)procfs_ctl_register();
 
+    /* Register the `procfs.linux` sysctl (native vs Linux presentation mode). */
+    procfs_sysctl_register();
+
     /* Begin sampling CPU utilisation for the loadavg node (no-op without klookup). */
     procfs_loadavg_start();
 
@@ -148,6 +151,9 @@ procfs_stop(__unused kmod_info_t *ki, __unused void *d)
 
     /* Stop the loadavg sampler before tearing anything else down. */
     procfs_loadavg_stop();
+
+    /* Remove the `procfs.linux` sysctl. */
+    procfs_sysctl_unregister();
 
     /* Tear down the kernel-control bridge. */
     procfs_ctl_deregister();
