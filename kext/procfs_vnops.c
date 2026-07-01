@@ -538,6 +538,10 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 type = DT_REG;
                 break;
 
+            case PFSuptime:
+                type = DT_REG;
+                break;
+
             case PFSdirthis:
                 type = DT_DIR;
 
@@ -804,7 +808,8 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     if (node_type != PFScpuinfo && node_type != PFSloadavg
      && node_type != PFSpartitions && node_type != PFSversion
      && node_type != PFSmeminfo && node_type != PFSmtab
-     && node_type != PFSstat && node_type != PFSvmstat) {
+     && node_type != PFSstat && node_type != PFSvmstat
+     && node_type != PFSuptime) {
         // Get the process pid and proc_t for the target vnode.
         // Returns ENOENT if the process does not exist. For the
         // root vnode, p is zero and pid is PRNODE_NO_PID, but the
@@ -874,6 +879,10 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
         break;
 
     case PFSversion:
+        VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
+        break;
+
+    case PFSuptime:
         VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
         break;
 

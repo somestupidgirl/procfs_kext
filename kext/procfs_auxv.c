@@ -85,7 +85,7 @@ auxv_skip_ptr_array(pmap_t pmap, user_addr_t *off)
  * *outlen, or NULL on failure / nothing readable.
  */
 static uint8_t *
-procfs_read_apple_array(proc_t p, size_t *outlen)
+procfs_read_stack_strv(proc_t p, int skip_arrays, size_t *outlen)
 {
     *outlen = 0;
 
@@ -96,12 +96,18 @@ procfs_read_apple_array(proc_t p, size_t *outlen)
         return NULL;
     }
 
-    /* Skip the argc slot, then the argv and envp pointer arrays; what remains is
-     * the apple[] pointer array. */
+    /*
+     * The user stack starts with the argc slot, then the argv, envp and apple[]
+     * NUL-terminated pointer arrays. Skip the argc slot and `skip_arrays` of the
+     * pointer arrays; the strings of the next array are then collected. So
+     * skip_arrays=1 collects envp (/proc/<pid>/environ) and skip_arrays=2
+     * collects apple[] (the auxv equivalent).
+     */
     user_addr_t off = sp + AUXV_PTRSZ;
-    if (!auxv_skip_ptr_array(pmap, &off) ||     /* argv */
-        !auxv_skip_ptr_array(pmap, &off)) {     /* envp */
-        return NULL;
+    for (int s = 0; s < skip_arrays; s++) {
+        if (!auxv_skip_ptr_array(pmap, &off)) {
+            return NULL;
+        }
     }
 
     uint8_t *buf = malloc(AUXV_MAX_TOTAL, M_TEMP, M_WAITOK);
@@ -166,11 +172,47 @@ procfs_doauxv(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     }
 
     size_t   len = 0;
-    uint8_t *buf = procfs_read_apple_array(p, &len);
+    uint8_t *buf = procfs_read_stack_strv(p, 2, &len);      /* skip argv+envp -> apple[] */
 
     int error;
     if (buf == NULL) {
         error = procfs_copy_data("", 0, uio);   /* nothing readable - empty */
+    } else {
+        error = procfs_copy_data((const char *)buf, (int)len, uio);
+        free(buf, M_TEMP);
+    }
+
+    proc_rele(p);
+    return error;
+}
+
+/*
+ * /proc/<pid>/environ - the process's environment, NUL-separated (the Linux
+ * format). The env strings are the envp[] pointer array on the user stack, right
+ * after argv; read via the same pmap path as auxv/cmdline.
+ */
+int
+procfs_doenviron(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    if (uio_rw(uio) != UIO_READ) {
+        return EOPNOTSUPP;
+    }
+
+    proc_t p = proc_find(pnp->node_id.nodeid_pid);
+    if (p == PROC_NULL) {
+        return ESRCH;
+    }
+    if ((p->p_stat == SZOMB) || (p->p_flag & P_SYSTEM) != 0) {
+        proc_rele(p);
+        return procfs_copy_data("", 0, uio);
+    }
+
+    size_t   len = 0;
+    uint8_t *buf = procfs_read_stack_strv(p, 1, &len);      /* skip argv -> envp[] */
+
+    int error;
+    if (buf == NULL) {
+        error = procfs_copy_data("", 0, uio);
     } else {
         error = procfs_copy_data((const char *)buf, (int)len, uio);
         free(buf, M_TEMP);

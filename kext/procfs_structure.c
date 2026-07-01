@@ -117,6 +117,15 @@ procfs_structure_init(void)
         pfssnode_t *version = add_node(root_node, "version",
                         PFSversion, next_node_id++, 0, 0, NULL, procfs_doversion);
 
+        // Linux-compatible /proc/uptime
+        pfssnode_t *uptime = add_node(root_node, "uptime",
+                        PFSuptime, next_node_id++, 0, 0, NULL, procfs_douptime);
+
+        // Linux-compatible /proc/self (symlink to the calling process; resolves
+        // exactly like "curproc", the BSD name).
+        pfssnode_t *self = add_node(root_node, "self",
+                        PFScurproc, next_node_id++, 0, 0, NULL, NULL);
+
         // A pseudo-entry below "byname" that is replaced by nodes for all of the visible processes.
         // NOTE: this must be the last child entry for the "byname" node.
         pfssnode_t *proc_name_dir = add_directory(proc_by_name_dir, "__Process_N__",
@@ -177,6 +186,12 @@ procfs_structure_init(void)
         add_file(one_proc_dir, "mem", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_domem);
         add_file(one_proc_dir, "map", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_domap);
         add_file(one_proc_dir, "maps", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_domaps);
+
+        // Linux-compatible per-process text files.
+        add_file(one_proc_dir, "comm", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_docomm);
+        add_file(one_proc_dir, "stat", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_doprocstat);
+        add_file(one_proc_dir, "statm", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_dostatm);
+        add_file(one_proc_dir, "environ", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_doenviron);
 
         // Native Mach register dumps for the process's representative thread.
         add_file(one_proc_dir, "regs", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_doregs);

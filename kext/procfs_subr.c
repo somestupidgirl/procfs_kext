@@ -54,6 +54,7 @@ procfs_allocvp(pfstype pfs_type)
     case PFSmtab:           /* FALLTHROUGH */
     case PFSstat:           /* FALLTHROUGH */
     case PFSvmstat:         /* FALLTHROUGH */
+    case PFSuptime:         /* FALLTHROUGH */
         return VREG;
 
     case PFSprocnamedir:    /* FALLTHROUGH */
@@ -102,7 +103,7 @@ procfs_node_type_has_pid(pfstype node_type)
         && node_type != PFSdir && node_type != PFScpuinfo
         && node_type != PFSversion && node_type != PFSmeminfo
         && node_type != PFSmtab && node_type != PFSstat
-        && node_type != PFSvmstat;
+        && node_type != PFSvmstat && node_type != PFSuptime;
 }
 
 /*

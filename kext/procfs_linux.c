@@ -1105,17 +1105,46 @@ procfs_thread_info(pfsnode_t *pnp, struct proc_threadinfo *ti)
     return ENOTSUP;     /* best-effort: callers format the zeroed struct */
 }
 
+/* Fetch proc_taskinfo from the daemon (ti left zeroed if unavailable). */
+static int
+procfs_task_info(pfsnode_t *pnp, struct proc_taskinfo *ti)
+{
+    bzero(ti, sizeof(*ti));
+    uint32_t got = 0;
+    if (procfs_ctl_request(PROCFS_REQ_TASKINFO, pnp->node_id.nodeid_pid, 0,
+            ti, sizeof(*ti), &got) == 0 && got == sizeof(*ti)) {
+        return 0;
+    }
+    return ENOTSUP;     /* best-effort: callers format the zeroed struct */
+}
+
+/* Map a BSD p_stat to the Linux process state character. */
+static char
+procfs_proc_state(int p_stat)
+{
+    switch (p_stat) {
+    case SIDL:   return 'I';
+    case SRUN:   return 'R';
+    case SSTOP:  return 'T';
+    case SZOMB:  return 'Z';
+    case SSLEEP: return 'S';
+    default:     return 'S';
+    }
+}
+
 /* Process-level context for the thread's owning process. */
 struct procfs_pctx {
     int      pid, ppid, pgid, sid, nthreads;
     uint64_t vsize, rsize;
     char     comm[MAXCOMLEN + 1];
+    char     state;     /* Linux process-state char from p_stat */
 };
 
 static void
 procfs_pctx_get(pfsnode_t *pnp, struct procfs_pctx *c)
 {
     bzero(c, sizeof(*c));
+    c->state = 'S';
     c->pid = pnp->node_id.nodeid_pid;
     proc_t p = proc_find(c->pid);
     if (p == PROC_NULL) {
@@ -1125,6 +1154,7 @@ procfs_pctx_get(pfsnode_t *pnp, struct procfs_pctx *c)
     c->pgid     = proc_pgrpid(p);
     c->sid      = proc_sessionid(p);
     c->nthreads = procfs_get_task_thread_count(p);
+    c->state    = procfs_proc_state(p->p_stat);
     (void)procfs_task_vm_sizes(p, &c->vsize, &c->rsize);
     proc_name(c->pid, c->comm, sizeof(c->comm));
     proc_rele(p);
@@ -1472,6 +1502,85 @@ procfs_doauxv_linux(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
     sbuf_delete(&sb);
     proc_rele(p);
     return error;
+}
+
+#pragma mark -
+#pragma mark Process-level Linux text nodes
+
+/* /proc/<pid>/comm - the process (command) name, one line. */
+int
+procfs_docomm(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct procfs_pctx c;
+    procfs_pctx_get(pnp, &c);
+
+    char buf[MAXCOMLEN + 2];
+    int len = snprintf(buf, sizeof(buf), "%s\n", c.comm);
+    return procfs_copy_data(buf, len, uio);
+}
+
+/*
+ * /proc/<pid>/statm - memory usage in pages:
+ *   size resident shared text lib data dt
+ * Only size (virtual) and resident have a macOS source; the rest are 0.
+ */
+int
+procfs_dostatm(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct procfs_pctx c;
+    procfs_pctx_get(pnp, &c);
+
+    char buf[128];
+    int len = snprintf(buf, sizeof(buf), "%llu %llu 0 0 0 0 0\n",
+        (unsigned long long)(c.vsize / PAGE_SIZE),
+        (unsigned long long)(c.rsize / PAGE_SIZE));
+    return procfs_copy_data(buf, len, uio);
+}
+
+/*
+ * /proc/<pid>/stat - the process's single-line stat (52 space-separated fields,
+ * same layout as the per-thread stat). CPU time comes from the daemon's
+ * proc_taskinfo; fields with no macOS source are 0/-1 (priority 20, policy 0).
+ */
+int
+procfs_doprocstat(pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct procfs_pctx   c;
+    struct proc_taskinfo ti;
+    procfs_pctx_get(pnp, &c);
+    procfs_task_info(pnp, &ti);
+
+    uint64_t utime = ti.pti_total_user   / PROCFS_NS_PER_TICK;
+    uint64_t stime = ti.pti_total_system / PROCFS_NS_PER_TICK;
+    uint64_t rss_pages = c.rsize / PAGE_SIZE;
+
+    char buf[640];
+    int len = snprintf(buf, sizeof(buf),
+        "%d (%s) %c %d %d %d 0 -1 0 0 0 0 0 "                  /* 1-13  */
+        "%llu %llu 0 0 20 0 %d 0 0 "                           /* 14-22 */
+        "%llu %llu 18446744073709551615 "                     /* 23-25 */
+        "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "                       /* 26-40 */
+        "0 "                                                  /* 41 policy */
+        "0 0 0 0 0 0 0 0 0 0 0\n",                             /* 42-52 */
+        c.pid, c.comm, c.state, c.ppid, c.pgid, c.sid,
+        (unsigned long long)utime, (unsigned long long)stime, c.nthreads,
+        (unsigned long long)c.vsize, (unsigned long long)rss_pages);
+    return procfs_copy_data(buf, len, uio);
+}
+
+/* /proc/uptime - seconds since boot and (approximate) idle seconds. */
+int
+procfs_douptime(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
+{
+    struct timeval tv;
+    microuptime(&tv);
+
+    /* Field 2 is summed CPU idle time; macOS has no cheap kernel-context source
+     * for it here, so report 0.00 (the common consumer, uptime(1), uses field 1). */
+    char buf[64];
+    int len = snprintf(buf, sizeof(buf), "%lld.%02d 0.00\n",
+        (long long)tv.tv_sec, (int)(tv.tv_usec / 10000));
+    return procfs_copy_data(buf, len, uio);
 }
 
 #pragma mark -

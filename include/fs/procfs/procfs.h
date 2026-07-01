@@ -87,6 +87,7 @@ typedef enum {
     PFSmtab,        /* Linux-compatible /proc/mtab */
     PFSstat,        /* Linux-compatible /proc/stat */
     PFSvmstat,      /* Linux-compatible /proc/vmstat */
+    PFSuptime,      /* Linux-compatible /proc/uptime */
 } pfstype;
 
 typedef struct pfsnode pfsnode_t;
@@ -473,6 +474,13 @@ extern int procfs_dothreadcomm(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dothreadstat(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dothreadstatus(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 extern int procfs_dothreadsched(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+
+/* Linux-compatible per-process text nodes. */
+extern int procfs_docomm(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_dostatm(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_doprocstat(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_doenviron(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
+extern int procfs_douptime(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
 
 /* BSD/Linux-compatible features */
 extern int procfs_docpuinfo(pfsnode_t *pnp, uio_t uio, vfs_context_t ctx);
