@@ -43,6 +43,7 @@ extern char **environ;
 
 /* Boot orchestration paths. */
 #define PROCFS_BUNDLE_ID  "com.beako.filesystems.procfs"
+#define PROCFS_KEXT_PATH  "/Library/Extensions/procfs.kext"  /* load by path at boot */
 #define PROCFS_STAGER     "/usr/local/sbin/procfs_ksyms"   /* symbol-staging helper */
 #define PROCFS_ARM_FLAG   "/var/db/procfs.enabled"         /* gate for auto-loading the kext */
 
@@ -79,8 +80,11 @@ procfsd_bootstrap(void)
 
     if (access(PROCFS_ARM_FLAG, F_OK) == 0) {
         fprintf(stderr, "procfsd: armed (%s present) - loading kext %s\n",
-            PROCFS_ARM_FLAG, PROCFS_BUNDLE_ID);
-        char *argv[] = { "/usr/bin/kmutil", "load", "-b", (char *)PROCFS_BUNDLE_ID, NULL };
+            PROCFS_ARM_FLAG, PROCFS_KEXT_PATH);
+        /* Load by PATH, not by bundle id: `kmutil load -b <id>` frequently fails
+         * at boot ("no such bundle" / not yet in the AuxKC), whereas loading the
+         * installed bundle by path is what works interactively and here. */
+        char *argv[] = { "/usr/bin/kmutil", "load", "-p", (char *)PROCFS_KEXT_PATH, NULL };
         run_to_completion("/usr/bin/kmutil", argv);
     } else {
         fprintf(stderr, "procfsd: not armed (%s absent); skipping kext auto-load. "
