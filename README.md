@@ -34,7 +34,7 @@ Linux-compatible files and helpers:
 |`cpuinfo`     | Linux-style CPU information (text)                                   |
 |`loadavg`     | Linux-style load averages (text; true values via the `procfsd` daemon, CPU-utilisation approximation as fallback — see below) |
 |`meminfo`     | Linux-style memory summary (text; `MemFree` is the FreeBSD non-wired estimate on Apple Silicon — see below) |
-|`partitions`  | Linux-style partition table (text; mounted block devices — see below) |
+|`partitions`  | Linux-style partition table (text; all block devices via IOKit — see below) |
 |`mtab`        | Linux-style mounted-filesystem table (`/etc/mtab` format: `device mountpoint fstype options 0 0`) |
 |`stat`        | Linux-style kernel/system statistics (`cpu`/`cpuN` ticks, `btime`, `processes`; see below) |
 |`vmstat`      | Linux-style virtual-memory statistics (daemon-backed `host_statistics64`; see below) |
@@ -80,8 +80,10 @@ Verified with `test/test_features.sh`.
     when no daemon is connected (see Apple Silicon note)
   - `meminfo` — Linux-style memory summary; `MemTotal` and `MemFree` are
     populated (`MemFree` via the FreeBSD non-wired estimate — see Apple Silicon note)
-  - `partitions` — Linux-style table of mounted block devices (real major/minor,
-    block counts and names; mounted volumes only — see note below)
+  - `partitions` — Linux-style table of block devices via IOKit (`IOMedia`):
+    every whole disk and partition, mounted or not, with real major/minor, 1 K
+    block counts and BSD names (falls back to the mounted-only list without
+    IOKit — see note below)
   - `mtab` — Linux `/etc/mtab`-style table of every mounted filesystem
     (`device mountpoint fstype options 0 0`), via `vfs_iterate` + `vfs_statfs`
   - `stat` — Linux `/proc/stat`: per-CPU `cpu`/`cpuN` user/nice/system/idle
@@ -197,14 +199,17 @@ arrays on the target's user stack (read through its pmap, as `cmdline` does) and
 following each `apple` pointer to its string. Zombies and system processes report
 empty.
 
-`partitions` lists mounted block-device filesystems rather than raw disks.
-Linux's `/proc/partitions` enumerates every block device, but on macOS that
-information lives in IOKit, which a C VFS-only kext cannot reach. Instead the
-node walks the mount list with `vfs_iterate()` and, for each `/dev/*` mount,
-reports the major/minor from `vfs_statfs()`'s `f_fsid`, the 1 K block count from
-`f_blocks × f_bsize`, and the device name — real data for every mounted volume
-(on APFS each volume reports its shared container capacity). Unmounted
-partitions are not shown.
+`partitions` enumerates block devices through IOKit, matching the `IOMedia`
+class — every whole disk and partition, mounted or not, exactly as Linux's
+`/proc/partitions` does. That data lives in the IORegistry, reachable only via
+the C++ IOKit runtime (the C IOKit KPI exposes no registry matching), so this is
+the kext's one C++ translation unit (`procfs_iokit.cpp`): it matches `IOMedia`
+by name and reads each object's `BSD Name`/`BSD Major`/`BSD Minor`/`Size`
+properties off the base `IORegistryEntry`, needing only the base IOKit and
+libkern KPIs (no dependency on `IOStorageFamily`'s `IOMedia` class). Each row is
+`major minor #blocks name` with the 1 K block count from the media size. If
+IOKit matching fails, the node falls back to the mounted-filesystem list
+(`vfs_iterate()` + `vfs_statfs()`), which shows mounted volumes only.
 
 ### The `procfsd` daemon
 
@@ -341,7 +346,7 @@ Currently known issues:
 - `taskinfo` and per-thread `info` are populated by the `procfsd` daemon (`proc_pidinfo`); they read the kext fallback / zero only when no daemon is connected, since the private `fill_taskprocinfo` / `fill_taskthreadinfo` are stripped from the arm64 kernel.
 - `note` is a NetBSD-style scaffold: reads return `EINVAL` and writing a note is not yet possible (no write path / no delivery).
 - `regs`/`fpregs` require the `procfsd` daemon (`thread_get_state` is unreachable from the kext — neither a bindable KPI nor in the arm64 kernelcache symtab) and return `EPERM` for Apple platform/hardened binaries, whose task ports `task_for_pid` denies even to root under SIP/AMFI — analogous to `ptrace` permissions on Linux.
-- The `procfs_dopartitions` function in kext/procfs_linux.c lists mounted block-device filesystems (via `vfs_iterate`), not raw or unmounted disks — enumerating those needs IOKit, which a VFS-only kext can't reach.
+- `partitions` now enumerates all block devices (whole disks and partitions, mounted or not) via IOKit's `IOMedia` class (`kext/procfs_iokit.cpp`, the kext's one C++ file). It falls back to the mounted-filesystem list (`vfs_iterate`) only if IOKit matching fails.
 - Certain fields in `procfs_docpuinfo`, in kext/procfs_linux.c, such as `bugs` and `pm` have yet to be incorporated. Support for CPU flags for AMD CPUs is also still limited.
 
 ## Contributing and Bug Reporting

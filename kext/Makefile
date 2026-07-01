@@ -19,8 +19,9 @@ MACOSX_VERSION_MIN?= 12.0
 CC=       $(shell xcrun -find -sdk $(SDKROOT) cc)
 CODESIGN= $(shell xcrun -find -sdk $(SDKROOT) codesign)
 
-SRCS:= $(wildcard *.c) $(wildcard **/*.c)
-OBJS:= $(SRCS:.c=.o)
+CSRCS:=   $(wildcard *.c) $(wildcard **/*.c)
+CXXSRCS:= $(wildcard *.cpp)
+OBJS:=    $(CSRCS:.c=.o) $(CXXSRCS:.cpp=.o)
 
 CFLAGS+= -DKEXTNAME_S=\"$(KEXTNAME)\" \
          -DKEXTVERSION_S=\"$(KEXTVERSION)\" \
@@ -111,6 +112,15 @@ CFLAGS+= -Werror -Wall -Wextra \
          -Wno-unused-function \
          -Wno-deprecated-declarations
 
+# C++ flags for the lone IOKit translation unit (procfs_iokit.cpp). Reuse the C
+# flags but: drop the C-language selector (-x c / -std=gnu99); drop the vendored
+# XNU header paths (they are C-only - _Bool, C-linkage prototypes - and clash
+# with C++; the IOKit/libkern C++ headers come from the SDK Kernel.framework
+# instead); and add the kernel C++ dialect (no RTTI/exceptions - libkern has its
+# own via OSMetaClass - and -fapple-kext for the kext C++ ABI).
+CXXFLAGS := $(filter-out -x c -std=gnu99 $(XNU_INCLUDES),$(CFLAGS)) \
+            -x c++ -std=gnu++17 -fno-rtti -fno-exceptions -fapple-kext
+
 LDFLAGS+= -target $(TARGET_TRIPLE) \
           -isysroot $(SDKROOT) \
           $(ARCHFLAGS) \
@@ -146,6 +156,9 @@ all: debug
 
 %.o: %.c $(HDRS)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+%.o: %.cpp $(HDRS)
+	$(CC) $(CXXFLAGS) -c -o $@ $<
 
 $(KEXTMACHO): $(OBJS)
 	$(CC) $(LDFLAGS) $(LIBS) -o $@ $^

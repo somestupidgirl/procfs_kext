@@ -64,6 +64,7 @@
 #include <bsdcompat/sys/malloc.h>
 
 #include <fs/procfs/procfs.h>
+#include <fs/procfs/procfs_iokit.h>
 #include <fs/procfs/procfs_ctl.h>
 #include "lib/symbols.h"
 
@@ -944,16 +945,37 @@ procfs_partitions_cb(mount_t mp, void *arg)
 int
 procfs_dopartitions(__unused pfsnode_t *pnp, uio_t uio, __unused vfs_context_t ctx)
 {
-    char buf[4096];
     struct sbuf sb;
-    if (sbuf_new(&sb, buf, sizeof(buf), SBUF_FIXEDLEN) == NULL) {
+    if (sbuf_new(&sb, NULL, 2048, SBUF_AUTOEXTEND) == NULL) {
         return ENOMEM;
     }
 
     sbuf_printf(&sb, "major minor  #blocks  name\n\n");
 
-    struct procfs_part_ctx pc = { &sb };
-    vfs_iterate(0, procfs_partitions_cb, &pc);
+    /*
+     * Prefer true block-device enumeration via IOKit (procfs_iokit.cpp): every
+     * whole disk and partition, mounted or not - the real Linux /proc/partitions
+     * semantics. Fall back to the mounted-filesystem list (vfs_iterate) if IOKit
+     * matching fails.
+     */
+    enum { PROCFS_MAX_PARTS = 128 };
+    struct procfs_partition *parts = (struct procfs_partition *)
+        OSMalloc(PROCFS_MAX_PARTS * sizeof(struct procfs_partition), procfs_osmalloc_tag);
+    int n = 0;
+    if (parts != NULL &&
+        procfs_iokit_get_partitions(parts, PROCFS_MAX_PARTS, &n) == 0 && n > 0) {
+        for (int i = 0; i < n; i++) {
+            sbuf_printf(&sb, "%4u %7u %10llu %s\n",
+                parts[i].major, parts[i].minor,
+                (unsigned long long)(parts[i].size / 1024), parts[i].name);
+        }
+    } else {
+        struct procfs_part_ctx pc = { &sb };
+        vfs_iterate(0, procfs_partitions_cb, &pc);
+    }
+    if (parts != NULL) {
+        OSFree(parts, PROCFS_MAX_PARTS * sizeof(struct procfs_partition), procfs_osmalloc_tag);
+    }
 
     sbuf_finish(&sb);
     int error = procfs_copy_data(sbuf_data(&sb), sbuf_len(&sb), uio);
