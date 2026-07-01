@@ -36,10 +36,13 @@ Linux-compatible files and helpers:
 |`meminfo`     | Linux-style memory summary (text; `MemFree` is the FreeBSD non-wired estimate on Apple Silicon — see below) |
 |`partitions`  | Linux-style partition table (text; all block devices via IOKit — see below) |
 |`mtab`        | Linux-style mounted-filesystem table (`/etc/mtab` format: `device mountpoint fstype options 0 0`) |
+|`mounts`      | The Linux name for the same mounted-filesystem table as `mtab`       |
 |`stat`        | Linux-style kernel/system statistics (`cpu`/`cpuN` ticks, `btime`, `processes`; see below) |
 |`vmstat`      | Linux-style virtual-memory statistics (daemon-backed `host_statistics64`; see below) |
+|`uptime`      | Linux-style uptime (seconds since boot; idle field `0.00`)          |
 |`version`     | Kernel version string (text)                                        |
-|`curproc`     | Symbolic link to the calling process's directory                    |
+|`self`        | Symbolic link to the calling process's directory (Linux name)       |
+|`curproc`     | Symbolic link to the calling process's directory (BSD name)         |
 |`byname/`     | Directory of symbolic links, one per process, named by command name |
 
 ### Per-process files
@@ -52,9 +55,16 @@ Each directory named for a process id represents one process on the system. By d
 |`ppid`     | Parent process id                | `pid_t` (binary `int32`)         |
 |`pgid`     | Process group id                 | `pid_t` (binary `int32`)         |
 |`sid`      | Session id                       | `pid_t` (binary `int32`)         |
-|`status`   | Basic process info               | `struct proc_bsdshortinfo`        |
+|`status`   | Basic process info (mode-switched) | native: `struct proc_bsdshortinfo`; linux: `Name:/State:/Pid:/Uid:/VmRSS:…` text |
+|`stat`     | Linux single-line process stat (52 space-separated fields) | text |
+|`statm`    | Linux memory usage in pages (`size resident shared text lib data dt`) | text |
+|`comm`     | Process (command) name | text |
 |`taskinfo` | Info for the process’s Mach task | `struct proc_taskinfo` — exact via the `procfsd` daemon; falls back to the kext’s partial fill without it (see Feature status) |
 |`cmdline`  | Process argument vector (NUL-separated, Linux format) | text |
+|`environ`  | Process environment (NUL-separated, Linux format) | text |
+|`exe`      | Symlink to the executable | symlink |
+|`cwd`      | Symlink to the current working directory | symlink |
+|`root`     | Symlink to the root directory | symlink |
 |`tty`      | Controlling terminal device path (e.g. `/dev/ttys001`) | text |
 |`note`     | Write a note to the process (NetBSD-style) | write-only; read returns `EINVAL`. **Delivery not yet implemented** |
 |`limit`    | Process resource limits, one `<name> <cur> <max>` line per limit (`-1` = unlimited) | text |
@@ -98,6 +108,18 @@ Verified with `test/test_features.sh`.
     name, real/effective/saved uids and gids, process flags)
   - `cmdline` — the process's argument vector, NUL-separated (the Linux
     `/proc/<pid>/cmdline` format); zombies and system processes report `(comm)`
+  - `environ` — the process's environment, NUL-separated (Linux
+    `/proc/<pid>/environ`), read from the same argument region as `cmdline`
+  - `comm`, `stat`, `statm` — the process's Linux `/proc/<pid>/comm` name,
+    single-line 52-field `stat`, and page-count `statm`
+  - `status` — native binary `proc_bsdshortinfo`, or Linux `Name:/State:/Pid:/
+    Uid:/VmRSS:…` text when the `procfs.linux` sysctl is set (see below)
+  - `exe`, `cwd`, `root` — per-process symlinks to the executable, current
+    directory and root directory (`vn_getpath` on `p_textvp` / `fd_cdir` /
+    `fd_rdir`)
+  - `self` (root) — symlink to the caller's own process directory (Linux name
+    for `curproc`); `uptime`, `mounts` (root) — Linux `/proc/uptime` and the
+    Linux name for `mtab`
   - `fd/` — enumerates the process's open file descriptors; per-fd `details`
     (`vnode_fdinfowithpath`) and `socket` (`socket_fdinfo`, common fields plus
     UNIX/IPv4 addresses)
@@ -247,10 +269,11 @@ BSD/XNU, `1` = Linux-compatible. It is a live global toggle:
     sudo sysctl -w procfs.linux=1     # Linux-compatible
     sudo sysctl -w procfs.linux=0     # native (default)
 
-Currently `regs`, `fpregs` and `auxv` honour it: in native mode they emit the
-binary Mach state / the raw `apple[]` array; in Linux mode they emit the
-human-readable text forms (`x0 0x…`, `q0 0x…`, `AT_PAGESZ …`) from
-`procfs_linux.c`. Other nodes keep their single format for now.
+Currently `status`, `regs`, `fpregs` and `auxv` honour it: in native mode
+`status` emits the binary `proc_bsdshortinfo` and the register/auxv nodes emit
+the binary Mach state / raw `apple[]` array; in Linux mode they emit the
+human-readable text forms (`Name:/State:/…`, `x0 0x…`, `q0 0x…`, `AT_PAGESZ …`)
+from `procfs_linux.c`. Other nodes keep their single format for now.
 
 **Not yet present (planned — see TODO):**
 
