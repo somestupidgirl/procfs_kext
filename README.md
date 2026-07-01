@@ -40,6 +40,8 @@ Linux-compatible files and helpers:
 |`stat`        | Linux-style kernel/system statistics (`cpu`/`cpuN` ticks, `btime`, `processes`; see below) |
 |`vmstat`      | Linux-style virtual-memory statistics (daemon-backed `host_statistics64`; see below) |
 |`uptime`      | Linux-style uptime (seconds since boot; idle field `0.00`)          |
+|`swaps`       | Linux-style swap-area table (aggregate `vm.swapusage`; macOS swaps dynamically under `/private/var/vm`) |
+|`filesystems` | Linux-style filesystem-type list (the mounted types, deduped; `nodev` for device-less) |
 |`version`     | Kernel version string (text)                                        |
 |`self`        | Symbolic link to the calling process's directory (Linux name)       |
 |`curproc`     | Symbolic link to the calling process's directory (BSD name)         |
@@ -120,6 +122,9 @@ Verified with `test/test_features.sh`.
   - `self` (root) — symlink to the caller's own process directory (Linux name
     for `curproc`); `uptime`, `mounts` (root) — Linux `/proc/uptime` and the
     Linux name for `mtab`
+  - `swaps`, `filesystems` (root) — Linux `/proc/swaps` (aggregate
+    `vm.swapusage`) and `/proc/filesystems` (mounted types, deduped, with the
+    `nodev` prefix)
   - `fd/` — enumerates the process's open file descriptors; per-fd `details`
     (`vnode_fdinfowithpath`) and `socket` (`socket_fdinfo`, common fields plus
     UNIX/IPv4 addresses)
