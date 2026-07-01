@@ -59,6 +59,7 @@ procfs_allocvp(pfstype pfs_type)
 
     case PFSprocnamedir:    /* FALLTHROUGH */
     case PFScurproc:        /* FALLTHROUGH */
+    case PFSproclink:       /* FALLTHROUGH */
         return VLNK;
     }
 

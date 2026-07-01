@@ -102,6 +102,10 @@ procfs_structure_init(void)
         pfssnode_t *mtab = add_node(root_node, "mtab",
                         PFSmtab, next_node_id++, 0, 0, NULL, procfs_domtab);
 
+        // Linux-compatible /proc/mounts (same mounted-filesystem table as mtab).
+        pfssnode_t *mounts = add_node(root_node, "mounts",
+                        PFSmtab, next_node_id++, 0, 0, NULL, procfs_domtab);
+
         // Linux-compatible /proc/stat
         pfssnode_t *stat = add_node(root_node, "stat",
                         PFSstat, next_node_id++, 0, 0, NULL, procfs_dostat);
@@ -186,6 +190,12 @@ procfs_structure_init(void)
         add_file(one_proc_dir, "mem", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_domem);
         add_file(one_proc_dir, "map", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_domap);
         add_file(one_proc_dir, "maps", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_domaps);
+
+        // Linux-compatible per-process symlinks: exe/cwd/root (target resolved
+        // by node name in vnop_readlink; read fn is NULL).
+        add_node(one_proc_dir, "exe",  PFSproclink, next_node_id++, PSN_FLAG_PROCESS, 0, NULL, NULL);
+        add_node(one_proc_dir, "cwd",  PFSproclink, next_node_id++, PSN_FLAG_PROCESS, 0, NULL, NULL);
+        add_node(one_proc_dir, "root", PFSproclink, next_node_id++, PSN_FLAG_PROCESS, 0, NULL, NULL);
 
         // Linux-compatible per-process text files.
         add_file(one_proc_dir, "comm", next_node_id++, PSN_FLAG_PROCESS, 0, NULL, procfs_docomm);

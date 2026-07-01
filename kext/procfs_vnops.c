@@ -562,7 +562,8 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
                 base_node_id = parent_node_id.nodeid_base_id;
                 break;
 
-            case PFScurproc:
+            case PFScurproc:        /* FALLTHROUGH */
+            case PFSproclink:
                 type = DT_LNK;
                 break;
 
@@ -899,7 +900,8 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
         break;
 
     case PFScurproc:        // Symbolic link to the calling process (FALLTHRU)
-    case PFSprocnamedir:    // Symbolic link to a process directory
+    case PFSprocnamedir:    // Symbolic link to a process directory (FALLTHRU)
+    case PFSproclink:       // Per-process exe/cwd/root symlink
         VATTR_RETURN(vap, va_mode, ALL_ACCESS_ALL);   // All access - target will determine actual access.
         break;
     }
@@ -975,6 +977,14 @@ procfs_vnop_readlink(struct vnop_readlink_args *ap)
         char pid_buffer[PROCESS_NAME_SIZE];
         snprintf(pid_buffer, PROCESS_NAME_SIZE, "../%d", pid);
         error = uiomove(pid_buffer, (int)strlen(pid_buffer), ap->a_uio);
+    } else if (snode->psn_node_type == PFSproclink) {
+        // A per-process symlink (exe/cwd/root): resolve to the target path.
+        char path[MAXPATHLEN];
+        error = procfs_proclink_path(pnp->node_id.nodeid_pid, snode->psn_name,
+                                     path, (int)sizeof(path));
+        if (error == 0) {
+            error = uiomove(path, (int)strlen(path), ap->a_uio);
+        }
     } else {
         // Not valid for other node types.
         error = EINVAL;

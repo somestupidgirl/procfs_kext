@@ -88,6 +88,7 @@ typedef enum {
     PFSstat,        /* Linux-compatible /proc/stat */
     PFSvmstat,      /* Linux-compatible /proc/vmstat */
     PFSuptime,      /* Linux-compatible /proc/uptime */
+    PFSproclink,    /* per-process symlink: exe/cwd/root (target by node name) */
 } pfstype;
 
 typedef struct pfsnode pfsnode_t;
@@ -352,7 +353,7 @@ procfs_is_directory_type(pfstype type)
         && type != PFSpartitions && type != PFSversion
         && type != PFSmeminfo && type != PFSmtab
         && type != PFSstat && type != PFSvmstat
-        && type != PFSuptime;
+        && type != PFSuptime && type != PFSproclink;
 }
 
 /* Gets the pid_t for the process corresponding to a pfsnode_t. */
@@ -520,6 +521,7 @@ extern int procfs_get_thread_ids_for_task(proc_t p, uint64_t **thread_ids, int *
 extern void procfs_release_thread_ids(uint64_t *thread_ids, int thread_count);
 struct proc_fdinfo;
 extern int procfs_get_fd_list(proc_t p, struct proc_fdinfo **fdlist, size_t *count);
+extern int procfs_proclink_path(int pid, const char *name, char *buf, int buflen);
 extern void procfs_release_fd_list(struct proc_fdinfo *fdlist);
 extern int procfs_check_can_access_process(kauth_cred_t creds, proc_t p);
 extern int procfs_check_can_access_proc_pid(kauth_cred_t creds, pid_t pid);

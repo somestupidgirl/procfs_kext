@@ -204,3 +204,46 @@ procfs_fd_node_size(pfsnode_t *pnp, __unused kauth_cred_t creds)
 
     return count;
 }
+
+/*
+ * Resolve the target path of a per-process symlink (exe/cwd/root) for `pid` into
+ * `buf`. "exe" -> the executable vnode (p_textvp); "cwd"/"root" -> the process's
+ * fd-table current/root directory (p_fd is embedded in struct proc). An iocount
+ * is taken (vnode_get) before vn_getpath, as in the fd/ path resolution; the
+ * read is best-effort (no fd lock), and vnode_get fails cleanly for a stale
+ * vnode. "root" with no explicit root vnode resolves to "/". Returns 0 or errno.
+ */
+int
+procfs_proclink_path(int pid, const char *name, char *buf, int buflen)
+{
+    proc_t p = proc_find(pid);
+    if (p == PROC_NULL) {
+        return ESRCH;
+    }
+
+    vnode_t   vp      = NULLVP;
+    boolean_t is_root = FALSE;
+    if (strcmp(name, "exe") == 0) {
+        vp = p->p_textvp;
+    } else if (strcmp(name, "cwd") == 0) {
+        vp = p->p_fd.fd_cdir;
+    } else if (strcmp(name, "root") == 0) {
+        is_root = TRUE;
+        vp = p->p_fd.fd_rdir;
+    }
+
+    int error = ENOENT;
+    if (vp != NULLVP && vnode_get(vp) == 0) {
+        int len = buflen;
+        if (vn_getpath(vp, buf, &len) == 0) {
+            error = 0;
+        }
+        vnode_put(vp);
+    } else if (is_root) {
+        strlcpy(buf, "/", buflen);          /* no explicit root vnode -> "/" */
+        error = 0;
+    }
+
+    proc_rele(p);
+    return error;
+}
