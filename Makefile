@@ -208,6 +208,11 @@ install-tools:
 # $(ARM_FLAG), so a kext panic during development cannot boot-loop the machine.
 install-plists:
 	install -m 644 -o root -g wheel $(OUT)/$(DAEMON_PLIST) $(DAEMON_DIR)/$(DAEMON_PLIST)
+	@# Ensure the LaunchDaemon is enabled. A prior `launchctl disable` (e.g. during
+	@# development/debugging) persists across boots in the launchd override store
+	@# and would otherwise keep procfsd from starting at login - so /proc would
+	@# never auto-mount even though the plist is RunAtLoad.
+	-@launchctl enable system/$(DAEMON_LABEL) 2>/dev/null || true
 	@# Create the /proc mount point on the read-only system volume via synthetic.conf.
 	@grep -qxF 'proc' $(SYNTHETIC_CONF) 2>/dev/null || printf 'proc\n' >> $(SYNTHETIC_CONF)
 	@echo "procfs: ensured 'proc' in $(SYNTHETIC_CONF) -> /proc is created at boot."
