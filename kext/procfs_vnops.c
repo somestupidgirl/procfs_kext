@@ -74,6 +74,7 @@ STATIC int procfs_vnop_inactive(struct vnop_inactive_args *ap);
 
 STATIC inline int procfs_calc_dirent_size(const char *name);
 STATIC int procfs_copyout_dirent(int type, uint64_t file_id, const char *name, uio_t uio, int *sizep, off_t seekoff);
+STATIC int procfs_sysctl_readdir(struct vnop_readdir_args *ap);
 STATIC int procfs_create_vnode(procfs_vnode_create_args *cap, pfsnode_t *pnp, vnode_t *vpp);
 STATIC void procfs_construct_process_dir_name(proc_t p, char *buffer);
 
@@ -256,9 +257,25 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
         // If we find a process or thread  structure node, we try to
         // convert the name to an integer and match if successful.
         pfssnode_t *dir_snode = dir_pnp->node_structure_node;
-        pfssnode_t *match_node;
+        pfssnode_t *match_node = NULL;
         pfsid_t match_node_id;
         proc_t target_proc = PROC_NULL;
+
+        // /proc/sys is a dynamic mirror of the sysctl tree: its children are the
+        // live sysctl oids, not static structure children. Match by name against
+        // the oid's children and reuse the single PFSsysctl structure node,
+        // distinguished by the matched oid's address in the objectid.
+        if (dir_snode->psn_node_type == PFSsysctl) {
+            uint64_t child_objectid = 0;
+            if (procfs_sysctl_find(dir_pnp->node_id.nodeid_objectid, name, &child_objectid)) {
+                match_node = dir_snode;
+                match_node_id.nodeid_base_id  = dir_snode->psn_base_node_id;
+                match_node_id.nodeid_pid      = PRNODE_NO_PID;
+                match_node_id.nodeid_objectid = child_objectid;
+            }
+            goto sysctl_matched;
+        }
+
         TAILQ_FOREACH(match_node, &dir_snode->psn_children, psn_next) {
             assert(error == 0);
             pfstype node_type = match_node->psn_node_type;
@@ -394,6 +411,8 @@ procfs_vnop_lookup(struct vnop_lookup_args *ap)
                 }
             }
         }
+
+sysctl_matched:
         if (target_proc != PROC_NULL) {
             proc_rele(target_proc);
         }
@@ -459,6 +478,11 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
 
     pfsnode_t *dir_pnp = VTOPFS(vp);
     pfssnode_t *dir_snode = dir_pnp->node_structure_node;
+
+    // /proc/sys directories enumerate the live sysctl tree, not static children.
+    if (dir_snode->psn_node_type == PFSsysctl) {
+        return procfs_sysctl_readdir(ap);
+    }
 
     int numentries = 0;
     int error = 0;
@@ -542,6 +566,10 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
             case PFSswaps:          /* FALLTHROUGH */
             case PFSfilesystems:
                 type = DT_REG;
+                break;
+
+            case PFSsysctl:         // /proc/sys itself is a directory
+                type = DT_DIR;
                 break;
 
             case PFSdirthis:
@@ -743,7 +771,69 @@ procfs_vnop_readdir(struct vnop_readdir_args *ap)
 }
 
 /*
- * Calculates the packed size for a directory entry for a given 
+ * Readdir for a /proc/sys directory: emits "." and "..", then one entry per
+ * live child sysctl oid (directory for a NODE, regular file for a leaf). Mirrors
+ * the offset/EOF accounting of the main readdir (start from the first entry each
+ * call; only copy entries at/after the caller's offset).
+ */
+STATIC int
+procfs_sysctl_readdir(struct vnop_readdir_args *ap)
+{
+    pfsnode_t  *dir_pnp = VTOPFS(ap->a_vp);
+    uio_t       uio      = ap->a_uio;
+    off_t       startpos = uio_offset(uio);
+    off_t       nextpos  = 0;
+    int         numentries = 0;
+    int         error    = 0;
+
+    uint64_t    dir_objectid = dir_pnp->node_id.nodeid_objectid;
+    pfsbaseid_t base         = dir_pnp->node_structure_node->psn_base_node_id;
+    uint64_t    self_fileid  = procfs_get_node_fileid(dir_pnp);
+    boolean_t   more         = TRUE;
+
+    const char *dots[2] = { ".", ".." };
+    for (int d = 0; d < 2; d++) {
+        int size = procfs_calc_dirent_size(dots[d]);
+        if (nextpos >= startpos) {
+            error = procfs_copyout_dirent(DT_DIR, self_fileid, dots[d], uio, &size, nextpos + size);
+            if (size == 0 || error != 0) {
+                goto done;
+            }
+            numentries++;
+        }
+        nextpos += size;
+    }
+
+    for (int index = 0; error == 0 && uio_resid(uio) > 0; index++) {
+        const char *name;
+        boolean_t   is_node;
+        uint64_t    objid;
+        if (!procfs_sysctl_child_at(dir_objectid, index, &name, &is_node, &objid)) {
+            more = FALSE;                       /* reached the end of the list */
+            break;
+        }
+        int size = procfs_calc_dirent_size(name);
+        if (nextpos >= startpos) {
+            error = procfs_copyout_dirent(is_node ? DT_DIR : DT_REG,
+                        procfs_get_fileid(PRNODE_NO_PID, objid, base),
+                        name, uio, &size, nextpos + size);
+            if (size == 0 || error != 0) {
+                break;
+            }
+            numentries++;
+        }
+        nextpos += size;
+    }
+
+done:
+    uio_setoffset(uio, nextpos);
+    *ap->a_eofflag   = (error == 0 && !more) ? 1 : 0;
+    *ap->a_numdirent = numentries;
+    return error;
+}
+
+/*
+ * Calculates the packed size for a directory entry for a given
  * file name. The size is the sum of the fixed part of the dirent
  * structure plus the space required for the null-terminated name,
  * rounded up to a multiple of 8 bytes (required by XNU's direntry validation).
@@ -813,7 +903,7 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
      && node_type != PFSmeminfo && node_type != PFSmtab
      && node_type != PFSstat && node_type != PFSvmstat
      && node_type != PFSuptime && node_type != PFSswaps
-     && node_type != PFSfilesystems) {
+     && node_type != PFSfilesystems && node_type != PFSsysctl) {
         // Get the process pid and proc_t for the target vnode.
         // Returns ENOENT if the process does not exist. For the
         // root vnode, p is zero and pid is PRNODE_NO_PID, but the
@@ -909,10 +999,18 @@ procfs_vnop_getattr(struct vnop_getattr_args *ap)
     case PFSproclink:       // Per-process exe/cwd/root symlink
         VATTR_RETURN(vap, va_mode, ALL_ACCESS_ALL);   // All access - target will determine actual access.
         break;
+
+    case PFSsysctl:         // /proc/sys directory or leaf
+        VATTR_RETURN(vap, va_mode, READ_EXECUTE_ALL & modemask);
+        break;
     }
 
     // ----- Generic attributes.
-    VATTR_RETURN(vap, va_type, procfs_allocvp(node_type));                                                      // File type
+    // /proc/sys nodes are dir or file per the specific sysctl oid (objectid).
+    VATTR_RETURN(vap, va_type,
+        node_type == PFSsysctl
+            ? (procfs_sysctl_is_node(procfs_node->node_id.nodeid_objectid) ? VDIR : VREG)
+            : procfs_allocvp(node_type));                                                                       // File type
     VATTR_RETURN(vap, va_fsid, pmp->pmnt_id);                                                                   // File system id.
     VATTR_RETURN(vap, va_fileid, procfs_get_node_fileid(procfs_node));                                          // Unique file id.
     VATTR_RETURN(vap, va_data_size, procfs_get_node_size_attr(procfs_node, vfs_context_ucred(ap->a_context)));  // File size.
@@ -1011,6 +1109,12 @@ procfs_vnop_read(struct vnop_read_args *ap)
     pfssnode_t *snode = pnp->node_structure_node;
     procfs_read_data_fn read_data_fn = snode->psn_read_data_fn;
 
+    // /proc/sys nodes have no static read fn; read the sysctl value (or EISDIR
+    // for a sysctl directory) from the oid carried in the node id.
+    if (snode->psn_node_type == PFSsysctl) {
+        return procfs_sysctl_read(pnp->node_id.nodeid_objectid, ap->a_uio);
+    }
+
     int error = EINVAL;
     if (procfs_is_directory_type(snode->psn_node_type)) {
         error = EISDIR;
@@ -1072,7 +1176,11 @@ procfs_create_vnode(procfs_vnode_create_args *cap, pfsnode_t *pnp, vnode_t *vpp)
 
     memset(&vnode_create_params, 0, sizeof(vnode_create_params));
     vnode_create_params.vnfs_mp = vnode_mount(cap->vca_parentvp);
-    vnode_create_params.vnfs_vtype = procfs_allocvp(snode->psn_node_type);
+    // /proc/sys nodes are directories or files depending on the specific sysctl
+    // oid carried in the node id (objectid), not on the pfstype alone.
+    vnode_create_params.vnfs_vtype = (snode->psn_node_type == PFSsysctl)
+        ? (procfs_sysctl_is_node(pnp->node_id.nodeid_objectid) ? VDIR : VREG)
+        : procfs_allocvp(snode->psn_node_type);
     vnode_create_params.vnfs_str = "procfs vnode";
     vnode_create_params.vnfs_dvp = cap->vca_parentvp;
     vnode_create_params.vnfs_fsnode = pnp;

@@ -43,6 +43,7 @@ procfs_allocvp(pfstype pfs_type)
     case PFSdirthis:        /* FALLTHROUGH */
     case PFSdirparent:      /* FALLTHROUGH */
     case PFSfd:             /* FALLTHROUGH */
+    case PFSsysctl:         /* default; the true vtype is per-oid (see vnops) */
         return VDIR;
 
     case PFSfile:           /* FALLTHROUGH */
@@ -107,7 +108,8 @@ procfs_node_type_has_pid(pfstype node_type)
         && node_type != PFSversion && node_type != PFSmeminfo
         && node_type != PFSmtab && node_type != PFSstat
         && node_type != PFSvmstat && node_type != PFSuptime
-        && node_type != PFSswaps && node_type != PFSfilesystems;
+        && node_type != PFSswaps && node_type != PFSfilesystems
+        && node_type != PFSsysctl;
 }
 
 /*
