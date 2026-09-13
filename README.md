@@ -61,8 +61,6 @@ or omitted:
 | **Syscall translation** | Linux system calls onto Darwin's, over `Hypervisor.framework` | [mSL/NABI](https://github.com/mslxnu/mSL-NABI) |
 | **Filesystem Hierarchy Standard** | Native Linux-style filesystem layout | [mSL/FHS](https://github.com/mslxnu/fhs) |
 | **procfs** | `/proc`, as a native pseudo-filesystem | **this repository** |
-| **sysfs** | `/sys`, as a native pseudo-filesystem | [mSL/SysFS](https://github.com/mslxnu/sysfs) |
-| **devfs** | `/dev` driver add-ons for macOS | [mSL/DevFS](https://github.com/mslxnu/devfs) |
 
 **This repository is the ProcFS piece**, and it is largely done. The
 rest of this document describes it.
